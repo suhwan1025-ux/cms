@@ -1,0 +1,31 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* CKEditor 전역 z-index 설정 - 드롭다운만 처리 */
+.ck.ck-dropdown .ck-dropdown__panel,
+.ck.ck-dropdown__panel,
+.ck-dropdown__panel {
+  z-index: 10000 !important;
+}
+
+/* 표 컨텍스트 툴바 (balloon panel)는 기본 설정 유지 */
+.ck.ck-balloon-panel,
+.ck-balloon-panel {
+  z-index: 10001 !important;
+}
+
+.ck.ck-tooltip,
+.ck-tooltip {
+  z-index: 10002 !important;
+}

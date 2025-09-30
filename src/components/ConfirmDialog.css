@@ -1,0 +1,159 @@
+.confirm-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.confirm-dialog {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  min-width: 400px;
+  max-width: 500px;
+  animation: slideIn 0.3s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: scale(0.9) translateY(-20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1) translateY(0); 
+  }
+}
+
+.confirm-dialog-header {
+  padding: 20px 24px 0;
+}
+
+.confirm-dialog-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.confirm-dialog-body {
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.confirm-dialog-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.confirm-dialog-message {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #555;
+}
+
+.confirm-dialog-footer {
+  padding: 0 24px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.confirm-dialog-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+}
+
+.cancel-btn {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+}
+
+.cancel-btn:hover {
+  background: #e9ecef;
+  color: #495057;
+  border-color: #adb5bd;
+}
+
+.confirm-btn.default {
+  background: #007bff;
+  color: white;
+}
+
+.confirm-btn.default:hover {
+  background: #0056b3;
+}
+
+.confirm-btn.warning {
+  background: #ffc107;
+  color: #212529;
+}
+
+.confirm-btn.warning:hover {
+  background: #e0a800;
+}
+
+.confirm-btn.danger {
+  background: #dc3545;
+  color: white;
+}
+
+.confirm-btn.danger:hover {
+  background: #c82333;
+}
+
+.confirm-dialog-btn:active {
+  transform: translateY(1px);
+}
+
+.confirm-dialog-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 480px) {
+  .confirm-dialog {
+    min-width: 320px;
+    max-width: 90vw;
+    margin: 20px;
+  }
+  
+  .confirm-dialog-header,
+  .confirm-dialog-body,
+  .confirm-dialog-footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .confirm-dialog-footer {
+    flex-direction: column;
+  }
+  
+  .confirm-dialog-btn {
+    width: 100%;
+  }
+} 

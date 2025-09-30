@@ -1,0 +1,158 @@
+/* 문서 템플릿 선택 컨테이너 */
+.document-templates {
+  background: #f8f9fa;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.document-templates h4 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.document-templates p {
+  margin: 0 0 20px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+/* 템플릿 그리드 */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* 템플릿 카드 */
+.template-card {
+  background: white;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.template-card:hover {
+  border-color: #3498db;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
+  transform: translateY(-2px);
+}
+
+.template-card.selected {
+  border-color: #3498db;
+  background: #f0f8ff;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.2);
+}
+
+/* 템플릿 헤더 */
+.template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.template-header h5 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.selected-badge {
+  background: #27ae60;
+  color: white;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+/* 템플릿 설명 */
+.template-description {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+/* 템플릿 버튼 */
+.template-button {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+  width: 100%;
+}
+
+.template-button:hover {
+  background: #2980b9;
+}
+
+.template-card.selected .template-button {
+  background: #27ae60;
+}
+
+.template-card.selected .template-button:hover {
+  background: #229954;
+}
+
+/* 템플릿 액션 */
+.template-actions {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #e1e5e9;
+}
+
+.clear-template-button {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.clear-template-button:hover {
+  background: #c0392b;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .template-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .document-templates {
+    padding: 16px;
+    margin: 16px 0;
+  }
+  
+  .template-card {
+    padding: 12px;
+  }
+  
+  .template-header h5 {
+    font-size: 15px;
+  }
+  
+  .template-description {
+    font-size: 13px;
+  }
+} 

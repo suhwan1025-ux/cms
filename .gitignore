@@ -1,0 +1,67 @@
+# 의존성
+node_modules/
+package-lock.json
+
+# 환경 변수 (민감한 정보 포함)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.migration
+
+# 로그 파일
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 데이터베이스 파일
+*.sqlite
+*.sqlite3
+*.db
+
+# 업로드 파일
+uploads/*
+!uploads/.gitkeep
+
+# 백업 파일
+backup/
+backup_*/
+*.sql
+*.dump
+data-export-*.json
+complete-export-*.json
+schema-*.sql
+
+# 운영체제 파일
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 빌드 출력
+build/
+dist/
+.cache/
+
+# 테스트 커버리지
+coverage/
+
+# 임시 파일
+tmp/
+temp/
+*.tmp
+
+# ZIP 파일
+*.zip
+
+# 프로덕션 설정 (선택적)
+# env.production

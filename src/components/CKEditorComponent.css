@@ -1,0 +1,476 @@
+/* 커스텀 CKEditor 5 컨테이너 */
+.custom-ckeditor-container {
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin: 20px 0;
+  overflow: visible; /* 드롭다운이 보이도록 */
+  transition: all 0.3s ease;
+}
+
+.custom-ckeditor-container:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #c4cdd5;
+}
+
+/* 에디터 헤더 */
+.editor-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px 20px;
+  text-align: center;
+}
+
+.editor-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.editor-header p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* 에디터 래퍼 */
+.editor-wrapper {
+  position: relative;
+  padding: 0;
+  overflow: visible; /* 드롭다운이 보이도록 */
+}
+
+.editor-wrapper.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* CKEditor 5 기본 스타일 커스터마이징 */
+.custom-ckeditor-container .ck-editor {
+  border: none;
+  border-radius: 0;
+  overflow: visible; /* 드롭다운이 보이도록 */
+}
+
+.custom-ckeditor-container .ck-editor__top {
+  border-bottom: 1px solid #e1e5e9;
+  overflow: visible; /* 드롭다운이 보이도록 */
+}
+
+.custom-ckeditor-container .ck-toolbar {
+  border: none;
+  background: #f8f9fa;
+  padding: 12px 16px;
+  flex-wrap: nowrap; /* 툴바 줄바꿈 방지 */
+  overflow: visible; /* 드롭다운이 보이도록 변경 */
+  white-space: nowrap; /* 줄바꿈 방지 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 그림자 효과 */
+}
+
+/* 툴바 스크롤바 스타일링 */
+.custom-ckeditor-container .ck-toolbar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.custom-ckeditor-container .ck-toolbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.custom-ckeditor-container .ck-toolbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.custom-ckeditor-container .ck-toolbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.custom-ckeditor-container .ck-editor__main {
+  background: white;
+}
+
+.custom-ckeditor-container .ck-content {
+  border: none;
+  padding: 20px;
+  min-height: 300px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.custom-ckeditor-container .ck-content:focus {
+  box-shadow: none;
+  border: none;
+  outline: none;
+}
+
+/* 표 스타일링 */
+.custom-ckeditor-container .ck-content .table {
+  margin: 20px 0;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.custom-ckeditor-container .ck-content .table td,
+.custom-ckeditor-container .ck-content .table th {
+  border: 1px solid #c4cdd5;
+  padding: 8px 12px;
+  vertical-align: top;
+}
+
+.custom-ckeditor-container .ck-content .table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+/* 제목 스타일링 */
+.custom-ckeditor-container .ck-content h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 24px 0 16px 0;
+  color: #2c3e50;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 8px;
+}
+
+.custom-ckeditor-container .ck-content h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 20px 0 12px 0;
+  color: #34495e;
+}
+
+.custom-ckeditor-container .ck-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 16px 0 8px 0;
+  color: #34495e;
+}
+
+/* 링크 스타일링 */
+.custom-ckeditor-container .ck-content a {
+  color: #3498db;
+  text-decoration: none;
+  border-bottom: 1px dotted #3498db;
+  transition: all 0.3s ease;
+}
+
+.custom-ckeditor-container .ck-content a:hover {
+  color: #2980b9;
+  border-bottom-style: solid;
+}
+
+/* 목록 스타일링 */
+.custom-ckeditor-container .ck-content ul,
+.custom-ckeditor-container .ck-content ol {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.custom-ckeditor-container .ck-content li {
+  margin: 4px 0;
+  line-height: 1.6;
+}
+
+/* 에디터 오류 */
+.editor-error {
+  background: #fff5f5;
+  border: 1px solid #feb2b2;
+  border-radius: 6px;
+  padding: 16px;
+  margin: 16px;
+  text-align: center;
+}
+
+.editor-error h4 {
+  color: #e53e3e;
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
+.editor-error p {
+  color: #c53030;
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+.retry-button {
+  background: #e53e3e;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.retry-button:hover {
+  background: #c53030;
+}
+
+/* 에디터 푸터 */
+.editor-footer {
+  background: #f8f9fa;
+  border-top: 1px solid #e1e5e9;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* 상태 표시기 */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.ready {
+  background: #48bb78;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.loading {
+  background: #ed8936;
+  animation: blink 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+
+.status-text {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* 기능 목록 */
+.editor-features h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #4a5568;
+}
+
+.feature-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feature-item {
+  background: #e2e8f0;
+  color: #4a5568;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .editor-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .feature-list {
+    justify-content: flex-start;
+  }
+  
+  .custom-ckeditor-container .ck-content {
+    padding: 16px;
+    min-height: 250px;
+  }
+  
+  .custom-ckeditor-container .ck-toolbar {
+    padding: 8px 12px;
+  }
+}
+
+/* 툴바 버튼 커스터마이징 */
+.custom-ckeditor-container .ck-toolbar .ck-button {
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  margin: 0 2px; /* 버튼 간격 추가 */
+  flex-shrink: 0; /* 버튼 크기 유지 */
+}
+
+.custom-ckeditor-container .ck-toolbar .ck-button:hover {
+  background: #e2e8f0;
+}
+
+.custom-ckeditor-container .ck-toolbar .ck-button.ck-on {
+  background: #3498db;
+  color: white;
+}
+
+/* 툴바 구분선 */
+.custom-ckeditor-container .ck-toolbar .ck-toolbar__separator {
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* 드롭다운 버튼 */
+.custom-ckeditor-container .ck-toolbar .ck-dropdown {
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+/* 표 툴바 스타일링 */
+.custom-ckeditor-container .ck-table-form {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 999999 !important;
+  background: white;
+  border: 1px solid #e1e5e9;
+}
+
+.custom-ckeditor-container .ck-balloon-panel {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 999999 !important;
+  background: white;
+  border: 1px solid #e1e5e9;
+}
+
+/* 표 편집 관련 팝업들 */
+.ck-table-properties-form,
+.ck-table-cell-properties-form,
+.ck-table-form {
+  z-index: 999999 !important;
+  background: white !important;
+  border: 1px solid #e1e5e9 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 표 삽입 그리드 */
+.ck-insert-table-dropdown .ck-insert-table-dropdown-grid-box {
+  border: 1px solid #e1e5e9;
+  border-radius: 4px;
+}
+
+/* 표 삽입 버튼들 */
+.ck-table-form__row .ck-button {
+  margin: 2px;
+  border-radius: 4px;
+}
+
+/* 표 속성 폼 */
+.ck-table-properties-form,
+.ck-table-cell-properties-form {
+  padding: 16px !important;
+  min-width: 300px !important;
+}
+
+.ck-table-properties-form .ck-labeled-field-view,
+.ck-table-cell-properties-form .ck-labeled-field-view {
+  margin-bottom: 12px;
+}
+
+/* 표 삽입 드롭다운 패널 */
+.ck-insert-table-dropdown__grid {
+  padding: 8px;
+}
+
+.ck-insert-table-dropdown__label {
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  color: #666;
+  background: #f8f9fa;
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+/* 표 삽입 그리드 셀 */
+.ck-insert-table-dropdown-grid-box {
+  margin: 2px;
+}
+
+.ck-insert-table-dropdown-grid-box:hover {
+  background: #3498db !important;
+  border-color: #2980b9 !important;
+}
+
+/* 표 컨텍스트 툴바 - 기본 CKEditor 설정 사용 */
+
+/* 드롭다운 메뉴 스타일링 */
+.custom-ckeditor-container .ck-dropdown__panel {
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e1e5e9;
+  z-index: 9998 !important; /* 매우 높은 z-index */
+  position: absolute !important;
+}
+
+/* 모든 CKEditor 팝업들의 z-index 설정 - 전역 적용 */
+.ck-balloon-panel {
+  z-index: 9999 !important;
+}
+
+.ck-tooltip {
+  z-index: 10000 !important;
+}
+
+.ck-dropdown__panel {
+  z-index: 9998 !important;
+}
+
+/* 드롭다운 메뉴가 확실히 보이도록 추가 설정 */
+.ck.ck-dropdown .ck-dropdown__panel {
+  z-index: 9998 !important;
+  position: absolute !important;
+}
+
+/* 헤딩 드롭다운 등 특정 드롭다운 */
+.ck-heading-dropdown .ck-dropdown__panel,
+.ck-list-dropdown .ck-dropdown__panel {
+  z-index: 9998 !important;
+}
+
+/* 로딩 상태 */
+.custom-ckeditor-container.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.custom-ckeditor-container.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 1000;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+} 

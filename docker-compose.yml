@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # 계약관리시스템 애플리케이션
+  contract-management:
+    build: .
+    container_name: contract-management-app
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=contract_management
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=meritz123!
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - contract-network
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+
+  # PostgreSQL 데이터베이스
+  postgres:
+    image: postgres:15-alpine
+    container_name: contract-management-db
+    environment:
+      - POSTGRES_DB=contract_management
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=meritz123!
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - contract-network
+
+  # Nginx 리버스 프록시 (선택사항)
+  nginx:
+    image: nginx:alpine
+    container_name: contract-management-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - contract-management
+    restart: unless-stopped
+    networks:
+      - contract-network
+
+volumes:
+  postgres_data:
+
+networks:
+  contract-network:
+    driver: bridge 
