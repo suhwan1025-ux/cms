@@ -77,7 +77,62 @@ async function createCompleteTables() {
     `);
     console.log('✅ budgets 테이블 생성 완료');
     
-    // 4. 계약방식 테이블
+    // 4. 사업예산 테이블
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS business_budgets (
+        id SERIAL PRIMARY KEY,
+        project_name VARCHAR(255) NOT NULL,
+        initiator_department VARCHAR(100) NOT NULL,
+        executor_department VARCHAR(100) NOT NULL,
+        budget_type VARCHAR(50) NOT NULL,
+        budget_category VARCHAR(100) NOT NULL,
+        budget_amount DECIMAL(15,2) NOT NULL,
+        executed_amount DECIMAL(15,2) DEFAULT 0,
+        start_date VARCHAR(7) NOT NULL,
+        end_date VARCHAR(7) NOT NULL,
+        is_essential BOOLEAN DEFAULT false,
+        project_purpose VARCHAR(10) NOT NULL,
+        budget_year INTEGER NOT NULL,
+        status VARCHAR(20) DEFAULT '승인대기',
+        created_by VARCHAR(100) DEFAULT '작성자',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ business_budgets 테이블 생성 완료');
+    
+    // 5. 사업예산 상세 테이블
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS business_budget_details (
+        id SERIAL PRIMARY KEY,
+        budget_id INTEGER REFERENCES business_budgets(id) ON DELETE CASCADE,
+        item_name VARCHAR(255) NOT NULL,
+        item_description TEXT,
+        unit_price DECIMAL(15,2) NOT NULL,
+        quantity INTEGER NOT NULL,
+        total_amount DECIMAL(15,2) NOT NULL,
+        executed_amount DECIMAL(15,2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ business_budget_details 테이블 생성 완료');
+    
+    // 6. 사업예산 승인 이력 테이블
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS business_budget_approvals (
+        id SERIAL PRIMARY KEY,
+        budget_id INTEGER REFERENCES business_budgets(id) ON DELETE CASCADE,
+        approver_name VARCHAR(100) NOT NULL,
+        approver_title VARCHAR(100) NOT NULL,
+        approval_status VARCHAR(20) NOT NULL,
+        approval_comment TEXT,
+        approved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ business_budget_approvals 테이블 생성 완료');
+    
+    // 7. 계약방식 테이블
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS contract_methods (
         id SERIAL PRIMARY KEY,
@@ -92,7 +147,7 @@ async function createCompleteTables() {
     `);
     console.log('✅ contract_methods 테이블 생성 완료');
     
-    // 5. 품의서 테이블 (전체 컬럼!)
+    // 8. 품의서 테이블 (전체 컬럼!)
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS proposals (
         id SERIAL PRIMARY KEY,

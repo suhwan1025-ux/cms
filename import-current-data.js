@@ -22,11 +22,13 @@ const IMPORT_TABLES = [
   'budgets',
   'suppliers',
   'contract_methods',
-  'cost_departments',
+  'business_budgets',           // 사업예산 추가
+  'business_budget_details',    // 사업예산 상세 추가
+  'business_budget_approvals',  // 사업예산 승인 추가
   'proposals',
   'request_departments',
+  'cost_departments',
   'purchase_items',
-  'purchase_item_cost_allocations',
   'service_items',
   'contracts',
   'approval_lines',
