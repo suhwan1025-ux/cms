@@ -43,6 +43,12 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       comment: '성명'
     },
+    personnel: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      comment: '인원수'
+    },
     skillLevel: {
       type: DataTypes.ENUM('senior', 'middle', 'junior'),
       allowNull: false,
