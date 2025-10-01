@@ -172,6 +172,7 @@ async function createCompleteTables() {
         id SERIAL PRIMARY KEY,
         code VARCHAR(50) NOT NULL UNIQUE,
         name VARCHAR(255) NOT NULL,
+        value VARCHAR(255),
         description TEXT,
         basis TEXT,
         is_active BOOLEAN DEFAULT true,
@@ -191,6 +192,7 @@ async function createCompleteTables() {
         basis TEXT NOT NULL,
         budget_id INTEGER,
         contract_method VARCHAR(50),
+        contract_method_id INTEGER,
         account_subject VARCHAR(255),
         total_amount DECIMAL(15,2) DEFAULT 0,
         change_reason TEXT,
@@ -219,6 +221,8 @@ async function createCompleteTables() {
         proposal_id INTEGER NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
         department_id INTEGER REFERENCES departments(id),
         department VARCHAR(255) NOT NULL,
+        name VARCHAR(255),
+        code VARCHAR(255),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
