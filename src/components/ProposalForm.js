@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import CKEditorComponent from './CKEditorComponent';
@@ -9,10 +9,10 @@ import { generatePreviewHTML } from '../utils/previewGenerator';
 const getApiBaseUrl = () => {
   // 현재 호스트가 localhost가 아니면 현재 호스트의 IP를 사용
   if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `http://${window.location.hostname}:3001`;
+    return `http://${window.location.hostname}:3004`;
   }
   // localhost에서 접근하는 경우 localhost 사용
-  return 'http://localhost:3001';
+  return 'http://localhost:4002';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -647,8 +647,10 @@ const ProposalForm = () => {
             budget: recycleData.budget || '', // budgetId가 이미 처리됨
             contractMethod: recycleData.contractMethod || '',
             accountSubject: recycleData.accountSubject || '',
-            // 요청부서는 이미 기존 수정 기능과 동일하게 처리됨
-            requestDepartments: recycleData.requestDepartments || [],
+            // 요청부서 정규화 (객체 배열을 문자열 배열로 변환)
+            requestDepartments: (recycleData.requestDepartments || []).map(dept => 
+              typeof dept === 'string' ? dept : dept.department || dept.name || dept
+            ),
             // 구매품목도 이미 기존 수정 기능과 동일한 형태로 처리됨
             purchaseItems: recycleData.purchaseItems || [],
             suppliers: recycleData.suppliers || [],
@@ -740,7 +742,7 @@ const ProposalForm = () => {
           
           // 요청부서 데이터 정규화 (강화된 구조)
           const normalizedRequestDepartments = (draftData.requestDepartments || []).map(dept => 
-            typeof dept === 'string' ? dept : dept.name || dept
+            typeof dept === 'string' ? dept : dept.department || dept.name || dept
           ).filter(Boolean); // 빈 값 제거
           
           console.log('📋 요청부서 복원:', {
@@ -1231,7 +1233,7 @@ const ProposalForm = () => {
         contractMethod: proposalData.contractMethod || '',
         accountSubject: proposalData.accountSubject || '',
         requestDepartments: (proposalData.requestDepartments || []).map(dept => 
-          typeof dept === 'string' ? dept : dept.name || dept
+          typeof dept === 'string' ? dept : dept.department || dept.name || dept
         ),
         purchaseItems: (proposalData.purchaseItems || []).map(item => ({
           id: item.id || Date.now() + Math.random(),
@@ -2649,16 +2651,45 @@ const ProposalForm = () => {
       return;
     }
 
+    // 선택된 사업예산 정보 찾기
+    let budgetInfo = null;
+    console.log('🔍 사업예산 정보 찾기 시작');
+    console.log('  - formData.budget:', formData.budget);
+    console.log('  - businessBudgets:', businessBudgets);
+    console.log('  - businessBudgets 개수:', businessBudgets.length);
+    
+    if (formData.budget) {
+      const selectedBudget = businessBudgets.find(b => b.id === parseInt(formData.budget));
+      console.log('  - 찾은 예산:', selectedBudget);
+      
+      if (selectedBudget) {
+        budgetInfo = {
+          projectName: selectedBudget.project_name || selectedBudget.projectName,
+          budgetYear: selectedBudget.budget_year || selectedBudget.budgetYear,
+          budgetType: selectedBudget.budget_type || selectedBudget.budgetType,
+          budgetCategory: selectedBudget.budget_category || selectedBudget.budgetCategory,
+          budgetAmount: selectedBudget.budget_amount || selectedBudget.budgetAmount
+        };
+        console.log('  - 구성된 budgetInfo:', budgetInfo);
+      } else {
+        console.log('  ❌ 선택된 예산을 찾을 수 없음!');
+      }
+    } else {
+      console.log('  ⚠️ formData.budget이 비어있음');
+    }
+
     // 공통 미리보기 함수 사용 (utils/previewGenerator.js)
     // contractType을 포함한 완전한 데이터 구성
     const completeData = {
       ...formData,
-      contractType: contractType
+      contractType: contractType,
+      budgetInfo: budgetInfo // 사업예산 정보 추가
     };
     
     // ProposalForm 미리보기 데이터 디버깅
     console.log('=== ProposalForm 미리보기 데이터 ===');
     console.log('contractType:', contractType);
+    console.log('선택된 사업예산:', budgetInfo);
     console.log('formData.purchaseItems:', formData.purchaseItems);
     console.log('formData.serviceItems:', formData.serviceItems);
     console.log('완전한 데이터:', completeData);
@@ -10022,3 +10053,4 @@ const ProposalForm = () => {
 };
 
 export default ProposalForm; 
+

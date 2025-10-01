@@ -43,106 +43,122 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true
     },
     contractType: {
-      type: DataTypes.ENUM('purchase', 'change', 'extension', 'service', 'bidding', 'freeform'),
-      allowNull: false,
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      field: 'contract_type',
       comment: '계약 유형'
     },
     title: {
-      type: DataTypes.STRING(500),
-      allowNull: true,
+      type: DataTypes.STRING(255),
+      allowNull: false,
       comment: '품의서 제목'
     },
     purpose: {
       type: DataTypes.TEXT,
-      allowNull: false,
+      allowNull: true,
       comment: '사업 목적'
     },
     basis: {
       type: DataTypes.TEXT,
-      allowNull: false,
+      allowNull: true,
       comment: '계약 근거'
     },
     budgetId: {
       type: DataTypes.INTEGER,
-      allowNull: true, // 임시저장 시 null 허용
+      allowNull: true,
+      field: 'budget_id',
       comment: '사업예산 ID'
     },
     contractMethod: {
       type: DataTypes.STRING,
       allowNull: true,
+      field: 'contract_method',
       comment: '계약방식'
     },
     accountSubject: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      field: 'account_subject',
       comment: '계정과목'
     },
     totalAmount: {
       type: DataTypes.DECIMAL(15, 2),
-      allowNull: false,
+      allowNull: true,
       defaultValue: 0,
+      field: 'total_amount',
       comment: '총 계약금액'
     },
     changeReason: {
       type: DataTypes.TEXT,
       allowNull: true,
+      field: 'change_reason',
       comment: '변경 사유'
     },
     extensionReason: {
       type: DataTypes.TEXT,
       allowNull: true,
+      field: 'extension_reason',
       comment: '연장 사유'
     },
     contractPeriod: {
       type: DataTypes.STRING,
       allowNull: true,
+      field: 'contract_period',
       comment: '계약기간'
     },
     contractStartDate: {
       type: DataTypes.DATEONLY,
       allowNull: true,
+      field: 'contract_start_date',
       comment: '계약 시작일'
     },
     contractEndDate: {
       type: DataTypes.DATEONLY,
       allowNull: true,
+      field: 'contract_end_date',
       comment: '계약 종료일'
     },
     paymentMethod: {
-      type: DataTypes.ENUM('monthly', 'quarterly', 'lump'),
+      type: DataTypes.STRING,
       allowNull: true,
+      field: 'payment_method',
       comment: '비용지급방식'
     },
     status: {
-      type: DataTypes.ENUM('draft', 'submitted', 'approved', 'rejected'),
+      type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'draft',
       comment: '품의서 상태'
     },
     createdBy: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      field: 'created_by',
       comment: '작성자'
     },
     proposalDate: {
       type: DataTypes.DATEONLY,
       allowNull: true,
+      field: 'proposal_date',
       comment: '품의작성일'
     },
     approvalDate: {
       type: DataTypes.DATEONLY,
       allowNull: true,
+      field: 'approval_date',
       comment: '결재완료일'
     },
     isDraft: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
+      field: 'is_draft',
       comment: '임시저장 여부'
     },
     wysiwygContent: {
       type: DataTypes.TEXT,
       allowNull: true,
+      field: 'wysiwyg_content',
       comment: '자유양식 문서 내용 (HTML)'
     },
     other: {
@@ -153,12 +169,14 @@ module.exports = (sequelize, DataTypes) => {
     createdAt: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: DataTypes.NOW
+      defaultValue: DataTypes.NOW,
+      field: 'created_at'
     },
     updatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: DataTypes.NOW
+      defaultValue: DataTypes.NOW,
+      field: 'updated_at'
     }
   }, {
     sequelize,

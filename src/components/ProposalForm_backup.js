@@ -4,14 +4,14 @@ import html2canvas from 'html2canvas';
 import CKEditorComponent from './CKEditorComponent';
 import DocumentTemplates from './DocumentTemplates';
 
-// API ë² ì´ìŠ¤ URL ë™ì  ì„¤ì •
+// API º£ÀÌ½º URL µ¿Àû ¼³Á¤
 const getApiBaseUrl = () => {
-  // í˜„ì¬ í˜¸ìŠ¤íŠ¸ê°€ localhostê°€ ì•„ë‹ˆë©´ í˜„ì¬ í˜¸ìŠ¤íŠ¸ì˜ IPë¥¼ ì‚¬ìš©
+  // ÇöÀç È£½ºÆ®°¡ localhost°¡ ¾Æ´Ï¸é ÇöÀç È£½ºÆ®ÀÇ IP¸¦ »ç¿ë
   if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `http://${window.location.hostname}:3001`;
+    return `http://${window.location.hostname}:3004`;
   }
-  // localhostì—ì„œ ì ‘ê·¼í•˜ëŠ” ê²½ìš° localhost ì‚¬ìš©
-  return 'http://localhost:3001';
+  // localhost¿¡¼­ Á¢±ÙÇÏ´Â °æ¿ì localhost »ç¿ë
+  return 'http://localhost:4002';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -19,7 +19,7 @@ const API_BASE_URL = getApiBaseUrl();
 const ProposalForm = () => {
   const originalNavigate = useNavigate();
 
-  // í…œí”Œë¦¿ ì„ íƒ í•¸ë“¤ëŸ¬
+  // ÅÛÇÃ¸´ ¼±ÅÃ ÇÚµé·¯
   const handleTemplateSelect = (template) => {
     if (template) {
       setFormData(prevData => ({
@@ -28,62 +28,62 @@ const ProposalForm = () => {
       }));
       setSelectedTemplate(template.id);
       setShowTemplates(false);
-      console.log(`âœ… í…œí”Œë¦¿ ì„ íƒë¨: ${template.name}`);
+      console.log(`? ÅÛÇÃ¸´ ¼±ÅÃµÊ: ${template.name}`);
     } else {
-      // í…œí”Œë¦¿ ì´ˆê¸°í™”
+      // ÅÛÇÃ¸´ ÃÊ±âÈ­
       setFormData(prevData => ({
         ...prevData,
         wysiwygContent: ''
       }));
       setSelectedTemplate(null);
       setShowTemplates(false);
-      console.log('ğŸ—‘ï¸ í…œí”Œë¦¿ ì´ˆê¸°í™”ë¨');
+      console.log('??? ÅÛÇÃ¸´ ÃÊ±âÈ­µÊ');
     }
   };
 
-  // í…œí”Œë¦¿ ì„ íƒ ë‹¤ì‹œ ë³´ê¸°
+  // ÅÛÇÃ¸´ ¼±ÅÃ ´Ù½Ã º¸±â
   const handleShowTemplates = () => {
     setShowTemplates(true);
   };
-  const [contractType, setContractType] = useState('purchase'); // ê¸°ë³¸ê°’ì„ 'purchase'ë¡œ ì„¤ì •
+  const [contractType, setContractType] = useState('purchase'); // ±âº»°ªÀ» 'purchase'·Î ¼³Á¤
   const [formData, setFormData] = useState({
-    // ê³µí†µ í•­ëª©
+    // °øÅë Ç×¸ñ
     title: '',
     purpose: '',
     basis: '',
     budget: '',
     contractMethod: '',
     accountSubject: '',
-    requestDepartments: [], // ë‹¤ì¤‘ ì„ íƒ ê°€ëŠ¥í•œ ìš”ì²­ë¶€ì„œ ë°°ì—´
+    requestDepartments: [], // ´ÙÁß ¼±ÅÃ °¡´ÉÇÑ ¿äÃ»ºÎ¼­ ¹è¿­
     
-    // êµ¬ë§¤/ë³€ê²½/ì—°ì¥ ê³„ì•½ìš©
-    purchaseItems: [], // Nê°œ êµ¬ë§¤í’ˆëª©
+    // ±¸¸Å/º¯°æ/¿¬Àå °è¾à¿ë
+    purchaseItems: [], // N°³ ±¸¸ÅÇ°¸ñ
     suppliers: [],
     
-    // ë³€ê²½/ì—°ì¥ ê³„ì•½ìš©
+    // º¯°æ/¿¬Àå °è¾à¿ë
     changeReason: '',
     extensionReason: '',
     beforeItems: [],
     afterItems: [],
     
-    // ìš©ì—­ ê³„ì•½ìš©
+    // ¿ë¿ª °è¾à¿ë
     serviceItems: [],
     contractPeriod: '',
     contractStartDate: '',
     contractEndDate: '',
     paymentMethod: '',
     
-    // ì…ì°° ê³„ì•½ìš©
+    // ÀÔÂû °è¾à¿ë
     biddingType: '',
     qualificationRequirements: '',
     evaluationCriteria: '',
     priceComparison: [],
     
-    // WYSIWYG ì—ë””í„°ìš©
+    // WYSIWYG ¿¡µğÅÍ¿ë
     wysiwygContent: ''
   });
 
-  // API ë°ì´í„°
+  // API µ¥ÀÌÅÍ
   const [budgets, setBudgets] = useState([]);
   const [businessBudgets, setBusinessBudgets] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -91,48 +91,48 @@ const ProposalForm = () => {
   const [loading, setLoading] = useState(true);
 
   const [contractMethods, setContractMethods] = useState([]);
-  const [proposalId, setProposalId] = useState(null); // í’ˆì˜ì„œ í‚¤ê°’
+  const [proposalId, setProposalId] = useState(null); // Ç°ÀÇ¼­ Å°°ª
   
-  // ì„ì‹œì €ì¥ í™•ì¸ íŒì—… ê´€ë ¨ ìƒíƒœ
+  // ÀÓ½ÃÀúÀå È®ÀÎ ÆË¾÷ °ü·Ã »óÅÂ
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
   
-  // í…œí”Œë¦¿ ì„ íƒ ê´€ë ¨ ìƒíƒœ
+  // ÅÛÇÃ¸´ ¼±ÅÃ °ü·Ã »óÅÂ
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showTemplates, setShowTemplates] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialFormData, setInitialFormData] = useState(null);
 
-  // ë„¤ë¹„ê²Œì´ì…˜ì„ ì œì–´í•˜ëŠ” í•¨ìˆ˜
+  // ³×ºñ°ÔÀÌ¼ÇÀ» Á¦¾îÇÏ´Â ÇÔ¼ö
   const navigate = useCallback((to, options) => {
     if (hasUnsavedChanges && showSaveConfirm) {
-      console.log('ë„¤ë¹„ê²Œì´ì…˜ ì°¨ë‹¨ë¨:', to);
+      console.log('³×ºñ°ÔÀÌ¼Ç Â÷´ÜµÊ:', to);
       return;
     }
-    console.log('ë„¤ë¹„ê²Œì´ì…˜ ì‹¤í–‰:', to);
+    console.log('³×ºñ°ÔÀÌ¼Ç ½ÇÇà:', to);
     originalNavigate(to, options);
   }, [hasUnsavedChanges, showSaveConfirm, originalNavigate]);
 
-  // í¼ ë°ì´í„° ë³€ê²½ ê°ì§€
+  // Æû µ¥ÀÌÅÍ º¯°æ °¨Áö
   useEffect(() => {
     if (initialFormData === null) {
       setInitialFormData(JSON.stringify(formData));
       return;
     }
     
-    // íŒì—…ì´ í‘œì‹œë˜ì–´ ìˆìœ¼ë©´ hasUnsavedChangesë¥¼ ë³€ê²½í•˜ì§€ ì•ŠìŒ
+    // ÆË¾÷ÀÌ Ç¥½ÃµÇ¾î ÀÖÀ¸¸é hasUnsavedChanges¸¦ º¯°æÇÏÁö ¾ÊÀ½
     if (showSaveConfirm) {
-      console.log('íŒì—… í‘œì‹œ ì¤‘, hasUnsavedChanges ë³€ê²½ ë°©ì§€');
+      console.log('ÆË¾÷ Ç¥½Ã Áß, hasUnsavedChanges º¯°æ ¹æÁö');
       return;
     }
     
     const currentFormData = JSON.stringify(formData);
     const hasChanges = currentFormData !== initialFormData;
-    console.log('í¼ ë°ì´í„° ë³€ê²½ ê°ì§€:', hasChanges, 'í˜„ì¬:', currentFormData.substring(0, 100), 'ì´ˆê¸°:', initialFormData.substring(0, 100));
+    console.log('Æû µ¥ÀÌÅÍ º¯°æ °¨Áö:', hasChanges, 'ÇöÀç:', currentFormData.substring(0, 100), 'ÃÊ±â:', initialFormData.substring(0, 100));
     setHasUnsavedChanges(hasChanges);
   }, [formData, initialFormData, showSaveConfirm]);
 
-  // ë§í¬ í´ë¦­ ì‹œ ì„ì‹œì €ì¥ í™•ì¸
+  // ¸µÅ© Å¬¸¯ ½Ã ÀÓ½ÃÀúÀå È®ÀÎ
   const handleLinkClick = useCallback((e) => {
     if (hasUnsavedChanges) {
       const target = e.target.closest('a');
@@ -143,8 +143,8 @@ const ProposalForm = () => {
         e.returnValue = false;
         const href = target.getAttribute('href');
         if (href && href.startsWith('/')) {
-          console.log('ë§í¬ í´ë¦­ ê°ì§€:', href);
-          // ìƒíƒœë¥¼ ì§ì ‘ ì„¤ì •í•˜ì—¬ íŒì—… í‘œì‹œ
+          console.log('¸µÅ© Å¬¸¯ °¨Áö:', href);
+          // »óÅÂ¸¦ Á÷Á¢ ¼³Á¤ÇÏ¿© ÆË¾÷ Ç¥½Ã
           setPendingNavigation(href);
           setShowSaveConfirm(true);
           return false;
@@ -153,14 +153,14 @@ const ProposalForm = () => {
     }
   }, [hasUnsavedChanges]);
 
-  // ë§ˆìš°ìŠ¤ ë‹¤ìš´ ì´ë²¤íŠ¸ë„ ì²˜ë¦¬
+  // ¸¶¿ì½º ´Ù¿î ÀÌº¥Æ®µµ Ã³¸®
   const handleMouseDown = useCallback((e) => {
     if (hasUnsavedChanges) {
       const target = e.target.closest('a');
       if (target && target.href && !target.href.includes('javascript:')) {
         const href = target.getAttribute('href');
         if (href && href.startsWith('/')) {
-          console.log('ë§ˆìš°ìŠ¤ ë‹¤ìš´ ê°ì§€:', href);
+          console.log('¸¶¿ì½º ´Ù¿î °¨Áö:', href);
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
@@ -171,19 +171,19 @@ const ProposalForm = () => {
     }
   }, [hasUnsavedChanges]);
 
-  // í˜ì´ì§€ ì´ë™ ì‹œ ì„ì‹œì €ì¥ í™•ì¸
+  // ÆäÀÌÁö ÀÌµ¿ ½Ã ÀÓ½ÃÀúÀå È®ÀÎ
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (hasUnsavedChanges) {
         e.preventDefault();
-        e.returnValue = 'ì‘ì„± ì¤‘ì¸ ë‚´ìš©ì´ ìˆìŠµë‹ˆë‹¤. í˜ì´ì§€ë¥¼ ë– ë‚˜ì‹œê² ìŠµë‹ˆê¹Œ?';
-        return 'ì‘ì„± ì¤‘ì¸ ë‚´ìš©ì´ ìˆìŠµë‹ˆë‹¤. í˜ì´ì§€ë¥¼ ë– ë‚˜ì‹œê² ìŠµë‹ˆê¹Œ?';
+        e.returnValue = 'ÀÛ¼º ÁßÀÎ ³»¿ëÀÌ ÀÖ½À´Ï´Ù. ÆäÀÌÁö¸¦ ¶°³ª½Ã°Ú½À´Ï±î?';
+        return 'ÀÛ¼º ÁßÀÎ ³»¿ëÀÌ ÀÖ½À´Ï´Ù. ÆäÀÌÁö¸¦ ¶°³ª½Ã°Ú½À´Ï±î?';
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('click', handleLinkClick, true); // ìº¡ì²˜ ë‹¨ê³„ì—ì„œ ì²˜ë¦¬
-    document.addEventListener('mousedown', handleMouseDown, true); // ìº¡ì²˜ ë‹¨ê³„ì—ì„œ ì²˜ë¦¬
+    document.addEventListener('click', handleLinkClick, true); // Ä¸Ã³ ´Ü°è¿¡¼­ Ã³¸®
+    document.addEventListener('mousedown', handleMouseDown, true); // Ä¸Ã³ ´Ü°è¿¡¼­ Ã³¸®
     
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -192,19 +192,19 @@ const ProposalForm = () => {
     };
   }, [hasUnsavedChanges, handleLinkClick, handleMouseDown]);
 
-  // ì„ì‹œì €ì¥ í™•ì¸ íŒì—… í‘œì‹œ
+  // ÀÓ½ÃÀúÀå È®ÀÎ ÆË¾÷ Ç¥½Ã
   const showSaveConfirmation = useCallback((navigationTarget) => {
-    console.log('showSaveConfirmation í˜¸ì¶œ:', navigationTarget, 'hasUnsavedChanges:', hasUnsavedChanges);
+    console.log('showSaveConfirmation È£Ãâ:', navigationTarget, 'hasUnsavedChanges:', hasUnsavedChanges);
     
     if (hasUnsavedChanges) {
-      console.log('ë³€ê²½ì‚¬í•­ ìˆìŒ, íŒì—… í‘œì‹œ');
+      console.log('º¯°æ»çÇ× ÀÖÀ½, ÆË¾÷ Ç¥½Ã');
       setPendingNavigation(navigationTarget);
       setShowSaveConfirm(true);
-      // íŒì—…ì´ í‘œì‹œëœ í›„ hasUnsavedChangesê°€ ë³€ê²½ë˜ì§€ ì•Šë„ë¡ ë°©ì§€
+      // ÆË¾÷ÀÌ Ç¥½ÃµÈ ÈÄ hasUnsavedChanges°¡ º¯°æµÇÁö ¾Êµµ·Ï ¹æÁö
       return;
     } else {
-      console.log('ë³€ê²½ì‚¬í•­ ì—†ìŒ, ë°”ë¡œ ì´ë™');
-      // ë³€ê²½ì‚¬í•­ì´ ì—†ìœ¼ë©´ ë°”ë¡œ ì´ë™
+      console.log('º¯°æ»çÇ× ¾øÀ½, ¹Ù·Î ÀÌµ¿');
+      // º¯°æ»çÇ×ÀÌ ¾øÀ¸¸é ¹Ù·Î ÀÌµ¿
       if (navigationTarget && ['purchase', 'change', 'extension', 'service', 'bidding'].includes(navigationTarget)) {
         setContractType(navigationTarget);
       } else if (navigationTarget) {
@@ -213,48 +213,48 @@ const ProposalForm = () => {
     }
   }, [hasUnsavedChanges, navigate]);
 
-  // ê³„ì•½ ìœ í˜• ë³€ê²½ (ì„ì‹œì €ì¥ í™•ì¸ í¬í•¨)
+  // °è¾à À¯Çü º¯°æ (ÀÓ½ÃÀúÀå È®ÀÎ Æ÷ÇÔ)
   const changeContractType = (newType) => {
-    if (contractType === newType) return; // ê°™ì€ íƒ€ì…ì´ë©´ ë¬´ì‹œ
+    if (contractType === newType) return; // °°Àº Å¸ÀÔÀÌ¸é ¹«½Ã
     
     if (hasUnsavedChanges) {
       setPendingNavigation(newType);
       setShowSaveConfirm(true);
     } else {
-      // ë³€ê²½ì‚¬í•­ì´ ì—†ìœ¼ë©´ ë°”ë¡œ ë³€ê²½
+      // º¯°æ»çÇ×ÀÌ ¾øÀ¸¸é ¹Ù·Î º¯°æ
       setContractType(newType);
-      // í¼ ë°ì´í„° ì´ˆê¸°í™”
+      // Æû µ¥ÀÌÅÍ ÃÊ±âÈ­
       resetFormData();
     }
   };
 
-  // í¼ ë°ì´í„° ì´ˆê¸°í™” í•¨ìˆ˜
+  // Æû µ¥ÀÌÅÍ ÃÊ±âÈ­ ÇÔ¼ö
   const resetFormData = () => {
     setFormData({
-      // ê³µí†µ í•­ëª©
+      // °øÅë Ç×¸ñ
       purpose: '',
       basis: '',
       budget: '',
       contractMethod: '',
       accountSubject: '',
-      requestDepartments: [], // ë¹ˆ ë°°ì—´ë¡œ ì´ˆê¸°í™”
+      requestDepartments: [], // ºó ¹è¿­·Î ÃÊ±âÈ­
       
-      // êµ¬ë§¤/ë³€ê²½/ì—°ì¥ ê³„ì•½ìš©
-      purchaseItems: [], // ë¹ˆ ë°°ì—´ë¡œ ì´ˆê¸°í™”
+      // ±¸¸Å/º¯°æ/¿¬Àå °è¾à¿ë
+      purchaseItems: [], // ºó ¹è¿­·Î ÃÊ±âÈ­
       suppliers: [],
       
-      // ë³€ê²½/ì—°ì¥ ê³„ì•½ìš©
+      // º¯°æ/¿¬Àå °è¾à¿ë
       changeReason: '',
       extensionReason: '',
       beforeItems: [],
       afterItems: [],
       
-      // ìš©ì—­ ê³„ì•½ìš©
+      // ¿ë¿ª °è¾à¿ë
       serviceItems: [],
       contractPeriod: '',
       paymentMethod: '',
       
-      // ì…ì°° ê³„ì•½ìš©
+      // ÀÔÂû °è¾à¿ë
       biddingType: '',
       qualificationRequirements: '',
       evaluationCriteria: '',
@@ -264,74 +264,74 @@ const ProposalForm = () => {
     setHasUnsavedChanges(false);
   };
 
-  // ì„ì‹œì €ì¥ í›„ ì´ë™
+  // ÀÓ½ÃÀúÀå ÈÄ ÀÌµ¿
   const handleSaveAndNavigate = async () => {
     try {
-      console.log('ì„ì‹œì €ì¥ í›„ ì´ë™ ì‹œì‘');
-      // pendingNavigation ê°’ì„ ë¯¸ë¦¬ ì €ì¥
+      console.log('ÀÓ½ÃÀúÀå ÈÄ ÀÌµ¿ ½ÃÀÛ');
+      // pendingNavigation °ªÀ» ¹Ì¸® ÀúÀå
       const targetNavigation = pendingNavigation;
       
-      // íŒì—… ìƒíƒœë¥¼ ë¨¼ì € ì´ˆê¸°í™”í•˜ì—¬ ì¶”ê°€ ì´ë²¤íŠ¸ ë°©ì§€
+      // ÆË¾÷ »óÅÂ¸¦ ¸ÕÀú ÃÊ±âÈ­ÇÏ¿© Ãß°¡ ÀÌº¥Æ® ¹æÁö
       setShowSaveConfirm(false);
       setPendingNavigation(null);
       
-      // handleDraftSave í•¨ìˆ˜ì˜ ìë™ ì´ë™ì„ ë°©ì§€í•˜ê¸° ìœ„í•´ í¸ì§‘ ëª¨ë“œë¡œ ì„¤ì •
+      // handleDraftSave ÇÔ¼öÀÇ ÀÚµ¿ ÀÌµ¿À» ¹æÁöÇÏ±â À§ÇØ ÆíÁı ¸ğµå·Î ¼³Á¤
       const originalEditingProposalId = editingProposalId;
       
-      // ì„ì‹œì €ì¥ ì‹¤í–‰ (ìë™ ì´ë™ ë°©ì§€)
+      // ÀÓ½ÃÀúÀå ½ÇÇà (ÀÚµ¿ ÀÌµ¿ ¹æÁö)
       await handleProposalSave(true, true); // isDraft = true, preventNavigation = true
       
-      console.log('ì„ì‹œì €ì¥ ì™„ë£Œ, ì´ë™ ì²˜ë¦¬:', targetNavigation);
+      console.log('ÀÓ½ÃÀúÀå ¿Ï·á, ÀÌµ¿ Ã³¸®:', targetNavigation);
       
-      // hasUnsavedChanges ìƒíƒœ ì´ˆê¸°í™”
+      // hasUnsavedChanges »óÅÂ ÃÊ±âÈ­
       setHasUnsavedChanges(false);
       
-      // ê³„ì•½ ìœ í˜• ë³€ê²½ì¸ì§€ URL ì´ë™ì¸ì§€ í™•ì¸
+      // °è¾à À¯Çü º¯°æÀÎÁö URL ÀÌµ¿ÀÎÁö È®ÀÎ
       if (targetNavigation && ['purchase', 'change', 'extension', 'service', 'bidding'].includes(targetNavigation)) {
-        console.log('ê³„ì•½ ìœ í˜• ë³€ê²½:', targetNavigation);
+        console.log('°è¾à À¯Çü º¯°æ:', targetNavigation);
         setContractType(targetNavigation);
-        // í¼ ë°ì´í„° ì´ˆê¸°í™”
+        // Æû µ¥ÀÌÅÍ ÃÊ±âÈ­
         resetFormData();
       } else if (targetNavigation) {
-        console.log('URL ì´ë™:', targetNavigation);
+        console.log('URL ÀÌµ¿:', targetNavigation);
         originalNavigate(targetNavigation);
       }
     } catch (error) {
-      console.error('ì„ì‹œì €ì¥ ì‹¤íŒ¨:', error);
-      alert('ì„ì‹œì €ì¥ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤. ë‹¤ì‹œ ì‹œë„í•´ì£¼ì„¸ìš”.');
+      console.error('ÀÓ½ÃÀúÀå ½ÇÆĞ:', error);
+      alert('ÀÓ½ÃÀúÀå¿¡ ½ÇÆĞÇß½À´Ï´Ù. ´Ù½Ã ½ÃµµÇØÁÖ¼¼¿ä.');
     }
   };
 
-  // ì„ì‹œì €ì¥ ì—†ì´ ì´ë™
+  // ÀÓ½ÃÀúÀå ¾øÀÌ ÀÌµ¿
   const handleNavigateWithoutSave = () => {
-    console.log('ì„ì‹œì €ì¥ ì—†ì´ ì´ë™:', pendingNavigation);
+    console.log('ÀÓ½ÃÀúÀå ¾øÀÌ ÀÌµ¿:', pendingNavigation);
     const targetNavigation = pendingNavigation;
     
-    // íŒì—… ìƒíƒœë¥¼ ë¨¼ì € ì´ˆê¸°í™”í•˜ì—¬ ì¶”ê°€ ì´ë²¤íŠ¸ ë°©ì§€
+    // ÆË¾÷ »óÅÂ¸¦ ¸ÕÀú ÃÊ±âÈ­ÇÏ¿© Ãß°¡ ÀÌº¥Æ® ¹æÁö
     setShowSaveConfirm(false);
     setPendingNavigation(null);
     setHasUnsavedChanges(false);
     
-    // ê³„ì•½ ìœ í˜• ë³€ê²½ì¸ì§€ URL ì´ë™ì¸ì§€ í™•ì¸
+    // °è¾à À¯Çü º¯°æÀÎÁö URL ÀÌµ¿ÀÎÁö È®ÀÎ
     if (targetNavigation && ['purchase', 'change', 'extension', 'service', 'bidding'].includes(targetNavigation)) {
-      console.log('ê³„ì•½ ìœ í˜• ë³€ê²½ (ì €ì¥ ì—†ì´):', targetNavigation);
+      console.log('°è¾à À¯Çü º¯°æ (ÀúÀå ¾øÀÌ):', targetNavigation);
       setContractType(targetNavigation);
-      // í¼ ë°ì´í„° ì´ˆê¸°í™”
+      // Æû µ¥ÀÌÅÍ ÃÊ±âÈ­
       resetFormData();
     } else if (targetNavigation) {
-      console.log('URL ì´ë™ (ì €ì¥ ì—†ì´):', targetNavigation);
+      console.log('URL ÀÌµ¿ (ÀúÀå ¾øÀÌ):', targetNavigation);
       originalNavigate(targetNavigation);
     }
   };
 
-  // ì„ì‹œì €ì¥ í™•ì¸ íŒì—… ì·¨ì†Œ
+  // ÀÓ½ÃÀúÀå È®ÀÎ ÆË¾÷ Ãë¼Ò
   const handleCancelNavigation = () => {
-    console.log('íŒì—… ì·¨ì†Œ');
+    console.log('ÆË¾÷ Ãë¼Ò');
     setShowSaveConfirm(false);
     setPendingNavigation(null);
   };
 
-  // ì´ ê¸ˆì•¡ ê³„ì‚°
+  // ÃÑ ±İ¾× °è»ê
   const calculateTotalAmount = () => {
     let total = 0;
     
@@ -340,112 +340,112 @@ const ProposalForm = () => {
     } else if (contractType === 'service') {
       total = (formData.serviceItems || []).reduce((sum, item) => sum + (parseFloat(item.contractAmount) || 0), 0);
     } else if (contractType === 'freeform') {
-      // ììœ ì–‘ì‹ì€ ê¸ˆì•¡ì´ ì—†ìœ¼ë¯€ë¡œ 0 ë°˜í™˜
+      // ÀÚÀ¯¾ç½ÄÀº ±İ¾×ÀÌ ¾øÀ¸¹Ç·Î 0 ¹İÈ¯
       total = 0;
     }
     
     return total;
   };
 
-  // ê²°ì¬ë¼ì¸ ì¶”ì²œ
+  // °áÀç¶óÀÎ ÃßÃµ
   const getRecommendedApprovalLine = () => {
     const totalAmount = calculateTotalAmount();
     if (totalAmount === 0 && contractType !== 'freeform') return [];
     
     const line = [];
     
-    // ê¸°ë³¸ ê²°ì¬ë¼ì¸ (ìš”ì²­ë¶€ì„œ)
+    // ±âº» °áÀç¶óÀÎ (¿äÃ»ºÎ¼­)
     line.push({
       step: 1,
-      name: 'ìš”ì²­ë¶€ì„œ',
-      title: 'ë‹´ë‹¹ì',
-      description: 'í’ˆì˜ì„œ ì‘ì„± ë° ê²€í† '
+      name: '¿äÃ»ºÎ¼­',
+      title: '´ã´çÀÚ',
+      description: 'Ç°ÀÇ¼­ ÀÛ¼º ¹× °ËÅä'
     });
 
-    // ê²½ì˜ê´€ë¦¬íŒ€ ê²°ì¬ì ì¶”ê°€ (2ë°±ë§Œì› ì´ˆê³¼ ì‹œ)
+    // °æ¿µ°ü¸®ÆÀ °áÀçÀÚ Ãß°¡ (2¹é¸¸¿ø ÃÊ°ú ½Ã)
     if (totalAmount > 2000000) {
-      let managementLevel = 'ë‹´ë‹¹ì';
+      let managementLevel = '´ã´çÀÚ';
       if (totalAmount > 2000000 && totalAmount <= 50000000) {
-        managementLevel = 'ê²½ì˜ê´€ë¦¬íŒ€ì¥';
+        managementLevel = '°æ¿µ°ü¸®ÆÀÀå';
       } else if (totalAmount > 50000000 && totalAmount <= 300000000) {
-        managementLevel = 'ê²½ì˜ì§€ì›ë³¸ë¶€ì¥';
+        managementLevel = '°æ¿µÁö¿øº»ºÎÀå';
       } else if (totalAmount > 300000000) {
-        managementLevel = 'ê²½ì˜ì§€ì›ì‹¤ì¥';
+        managementLevel = '°æ¿µÁö¿ø½ÇÀå';
       }
       
       line.push({
         step: line.length + 1,
-        name: 'ê²½ì˜ê´€ë¦¬íŒ€',
+        name: '°æ¿µ°ü¸®ÆÀ',
         title: managementLevel,
-        description: 'ì˜ˆì‚° ë° ê²½ì˜ íš¨ìœ¨ì„± ê²€í† ',
+        description: '¿¹»ê ¹× °æ¿µ È¿À²¼º °ËÅä',
         conditional: true
       });
     }
 
-    // ìš©ì—­ê³„ì•½ ì‹œ ì¤€ë²•ê°ì‹œì¸ ì¶”ê°€
+    // ¿ë¿ª°è¾à ½Ã ÁØ¹ı°¨½ÃÀÎ Ãß°¡
     if (contractType === 'service') {
       line.push({
         step: line.length + 1,
-        name: 'ì¤€ë²•ê°ì‹œì¸',
-        title: 'ì¤€ë²•ê°ì‹œì¸',
-        description: 'ë²•ì  ì¤€ìˆ˜ì„± ê²€í† ',
+        name: 'ÁØ¹ı°¨½ÃÀÎ',
+        title: 'ÁØ¹ı°¨½ÃÀÎ',
+        description: '¹ıÀû ÁØ¼ö¼º °ËÅä',
         conditional: true
       });
     }
 
-    // ììœ ì–‘ì‹ ë¬¸ì„œ ì‹œ ë¬¸ì„œ ìŠ¹ì¸ ë¼ì¸
+    // ÀÚÀ¯¾ç½Ä ¹®¼­ ½Ã ¹®¼­ ½ÂÀÎ ¶óÀÎ
     if (contractType === 'freeform') {
       line.push({
         step: line.length + 1,
-        name: 'ë¶€ì„œì¥',
-        title: 'ë¶€ì„œì¥',
-        description: 'ë¬¸ì„œ ë‚´ìš© ê²€í†  ë° ìŠ¹ì¸'
+        name: 'ºÎ¼­Àå',
+        title: 'ºÎ¼­Àå',
+        description: '¹®¼­ ³»¿ë °ËÅä ¹× ½ÂÀÎ'
       });
       
       line.push({
         step: line.length + 1,
-        name: 'ê²½ì˜ê´€ë¦¬íŒ€',
-        title: 'ê²½ì˜ê´€ë¦¬íŒ€ì¥',
-        description: 'ë¬¸ì„œ ì •ì±… ë° ê·œì • ì¤€ìˆ˜ ê²€í† ',
+        name: '°æ¿µ°ü¸®ÆÀ',
+        title: '°æ¿µ°ü¸®ÆÀÀå',
+        description: '¹®¼­ Á¤Ã¥ ¹× ±ÔÁ¤ ÁØ¼ö °ËÅä',
         conditional: true
       });
     }
 
-    // IT ë‚´ë¶€ê°ì‚¬ì¸ ì¶”ê°€ (1ì²œë§Œì› ì´ˆê³¼ ~ 3ì–µì› ì´í•˜)
+    // IT ³»ºÎ°¨»çÀÎ Ãß°¡ (1Ãµ¸¸¿ø ÃÊ°ú ~ 3¾ï¿ø ÀÌÇÏ)
     if (totalAmount > 10000000 && totalAmount <= 300000000) {
       line.push({
         step: line.length + 1,
-        name: 'IT ë‚´ë¶€ê°ì‚¬ì¸',
-        title: 'IT ë‚´ë¶€ê°ì‹œì¸',
-        description: 'IT ì‹œìŠ¤í…œ ë° ë³´ì•ˆ ê²€í† ',
+        name: 'IT ³»ºÎ°¨»çÀÎ',
+        title: 'IT ³»ºÎ°¨½ÃÀÎ',
+        description: 'IT ½Ã½ºÅÛ ¹× º¸¾È °ËÅä',
         conditional: true
       });
     }
 
-    // ê³„ì•½ê¸ˆì•¡ 5ì²œë§Œì› ì´ˆê³¼ ì‹œ ê°ì‚¬ë³¸ë¶€ì¥ ì¶”ê°€
+    // °è¾à±İ¾× 5Ãµ¸¸¿ø ÃÊ°ú ½Ã °¨»çº»ºÎÀå Ãß°¡
     if (totalAmount > 50000000) {
       line.push({
         step: line.length + 1,
-        name: 'ê°ì‚¬ë³¸ë¶€ì¥',
-        title: 'ê°ì‚¬ë³¸ë¶€ì¥',
-        description: 'ê°ì‚¬ ë° ë‚´ë¶€í†µì œ ê²€í† ',
+        name: '°¨»çº»ºÎÀå',
+        title: '°¨»çº»ºÎÀå',
+        description: '°¨»ç ¹× ³»ºÎÅëÁ¦ °ËÅä',
         conditional: true
       });
     }
 
-    // ìµœì¢… ê²°ì¬ì
-    let finalApprover = 'íŒ€ì¥';
+    // ÃÖÁ¾ °áÀçÀÚ
+    let finalApprover = 'ÆÀÀå';
     if (totalAmount > 10000000 && totalAmount <= 300000000) {
-      finalApprover = 'ë³¸ë¶€ì¥';
+      finalApprover = 'º»ºÎÀå';
     } else if (totalAmount > 300000000) {
-      finalApprover = 'ëŒ€í‘œì´ì‚¬';
+      finalApprover = '´ëÇ¥ÀÌ»ç';
     }
 
     line.push({
       step: line.length + 1,
-      name: 'ìµœì¢…ê²°ì¬ì',
+      name: 'ÃÖÁ¾°áÀçÀÚ',
       title: finalApprover,
-      description: 'ìµœì¢… ìŠ¹ì¸',
+      description: 'ÃÖÁ¾ ½ÂÀÎ',
       final: true
     });
 
@@ -454,7 +454,7 @@ const ProposalForm = () => {
 
 
 
-  // êµ¬ë§¤í’ˆëª© ì¶”ê°€ - ê°œì„ ëœ êµ¬ì¡° (ì¤‘ë³µ í˜¸ì¶œ ë°©ì§€)
+  // ±¸¸ÅÇ°¸ñ Ãß°¡ - °³¼±µÈ ±¸Á¶ (Áßº¹ È£Ãâ ¹æÁö)
   const addPurchaseItem = useCallback(() => {
     const newPurchaseItem = {
       id: Date.now() + Math.random(),
@@ -464,12 +464,12 @@ const ProposalForm = () => {
       unitPrice: 0,
       amount: 0,
       supplier: '',
-      contractPeriodType: '1year', // ê³„ì•½ê¸°ê°„ íƒ€ì…: '1month', '3months', '6months', '1year', '2years', '3years', 'permanent', 'custom'
-      contractStartDate: '', // ê³„ì•½ ì‹œì‘ì¼
-      contractEndDate: '', // ê³„ì•½ ì¢…ë£Œì¼
+      contractPeriodType: '1year', // °è¾à±â°£ Å¸ÀÔ: '1month', '3months', '6months', '1year', '2years', '3years', 'permanent', 'custom'
+      contractStartDate: '', // °è¾à ½ÃÀÛÀÏ
+      contractEndDate: '', // °è¾à Á¾·áÀÏ
       costAllocation: {
         type: 'percentage', // 'percentage' or 'amount'
-        allocations: [] // ë¹„ìš©ê·€ì†ë¶€ì„œ ë¶„ë°° ë°°ì—´
+        allocations: [] // ºñ¿ë±Í¼ÓºÎ¼­ ºĞ¹è ¹è¿­
       }
     };
     
@@ -479,7 +479,7 @@ const ProposalForm = () => {
     }));
   }, []);
 
-  // ìš©ì—­í•­ëª© ì¶”ê°€ (ì¤‘ë³µ í˜¸ì¶œ ë°©ì§€)
+  // ¿ë¿ªÇ×¸ñ Ãß°¡ (Áßº¹ È£Ãâ ¹æÁö)
   const addServiceItem = useCallback(() => {
     const newServiceItem = {
       id: Date.now() + Math.random(),
@@ -499,17 +499,17 @@ const ProposalForm = () => {
     }));
   }, []);
 
-  // í¸ì§‘ ëª¨ë“œ ìƒíƒœ
+  // ÆíÁı ¸ğµå »óÅÂ
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState(null);
 
-  // ì‚¬ì—…ì˜ˆì‚° ì„ íƒ íŒì—… ìƒíƒœ
+  // »ç¾÷¿¹»ê ¼±ÅÃ ÆË¾÷ »óÅÂ
   const [showBudgetPopup, setShowBudgetPopup] = useState(false);
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedBudgetType, setSelectedBudgetType] = useState('');
   const [filteredBudgets, setFilteredBudgets] = useState([]);
 
-  // ìš”ì²­ë¶€ì„œ ì„ íƒ ìƒíƒœ
+  // ¿äÃ»ºÎ¼­ ¼±ÅÃ »óÅÂ
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
   const [showDepartmentSuggestions, setShowDepartmentSuggestions] = useState(false);
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
@@ -517,7 +517,7 @@ const ProposalForm = () => {
   
 
 
-  // êµ¬ë§¤ ë‚´ì—­ ì¶”ì²œ ìƒíƒœ
+  // ±¸¸Å ³»¿ª ÃßÃµ »óÅÂ
   const [purchaseHistory, setPurchaseHistory] = useState([]);
   const [showItemSuggestions, setShowItemSuggestions] = useState(false);
   const [showProductSuggestions, setShowProductSuggestions] = useState(false);
@@ -525,7 +525,7 @@ const ProposalForm = () => {
   const [currentSuggestionField, setCurrentSuggestionField] = useState(null);
   const [currentSuggestionIndex, setCurrentSuggestionIndex] = useState(null);
 
-  // API ë°ì´í„° ë¡œë“œ ë° í¸ì§‘ ëª¨ë“œ í™•ì¸
+  // API µ¥ÀÌÅÍ ·Îµå ¹× ÆíÁı ¸ğµå È®ÀÎ
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -544,14 +544,14 @@ const ProposalForm = () => {
         const suppliersData = await suppliersRes.json();
         const contractMethodsData = await contractMethodsRes.json();
         
-        // API ì‘ë‹µ ë””ë²„ê¹…
-        console.log('=== API ì‘ë‹µ ë””ë²„ê¹… ===');
-        console.log('businessBudgetsData íƒ€ì…:', typeof businessBudgetsData);
+        // API ÀÀ´ä µğ¹ö±ë
+        console.log('=== API ÀÀ´ä µğ¹ö±ë ===');
+        console.log('businessBudgetsData Å¸ÀÔ:', typeof businessBudgetsData);
         console.log('businessBudgetsData:', businessBudgetsData);
-        console.log('departmentsData íƒ€ì…:', typeof departmentsData);
+        console.log('departmentsData Å¸ÀÔ:', typeof departmentsData);
         console.log('departmentsData:', departmentsData);
 
-        // ë°ì´í„°ê°€ ë°°ì—´ì¸ì§€ í™•ì¸í•˜ê³  ì•ˆì „í•˜ê²Œ ì²˜ë¦¬
+        // µ¥ÀÌÅÍ°¡ ¹è¿­ÀÎÁö È®ÀÎÇÏ°í ¾ÈÀüÇÏ°Ô Ã³¸®
         const safeBusinessBudgetsData = Array.isArray(businessBudgetsData) ? businessBudgetsData : [];
         const safeDepartmentsData = Array.isArray(departmentsData) ? departmentsData : [];
         
@@ -561,17 +561,17 @@ const ProposalForm = () => {
         setSuppliers(suppliersData);
         setContractMethods(contractMethodsData);
         
-        console.log('ì‚¬ì—…ì˜ˆì‚° ë°ì´í„° ë¡œë“œë¨:', safeBusinessBudgetsData.length, 'ê°œ');
-        console.log('ì‚¬ì—…ì˜ˆì‚° ìƒ˜í”Œ:', safeBusinessBudgetsData.slice(0, 2));
-        console.log('ë¶€ì„œ ë°ì´í„° ë¡œë“œë¨:', safeDepartmentsData.length, 'ê°œ');
-        console.log('ë¶€ì„œ ìƒ˜í”Œ:', safeDepartmentsData.slice(0, 3));
+        console.log('»ç¾÷¿¹»ê µ¥ÀÌÅÍ ·ÎµåµÊ:', safeBusinessBudgetsData.length, '°³');
+        console.log('»ç¾÷¿¹»ê »ùÇÃ:', safeBusinessBudgetsData.slice(0, 2));
+        console.log('ºÎ¼­ µ¥ÀÌÅÍ ·ÎµåµÊ:', safeDepartmentsData.length, '°³');
+        console.log('ºÎ¼­ »ùÇÃ:', safeDepartmentsData.slice(0, 3));
         
-        // ì´ˆê¸° í•„í„°ë§ ì„¤ì •
+        // ÃÊ±â ÇÊÅÍ¸µ ¼³Á¤
         if (safeBusinessBudgetsData.length > 0) {
           setFilteredBudgets(safeBusinessBudgetsData);
         }
 
-        // í¸ì§‘ ëª¨ë“œ í™•ì¸ - URL íŒŒë¼ë¯¸í„° ìš°ì„ , localStorage ë°±ì—…
+        // ÆíÁı ¸ğµå È®ÀÎ - URL ÆÄ¶ó¹ÌÅÍ ¿ì¼±, localStorage ¹é¾÷
         const urlParams = new URLSearchParams(window.location.search);
         const proposalIdFromUrl = urlParams.get('id');
         const isRecycleMode = urlParams.get('recycle') === 'true';
@@ -579,38 +579,38 @@ const ProposalForm = () => {
         const recycleProposal = localStorage.getItem('recycleProposal');
         
         if (proposalIdFromUrl) {
-          // URLì—ì„œ í’ˆì˜ì„œ IDê°€ ìˆìœ¼ë©´ ì„œë²„ì—ì„œ ë°ì´í„° ê°€ì ¸ì˜¤ê¸°
-          console.log('=== URLì—ì„œ í’ˆì˜ì„œ ID ë°œê²¬, ì„œë²„ì—ì„œ ë°ì´í„° ë¡œë“œ ===');
+          // URL¿¡¼­ Ç°ÀÇ¼­ ID°¡ ÀÖÀ¸¸é ¼­¹ö¿¡¼­ µ¥ÀÌÅÍ °¡Á®¿À±â
+          console.log('=== URL¿¡¼­ Ç°ÀÇ¼­ ID ¹ß°ß, ¼­¹ö¿¡¼­ µ¥ÀÌÅÍ ·Îµå ===');
           await loadProposalFromServer(proposalIdFromUrl);
         } else if (isRecycleMode && recycleProposal) {
-          // ì¬í™œìš© ëª¨ë“œì¸ ê²½ìš°
-          console.log('=== ì¬í™œìš© ëª¨ë“œ ê°ì§€, ì¬í™œìš© ë°ì´í„° ë¡œë“œ ===');
+          // ÀçÈ°¿ë ¸ğµåÀÎ °æ¿ì
+          console.log('=== ÀçÈ°¿ë ¸ğµå °¨Áö, ÀçÈ°¿ë µ¥ÀÌÅÍ ·Îµå ===');
           const recycleData = JSON.parse(recycleProposal);
-          console.log('ğŸ” ì¬í™œìš© ë°ì´í„°:', recycleData);
-          console.log('ğŸ” ì¬í™œìš© ë°ì´í„° í‚¤ë“¤:', Object.keys(recycleData));
+          console.log('?? ÀçÈ°¿ë µ¥ÀÌÅÍ:', recycleData);
+          console.log('?? ÀçÈ°¿ë µ¥ÀÌÅÍ Å°µé:', Object.keys(recycleData));
           
-          // ê³„ì•½ ìœ í˜• ì„¤ì •
+          // °è¾à À¯Çü ¼³Á¤
           const contractTypeValue = recycleData.contractType || 'purchase';
-          console.log('ğŸ” ì„¤ì •í•  ê³„ì•½ ìœ í˜•:', contractTypeValue);
+          console.log('?? ¼³Á¤ÇÒ °è¾à À¯Çü:', contractTypeValue);
           setContractType(contractTypeValue);
           
-          // í¼ ë°ì´í„° ì„¤ì • (ê¸°ì¡´ ìˆ˜ì • ê¸°ëŠ¥ê³¼ ë™ì¼í•œ ë°©ì‹ìœ¼ë¡œ ì²˜ë¦¬)
+          // Æû µ¥ÀÌÅÍ ¼³Á¤ (±âÁ¸ ¼öÁ¤ ±â´É°ú µ¿ÀÏÇÑ ¹æ½ÄÀ¸·Î Ã³¸®)
           const newFormData = {
             purpose: recycleData.purpose || '',
             basis: recycleData.basis || '',
-            budget: recycleData.budget || '', // budgetIdê°€ ì´ë¯¸ ì²˜ë¦¬ë¨
+            budget: recycleData.budget || '', // budgetId°¡ ÀÌ¹Ì Ã³¸®µÊ
             contractMethod: recycleData.contractMethod || '',
             accountSubject: recycleData.accountSubject || '',
-            // ìš”ì²­ë¶€ì„œëŠ” ì´ë¯¸ ê¸°ì¡´ ìˆ˜ì • ê¸°ëŠ¥ê³¼ ë™ì¼í•˜ê²Œ ì²˜ë¦¬ë¨
+            // ¿äÃ»ºÎ¼­´Â ÀÌ¹Ì ±âÁ¸ ¼öÁ¤ ±â´É°ú µ¿ÀÏÇÏ°Ô Ã³¸®µÊ
             requestDepartments: recycleData.requestDepartments || [],
-            // êµ¬ë§¤í’ˆëª©ë„ ì´ë¯¸ ê¸°ì¡´ ìˆ˜ì • ê¸°ëŠ¥ê³¼ ë™ì¼í•œ í˜•íƒœë¡œ ì²˜ë¦¬ë¨
+            // ±¸¸ÅÇ°¸ñµµ ÀÌ¹Ì ±âÁ¸ ¼öÁ¤ ±â´É°ú µ¿ÀÏÇÑ ÇüÅÂ·Î Ã³¸®µÊ
             purchaseItems: recycleData.purchaseItems || [],
             suppliers: recycleData.suppliers || [],
             changeReason: recycleData.changeReason || '',
             extensionReason: recycleData.extensionReason || '',
             beforeItems: recycleData.beforeItems || [],
             afterItems: recycleData.afterItems || [],
-            // ìš©ì—­í’ˆëª©ë„ ì´ë¯¸ ê¸°ì¡´ ìˆ˜ì • ê¸°ëŠ¥ê³¼ ë™ì¼í•œ í˜•íƒœë¡œ ì²˜ë¦¬ë¨
+            // ¿ë¿ªÇ°¸ñµµ ÀÌ¹Ì ±âÁ¸ ¼öÁ¤ ±â´É°ú µ¿ÀÏÇÑ ÇüÅÂ·Î Ã³¸®µÊ
             serviceItems: recycleData.serviceItems || [],
             contractPeriod: recycleData.contractPeriod || '',
             paymentMethod: recycleData.paymentMethod || '',
@@ -620,12 +620,12 @@ const ProposalForm = () => {
             priceComparison: recycleData.priceComparison || []
           };
           
-          console.log('ğŸ” ì„¤ì •í•  í¼ ë°ì´í„°:', newFormData);
-          console.log('ğŸ” êµ¬ë§¤í’ˆëª© ê°œìˆ˜:', newFormData.purchaseItems.length);
-          console.log('ğŸ” ìš”ì²­ë¶€ì„œ ê°œìˆ˜:', newFormData.requestDepartments.length);
-          console.log('ğŸ” êµ¬ë§¤í’ˆëª©ë³„ ë¹„ìš©ë¶„ë°° ì •ë³´:');
+          console.log('?? ¼³Á¤ÇÒ Æû µ¥ÀÌÅÍ:', newFormData);
+          console.log('?? ±¸¸ÅÇ°¸ñ °³¼ö:', newFormData.purchaseItems.length);
+          console.log('?? ¿äÃ»ºÎ¼­ °³¼ö:', newFormData.requestDepartments.length);
+          console.log('?? ±¸¸ÅÇ°¸ñº° ºñ¿ëºĞ¹è Á¤º¸:');
           newFormData.purchaseItems.forEach((item, index) => {
-            console.log(`  êµ¬ë§¤í’ˆëª© ${index + 1} (${item.item}):`, {
+            console.log(`  ±¸¸ÅÇ°¸ñ ${index + 1} (${item.item}):`, {
               hasCostAllocation: !!item.costAllocation,
               allocationsCount: item.costAllocation?.allocations?.length || 0,
               allocations: item.costAllocation?.allocations
@@ -634,33 +634,33 @@ const ProposalForm = () => {
           
           setFormData(newFormData);
           
-          // ì¬í™œìš© ë°ì´í„° ì‚¬ìš© ì™„ë£Œ í›„ localStorageì—ì„œ ì œê±°
+          // ÀçÈ°¿ë µ¥ÀÌÅÍ »ç¿ë ¿Ï·á ÈÄ localStorage¿¡¼­ Á¦°Å
           localStorage.removeItem('recycleProposal');
           
-          // ë³€ê²½ì‚¬í•­ ìˆìŒìœ¼ë¡œ í‘œì‹œ (ì¬í™œìš©ëœ ë°ì´í„°ì´ë¯€ë¡œ)
+          // º¯°æ»çÇ× ÀÖÀ½À¸·Î Ç¥½Ã (ÀçÈ°¿ëµÈ µ¥ÀÌÅÍÀÌ¹Ç·Î)
           setHasUnsavedChanges(true);
           
-          console.log('âœ… ì¬í™œìš© ë°ì´í„° ë³µì› ì™„ë£Œ');
+          console.log('? ÀçÈ°¿ë µ¥ÀÌÅÍ º¹¿ø ¿Ï·á');
         } else if (editingDraft) {
           const draftData = JSON.parse(editingDraft);
-          console.log('=== í¸ì§‘ ëª¨ë“œ ë°ì´í„° ë¡œë“œ ===');
-          console.log('ì „ì²´ draftData:', draftData);
-          console.log('ê¸°íƒ€:', draftData.accountSubject);
-          console.log('ìš”ì²­ë¶€ì„œ:', draftData.requestDepartments);
+          console.log('=== ÆíÁı ¸ğµå µ¥ÀÌÅÍ ·Îµå ===');
+          console.log('ÀüÃ¼ draftData:', draftData);
+          console.log('±âÅ¸:', draftData.accountSubject);
+          console.log('¿äÃ»ºÎ¼­:', draftData.requestDepartments);
 
-          console.log('êµ¬ë§¤í’ˆëª©:', draftData.purchaseItems);
-          console.log('ìš©ì—­í’ˆëª©:', draftData.serviceItems);
+          console.log('±¸¸ÅÇ°¸ñ:', draftData.purchaseItems);
+          console.log('¿ë¿ªÇ°¸ñ:', draftData.serviceItems);
           
-          // ë¹„ìš©ë¶„ë°° ì •ë³´ ë””ë²„ê¹…
+          // ºñ¿ëºĞ¹è Á¤º¸ µğ¹ö±ë
           if (draftData.purchaseItems && draftData.purchaseItems.length > 0) {
-            console.log('=== ë¹„ìš©ë¶„ë°° ì •ë³´ ë””ë²„ê¹… ===');
+            console.log('=== ºñ¿ëºĞ¹è Á¤º¸ µğ¹ö±ë ===');
             draftData.purchaseItems.forEach((item, index) => {
-              console.log(`êµ¬ë§¤í’ˆëª© ${index + 1} (${item.item}):`, {
+              console.log(`±¸¸ÅÇ°¸ñ ${index + 1} (${item.item}):`, {
                 hasCostAllocation: !!item.costAllocation,
                 costAllocationData: item.costAllocation,
                 hasCostAllocations: !!item.costAllocations,
                 costAllocationsData: item.costAllocations,
-                // ì „ì²´ item ê°ì²´ í™•ì¸
+                // ÀüÃ¼ item °´Ã¼ È®ÀÎ
                 fullItemData: item
               });
             });
@@ -670,39 +670,39 @@ const ProposalForm = () => {
             console.log('purchaseItemCostAllocations:', draftData.purchaseItemCostAllocations);
           }
           
-          // ì „ì²´ draftData êµ¬ì¡° í™•ì¸
-          console.log('=== ì „ì²´ draftData êµ¬ì¡° ë¶„ì„ ===');
-          console.log('draftData í‚¤ë“¤:', Object.keys(draftData));
-          console.log('purchaseItems íƒ€ì…:', typeof draftData.purchaseItems);
-          console.log('purchaseItems ê¸¸ì´:', draftData.purchaseItems ? draftData.purchaseItems.length : 'undefined');
+          // ÀüÃ¼ draftData ±¸Á¶ È®ÀÎ
+          console.log('=== ÀüÃ¼ draftData ±¸Á¶ ºĞ¼® ===');
+          console.log('draftData Å°µé:', Object.keys(draftData));
+          console.log('purchaseItems Å¸ÀÔ:', typeof draftData.purchaseItems);
+          console.log('purchaseItems ±æÀÌ:', draftData.purchaseItems ? draftData.purchaseItems.length : 'undefined');
           if (draftData.purchaseItems && draftData.purchaseItems.length > 0) {
-            console.log('ì²« ë²ˆì§¸ purchaseItem í‚¤ë“¤:', Object.keys(draftData.purchaseItems[0]));
+            console.log('Ã¹ ¹øÂ° purchaseItem Å°µé:', Object.keys(draftData.purchaseItems[0]));
           }
           
           setIsEditMode(true);
           setEditingProposalId(draftData.id);
-          setProposalId(draftData.id); // í’ˆì˜ì„œ í‚¤ê°’ ì„¤ì •
+          setProposalId(draftData.id); // Ç°ÀÇ¼­ Å°°ª ¼³Á¤
           
-          // í¼ ë°ì´í„° ì„¤ì • - ê°œì„ ëœ êµ¬ì¡°
-          setContractType(draftData.contractType === 'êµ¬ë§¤ê³„ì•½' ? 'purchase' :
-                         draftData.contractType === 'ìš©ì—­ê³„ì•½' ? 'service' :
-                         draftData.contractType === 'ë³€ê²½ê³„ì•½' ? 'change' :
-                         draftData.contractType === 'ì—°ì¥ê³„ì•½' ? 'extension' :
-                         draftData.contractType === 'ììœ ì–‘ì‹' ? 'freeform' : '');
+          // Æû µ¥ÀÌÅÍ ¼³Á¤ - °³¼±µÈ ±¸Á¶
+          setContractType(draftData.contractType === '±¸¸Å°è¾à' ? 'purchase' :
+                         draftData.contractType === '¿ë¿ª°è¾à' ? 'service' :
+                         draftData.contractType === 'º¯°æ°è¾à' ? 'change' :
+                         draftData.contractType === '¿¬Àå°è¾à' ? 'extension' :
+                         draftData.contractType === 'ÀÚÀ¯¾ç½Ä' ? 'freeform' : '');
           
-          // ìš”ì²­ë¶€ì„œ ë°ì´í„° ì •ê·œí™” (ê°•í™”ëœ êµ¬ì¡°)
+          // ¿äÃ»ºÎ¼­ µ¥ÀÌÅÍ Á¤±ÔÈ­ (°­È­µÈ ±¸Á¶)
           const normalizedRequestDepartments = (draftData.requestDepartments || []).map(dept => 
-            typeof dept === 'string' ? dept : dept.name || dept
-          ).filter(Boolean); // ë¹ˆ ê°’ ì œê±°
+            typeof dept === 'string' ? dept : dept.department || dept.name || dept
+          ).filter(Boolean); // ºó °ª Á¦°Å
           
-          console.log('ğŸ“‹ ìš”ì²­ë¶€ì„œ ë³µì›:', {
-            ì›ë³¸: draftData.requestDepartments,
-            ì •ê·œí™”: normalizedRequestDepartments
+          console.log('?? ¿äÃ»ºÎ¼­ º¹¿ø:', {
+            ¿øº»: draftData.requestDepartments,
+            Á¤±ÔÈ­: normalizedRequestDepartments
           });
           
-          // êµ¬ë§¤í’ˆëª© ë°ì´í„° ì •ê·œí™” (ê°•í™”ëœ êµ¬ì¡°)
+          // ±¸¸ÅÇ°¸ñ µ¥ÀÌÅÍ Á¤±ÔÈ­ (°­È­µÈ ±¸Á¶)
           const normalizedPurchaseItems = (draftData.purchaseItems || []).map((item, itemIndex) => {
-            // ê¸°ë³¸ êµ¬ë§¤í’ˆëª© ì •ë³´
+            // ±âº» ±¸¸ÅÇ°¸ñ Á¤º¸
             const basicItem = {
               id: item.id || Date.now() + Math.random(),
               item: item.item || '',
@@ -711,47 +711,47 @@ const ProposalForm = () => {
               unitPrice: parseInt(item.unitPrice) || 0,
               amount: parseInt(item.amount) || 0,
               supplier: item.supplier || '',
-              requestDepartments: item.requestDepartments || [], // ë‹¤ì¤‘ ì„ íƒ ê°€ëŠ¥í•œ ìš”ì²­ë¶€ì„œ ë°°ì—´
+              requestDepartments: item.requestDepartments || [], // ´ÙÁß ¼±ÅÃ °¡´ÉÇÑ ¿äÃ»ºÎ¼­ ¹è¿­
               costAllocation: { 
                 type: 'percentage',
                 allocations: [] 
               }
             };
             
-            console.log(`ğŸ“¦ êµ¬ë§¤í’ˆëª© ${itemIndex} (${item.item}) ê¸°ë³¸ ë³µì›:`, basicItem);
+            console.log(`?? ±¸¸ÅÇ°¸ñ ${itemIndex} (${item.item}) ±âº» º¹¿ø:`, basicItem);
             
-            // ë¹„ìš©ë¶„ë°° ì •ë³´ ë³µì› - ê°•í™”ëœ ë¡œì§
+            // ºñ¿ëºĞ¹è Á¤º¸ º¹¿ø - °­È­µÈ ·ÎÁ÷
             let hasAllocations = false;
             
-            // 1. êµ¬ë§¤í’ˆëª©ì— ì§ì ‘ í¬í•¨ëœ ë¹„ìš©ë¶„ë°° ì •ë³´ (ìš°ì„ ìˆœìœ„ 1)
+            // 1. ±¸¸ÅÇ°¸ñ¿¡ Á÷Á¢ Æ÷ÇÔµÈ ºñ¿ëºĞ¹è Á¤º¸ (¿ì¼±¼øÀ§ 1)
             if (item.costAllocation && item.costAllocation.allocations && item.costAllocation.allocations.length > 0) {
-              console.log(`âœ… êµ¬ë§¤í’ˆëª© "${item.item}" ì§ì ‘ ë¹„ìš©ë¶„ë°° ì •ë³´ ë°œê²¬:`, item.costAllocation.allocations);
+              console.log(`? ±¸¸ÅÇ°¸ñ "${item.item}" Á÷Á¢ ºñ¿ëºĞ¹è Á¤º¸ ¹ß°ß:`, item.costAllocation.allocations);
               basicItem.costAllocation = {
                 type: item.costAllocation.type || 'percentage',
                 allocations: item.costAllocation.allocations.map(alloc => ({
                   id: alloc.id || Date.now() + Math.random(),
                   department: alloc.department || '',
                   type: alloc.type || 'percentage',
-                  value: parseFloat(alloc.value) || 0  // ìˆ«ì íƒ€ì… ë³´ì¥
+                  value: parseFloat(alloc.value) || 0  // ¼ıÀÚ Å¸ÀÔ º¸Àå
                 }))
               };
               hasAllocations = true;
             }
             
-            // 2. purchaseItemCostAllocationsì—ì„œ ë³µì› (ë°±ì—…ìš©, ìš°ì„ ìˆœìœ„ 2)
+            // 2. purchaseItemCostAllocations¿¡¼­ º¹¿ø (¹é¾÷¿ë, ¿ì¼±¼øÀ§ 2)
             if (!hasAllocations && draftData.purchaseItemCostAllocations && draftData.purchaseItemCostAllocations.length > 0) {
-              console.log(`ğŸ” purchaseItemCostAllocationsì—ì„œ ë³µì› ì‹œë„...`);
-              console.log('ì „ì²´ purchaseItemCostAllocations:', draftData.purchaseItemCostAllocations);
+              console.log(`?? purchaseItemCostAllocations¿¡¼­ º¹¿ø ½Ãµµ...`);
+              console.log('ÀüÃ¼ purchaseItemCostAllocations:', draftData.purchaseItemCostAllocations);
               
-              // ë” ì •í™•í•œ ë§¤ì¹­ì„ ìœ„í•œ ë¡œì§
+              // ´õ Á¤È®ÇÑ ¸ÅÄªÀ» À§ÇÑ ·ÎÁ÷
               let matchingAllocations = [];
               
-              // 1ìˆœìœ„: ì •í™•í•œ itemIndex ë§¤ì¹­
+              // 1¼øÀ§: Á¤È®ÇÑ itemIndex ¸ÅÄª
               matchingAllocations = draftData.purchaseItemCostAllocations.filter(alloc => 
                 alloc.itemIndex === itemIndex
               );
               
-              // 2ìˆœìœ„: í’ˆëª©ëª… ë§¤ì¹­ (itemIndexê°€ ì—†ê±°ë‚˜ ë§¤ì¹­ë˜ì§€ ì•Šì€ ê²½ìš°)
+              // 2¼øÀ§: Ç°¸ñ¸í ¸ÅÄª (itemIndex°¡ ¾ø°Å³ª ¸ÅÄªµÇÁö ¾ÊÀº °æ¿ì)
               if (matchingAllocations.length === 0) {
                 matchingAllocations = draftData.purchaseItemCostAllocations.filter(alloc => 
                   (alloc.itemName && alloc.itemName === item.item) || 
@@ -759,7 +759,7 @@ const ProposalForm = () => {
                 );
               }
               
-              // 3ìˆœìœ„: í’ˆëª©ëª…ì´ ë¹„ìŠ·í•œ ê²½ìš° (ë¶€ë¶„ ë§¤ì¹­)
+              // 3¼øÀ§: Ç°¸ñ¸íÀÌ ºñ½ÁÇÑ °æ¿ì (ºÎºĞ ¸ÅÄª)
               if (matchingAllocations.length === 0) {
                 matchingAllocations = draftData.purchaseItemCostAllocations.filter(alloc => 
                   (alloc.itemName && item.item && alloc.itemName.includes(item.item)) || 
@@ -770,9 +770,9 @@ const ProposalForm = () => {
               }
               
               if (matchingAllocations.length > 0) {
-                console.log(`âœ… ë§¤ì¹­ìœ¼ë¡œ ë¹„ìš©ë¶„ë°° ì •ë³´ ë³µì›:`, {
-                  ë§¤ì¹­ë°©ë²•: matchingAllocations[0].itemIndex === itemIndex ? 'itemIndex' : 'í’ˆëª©ëª…',
-                  ë§¤ì¹­ëœí• ë‹¹: matchingAllocations
+                console.log(`? ¸ÅÄªÀ¸·Î ºñ¿ëºĞ¹è Á¤º¸ º¹¿ø:`, {
+                  ¸ÅÄª¹æ¹ı: matchingAllocations[0].itemIndex === itemIndex ? 'itemIndex' : 'Ç°¸ñ¸í',
+                  ¸ÅÄªµÈÇÒ´ç: matchingAllocations
                 });
                 
                 basicItem.costAllocation = {
@@ -786,23 +786,23 @@ const ProposalForm = () => {
                 };
                 hasAllocations = true;
               } else {
-                console.log(`âŒ ëª¨ë“  ë§¤ì¹­ ë°©ë²• ì‹¤íŒ¨: ${item.item} (${itemIndex})`);
+                console.log(`? ¸ğµç ¸ÅÄª ¹æ¹ı ½ÇÆĞ: ${item.item} (${itemIndex})`);
               }
             }
             
             if (!hasAllocations) {
-              console.log(`âš ï¸ êµ¬ë§¤í’ˆëª© "${item.item}" ë¹„ìš©ë¶„ë°° ì •ë³´ ì—†ìŒ - ê¸°ë³¸ê°’ ìƒì„±`);
-              // ê¸°ë³¸ ë¹„ìš©ë¶„ë°° ì •ë³´ ìƒì„±
+              console.log(`?? ±¸¸ÅÇ°¸ñ "${item.item}" ºñ¿ëºĞ¹è Á¤º¸ ¾øÀ½ - ±âº»°ª »ı¼º`);
+              // ±âº» ºñ¿ëºĞ¹è Á¤º¸ »ı¼º
               basicItem.costAllocation = {
                 type: 'percentage',
                 allocations: []
               };
             }
             
-            console.log(`ğŸ“¦ êµ¬ë§¤í’ˆëª© ${itemIndex} ìµœì¢… ë³µì› ê²°ê³¼:`, {
-              ê¸°ë³¸ì •ë³´: basicItem,
-              ë¹„ìš©ë¶„ë°°: basicItem.costAllocation,
-              í• ë‹¹ê°œìˆ˜: basicItem.costAllocation.allocations.length
+            console.log(`?? ±¸¸ÅÇ°¸ñ ${itemIndex} ÃÖÁ¾ º¹¿ø °á°ú:`, {
+              ±âº»Á¤º¸: basicItem,
+              ºñ¿ëºĞ¹è: basicItem.costAllocation,
+              ÇÒ´ç°³¼ö: basicItem.costAllocation.allocations.length
             });
             
             return basicItem;
@@ -839,38 +839,38 @@ const ProposalForm = () => {
             priceComparison: draftData.priceComparison || []
           });
           
-          // localStorageì—ì„œ í¸ì§‘ ë°ì´í„° ì œê±°
+          // localStorage¿¡¼­ ÆíÁı µ¥ÀÌÅÍ Á¦°Å
           localStorage.removeItem('editingDraft');
           
-          // ë³µì›ëœ í¼ ë°ì´í„° í™•ì¸
-          console.log('=== ë³µì›ëœ í¼ ë°ì´í„° í™•ì¸ ===');
-          console.log('ë³µì›ëœ contractType:', contractType);
-          console.log('ë³µì›ëœ purchaseItems:', formData.purchaseItems);
+          // º¹¿øµÈ Æû µ¥ÀÌÅÍ È®ÀÎ
+          console.log('=== º¹¿øµÈ Æû µ¥ÀÌÅÍ È®ÀÎ ===');
+          console.log('º¹¿øµÈ contractType:', contractType);
+          console.log('º¹¿øµÈ purchaseItems:', formData.purchaseItems);
           formData.purchaseItems.forEach((item, index) => {
             if (item.costAllocation && item.costAllocation.allocations) {
-              console.log(`êµ¬ë§¤í’ˆëª© ${index + 1} (${item.item}) ë¹„ìš©ë¶„ë°° ë³µì› ì™„ë£Œ:`, item.costAllocation.allocations);
+              console.log(`±¸¸ÅÇ°¸ñ ${index + 1} (${item.item}) ºñ¿ëºĞ¹è º¹¿ø ¿Ï·á:`, item.costAllocation.allocations);
             } else {
-              console.log(`êµ¬ë§¤í’ˆëª© ${index + 1} (${item.item}) ë¹„ìš©ë¶„ë°° ì—†ìŒ`);
+              console.log(`±¸¸ÅÇ°¸ñ ${index + 1} (${item.item}) ºñ¿ëºĞ¹è ¾øÀ½`);
             }
           });
           
-          // ê°•ì œë¡œ ìƒíƒœ ì—…ë°ì´íŠ¸í•˜ì—¬ ë¦¬ë Œë”ë§ íŠ¸ë¦¬ê±°
+          // °­Á¦·Î »óÅÂ ¾÷µ¥ÀÌÆ®ÇÏ¿© ¸®·»´õ¸µ Æ®¸®°Å
           setTimeout(() => {
-            console.log('=== ê°•ì œ ìƒíƒœ ì—…ë°ì´íŠ¸ ===');
+            console.log('=== °­Á¦ »óÅÂ ¾÷µ¥ÀÌÆ® ===');
             setFormData(prevData => {
               const updatedData = { ...prevData };
-              console.log('ì—…ë°ì´íŠ¸ ì „ formData:', updatedData);
+              console.log('¾÷µ¥ÀÌÆ® Àü formData:', updatedData);
               return updatedData;
             });
           }, 100);
           
-          // ë³µì›ëœ ë°ì´í„°ë¥¼ ê°•ì œë¡œ ìƒíƒœì— ì ìš©
+          // º¹¿øµÈ µ¥ÀÌÅÍ¸¦ °­Á¦·Î »óÅÂ¿¡ Àû¿ë
           setTimeout(() => {
-            console.log('=== ë³µì›ëœ ë°ì´í„° ê°•ì œ ì ìš© ===');
+            console.log('=== º¹¿øµÈ µ¥ÀÌÅÍ °­Á¦ Àû¿ë ===');
             const restoredPurchaseItems = (draftData.purchaseItems || []).map((item, itemIndex) => {
               let restoredItem = { ...item };
               
-              // ë¹„ìš©ë¶„ë°° ì •ë³´ ë³µì›
+              // ºñ¿ëºĞ¹è Á¤º¸ º¹¿ø
               if (item.costAllocation && item.costAllocation.allocations && item.costAllocation.allocations.length > 0) {
                 restoredItem.costAllocation = { ...item.costAllocation };
               } else if (draftData.purchaseItemCostAllocations && draftData.purchaseItemCostAllocations.length > 0) {
@@ -890,14 +890,14 @@ const ProposalForm = () => {
                 }
               }
               
-              // í…ŒìŠ¤íŠ¸ìš©: ë¹„ìš©ë¶„ë°° ì •ë³´ê°€ ì—†ìœ¼ë©´ ì„ì‹œë¡œ ìƒì„±
+              // Å×½ºÆ®¿ë: ºñ¿ëºĞ¹è Á¤º¸°¡ ¾øÀ¸¸é ÀÓ½Ã·Î »ı¼º
               if (!restoredItem.costAllocation || !restoredItem.costAllocation.allocations || restoredItem.costAllocation.allocations.length === 0) {
-                console.log(`ğŸ§ª í…ŒìŠ¤íŠ¸ìš© ë¹„ìš©ë¶„ë°° ì •ë³´ ìƒì„±: ${item.item}`);
+                console.log(`?? Å×½ºÆ®¿ë ºñ¿ëºĞ¹è Á¤º¸ »ı¼º: ${item.item}`);
                 restoredItem.costAllocation = {
                   allocations: [
                     {
                       id: Date.now() + Math.random(),
-                      department: 'í…ŒìŠ¤íŠ¸ë¶€ì„œ',
+                      department: 'Å×½ºÆ®ºÎ¼­',
                       type: 'percentage',
                       value: 100
                     }
@@ -908,7 +908,7 @@ const ProposalForm = () => {
               return restoredItem;
             });
             
-            console.log('ê°•ì œ ì ìš©í•  purchaseItems:', restoredPurchaseItems);
+            console.log('°­Á¦ Àû¿ëÇÒ purchaseItems:', restoredPurchaseItems);
             
             setFormData(prevData => ({
               ...prevData,
@@ -916,27 +916,27 @@ const ProposalForm = () => {
             }));
           }, 200);
           
-          // í¸ì§‘ ëª¨ë“œì—ì„œ ì´ˆê¸° ë°ì´í„° ì„¤ì • (ë³€ê²½ì‚¬í•­ ê°ì§€ìš©) - ì™„ì „íˆ ìƒˆë¡œìš´ ì ‘ê·¼
+          // ÆíÁı ¸ğµå¿¡¼­ ÃÊ±â µ¥ÀÌÅÍ ¼³Á¤ (º¯°æ»çÇ× °¨Áö¿ë) - ¿ÏÀüÈ÷ »õ·Î¿î Á¢±Ù
           setTimeout(() => {
-            console.log('=== ì™„ì „íˆ ìƒˆë¡œìš´ ì ‘ê·¼: ë¹„ìš©ë¶„ë°° ì •ë³´ ë³µì› ===');
+            console.log('=== ¿ÏÀüÈ÷ »õ·Î¿î Á¢±Ù: ºñ¿ëºĞ¹è Á¤º¸ º¹¿ø ===');
             
-            // 1. í˜„ì¬ formData ìƒíƒœ í™•ì¸
-            console.log('í˜„ì¬ formData ìƒíƒœ:', formData);
+            // 1. ÇöÀç formData »óÅÂ È®ÀÎ
+            console.log('ÇöÀç formData »óÅÂ:', formData);
             
-            // 2. draftDataì—ì„œ ë¹„ìš©ë¶„ë°° ì •ë³´ ì¶”ì¶œ - ê°•í™”ëœ ë¡œì§
+            // 2. draftData¿¡¼­ ºñ¿ëºĞ¹è Á¤º¸ ÃßÃâ - °­È­µÈ ·ÎÁ÷
             const extractedAllocations = {};
             
-            // êµ¬ë§¤í’ˆëª©ë³„ë¡œ ë¹„ìš©ë¶„ë°° ì •ë³´ ë§¤í•‘
+            // ±¸¸ÅÇ°¸ñº°·Î ºñ¿ëºĞ¹è Á¤º¸ ¸ÅÇÎ
             (draftData.purchaseItems || []).forEach((item, itemIndex) => {
               const itemKey = item.item || `item_${itemIndex}`;
               extractedAllocations[itemKey] = [];
               
-              // ì§ì ‘ í¬í•¨ëœ ë¹„ìš©ë¶„ë°° ì •ë³´
+              // Á÷Á¢ Æ÷ÇÔµÈ ºñ¿ëºĞ¹è Á¤º¸
               if (item.costAllocation && item.costAllocation.allocations) {
                 extractedAllocations[itemKey] = [...item.costAllocation.allocations];
               }
               
-              // purchaseItemCostAllocationsì—ì„œ ë°±ì—… ë³µì›
+              // purchaseItemCostAllocations¿¡¼­ ¹é¾÷ º¹¿ø
               if (draftData.purchaseItemCostAllocations) {
                 const backupAllocations = draftData.purchaseItemCostAllocations.filter(alloc => 
                   alloc.itemName === item.item || alloc.productName === item.productName
@@ -948,9 +948,9 @@ const ProposalForm = () => {
               }
             });
             
-            console.log('ì¶”ì¶œëœ ë¹„ìš©ë¶„ë°° ì •ë³´:', extractedAllocations);
+            console.log('ÃßÃâµÈ ºñ¿ëºĞ¹è Á¤º¸:', extractedAllocations);
             
-            // 3. formDataì— ë¹„ìš©ë¶„ë°° ì •ë³´ ì ìš©
+            // 3. formData¿¡ ºñ¿ëºĞ¹è Á¤º¸ Àû¿ë
             const updatedPurchaseItems = formData.purchaseItems.map((item, itemIndex) => {
               const itemKey = item.item || `item_${itemIndex}`;
               const allocations = extractedAllocations[itemKey] || [];
@@ -969,9 +969,9 @@ const ProposalForm = () => {
               };
             });
             
-            console.log('ì—…ë°ì´íŠ¸ëœ purchaseItems:', updatedPurchaseItems);
+            console.log('¾÷µ¥ÀÌÆ®µÈ purchaseItems:', updatedPurchaseItems);
             
-            // 4. ìƒíƒœ ì—…ë°ì´íŠ¸
+            // 4. »óÅÂ ¾÷µ¥ÀÌÆ®
             setFormData(prevData => ({
               ...prevData,
               purchaseItems: updatedPurchaseItems
@@ -979,8 +979,8 @@ const ProposalForm = () => {
           }, 300);
         }
       } catch (error) {
-        console.error('ë°ì´í„° ë¡œë“œ ì‹¤íŒ¨:', error);
-        alert('ë°ì´í„° ë¡œë“œì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤. ì„œë²„ê°€ ì‹¤í–‰ ì¤‘ì¸ì§€ í™•ì¸í•´ì£¼ì„¸ìš”.');
+        console.error('µ¥ÀÌÅÍ ·Îµå ½ÇÆĞ:', error);
+        alert('µ¥ÀÌÅÍ ·Îµå¿¡ ½ÇÆĞÇß½À´Ï´Ù. ¼­¹ö°¡ ½ÇÇà ÁßÀÎÁö È®ÀÎÇØÁÖ¼¼¿ä.');
       } finally {
         setLoading(false);
       }
@@ -988,7 +988,7 @@ const ProposalForm = () => {
 
     fetchData();
     
-    // URL íŒŒë¼ë¯¸í„°ì—ì„œ ê³„ì•½ ìœ í˜• í™•ì¸
+    // URL ÆÄ¶ó¹ÌÅÍ¿¡¼­ °è¾à À¯Çü È®ÀÎ
     const urlParams = new URLSearchParams(window.location.search);
     const typeParam = urlParams.get('type');
     
@@ -997,14 +997,14 @@ const ProposalForm = () => {
     }
   }, []);
 
-  // í•„í„°ë§ ìƒíƒœê°€ ë³€ê²½ë  ë•Œë§ˆë‹¤ í•„í„°ë§ ì‹¤í–‰
+  // ÇÊÅÍ¸µ »óÅÂ°¡ º¯°æµÉ ¶§¸¶´Ù ÇÊÅÍ¸µ ½ÇÇà
   useEffect(() => {
     if (businessBudgets.length > 0) {
       filterBudgets();
     }
   }, [selectedYear, selectedBudgetType]);
 
-  // ë¶€ì„œ ê²€ìƒ‰ í•„í„°ë§
+  // ºÎ¼­ °Ë»ö ÇÊÅÍ¸µ
   useEffect(() => {
     if (departments.length > 0) {
       filterDepartments();
@@ -1012,18 +1012,18 @@ const ProposalForm = () => {
   }, [departmentSearchTerm, formData.requestDepartments]);
 
   const formatCurrency = (amount) => {
-    // ì†Œìˆ˜ì  ì œê±°í•˜ê³  ì •ìˆ˜ë¡œ ë³€í™˜
+    // ¼Ò¼öÁ¡ Á¦°ÅÇÏ°í Á¤¼ö·Î º¯È¯
     const integerAmount = Math.round(amount);
-    return new Intl.NumberFormat('ko-KR').format(integerAmount) + 'ì›';
+    return new Intl.NumberFormat('ko-KR').format(integerAmount) + '¿ø';
   };
 
-  // í•œê¸€ ê¸ˆì•¡ í‘œì‹œ
+  // ÇÑ±Û ±İ¾× Ç¥½Ã
   const formatKoreanCurrency = (amount) => {
-    if (amount === 0) return 'ì˜ì›';
+    if (amount === 0) return '¿µ¿ø';
     
-    const units = ['', 'ë§Œ', 'ì–µ', 'ì¡°'];
-    const numbers = ['ì˜', 'ì¼', 'ì´', 'ì‚¼', 'ì‚¬', 'ì˜¤', 'ìœ¡', 'ì¹ ', 'íŒ”', 'êµ¬'];
-    const positions = ['', 'ì‹­', 'ë°±', 'ì²œ'];
+    const units = ['', '¸¸', '¾ï', 'Á¶'];
+    const numbers = ['¿µ', 'ÀÏ', 'ÀÌ', '»ï', '»ç', '¿À', 'À°', 'Ä¥', 'ÆÈ', '±¸'];
+    const positions = ['', '½Ê', '¹é', 'Ãµ'];
     
     let result = '';
     let num = amount;
@@ -1060,24 +1060,24 @@ const ProposalForm = () => {
       unitIndex++;
     }
     
-    return result + 'ì›';
+    return result + '¿ø';
   };
 
-  // ìˆ«ìì— ì½¤ë§ˆ ì¶”ê°€
+  // ¼ıÀÚ¿¡ ÄŞ¸¶ Ãß°¡
   const formatNumberWithComma = (value) => {
     if (!value) return '';
-    // ì†Œìˆ˜ì  ì œê±°í•˜ê³  ì •ìˆ˜ë¡œ ë³€í™˜ í›„ ì½¤ë§ˆ ì¶”ê°€
+    // ¼Ò¼öÁ¡ Á¦°ÅÇÏ°í Á¤¼ö·Î º¯È¯ ÈÄ ÄŞ¸¶ Ãß°¡
     const intValue = Math.floor(parseFloat(value) || 0);
     return intValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   };
 
-  // ì½¤ë§ˆ ì œê±°
+  // ÄŞ¸¶ Á¦°Å
   const removeComma = (value) => {
     if (!value) return 0;
     return parseInt(value.toString().replace(/,/g, '')) || 0;
   };
 
-  // ì‚¬ì—…ì˜ˆì‚° í•„í„°ë§
+  // »ç¾÷¿¹»ê ÇÊÅÍ¸µ
   const filterBudgets = () => {
     if (!businessBudgets || businessBudgets.length === 0) {
       setFilteredBudgets([]);
@@ -1086,45 +1086,45 @@ const ProposalForm = () => {
     
     let filtered = [...businessBudgets];
     
-    console.log('í•„í„°ë§ ì‹œì‘:', { selectedYear, selectedBudgetType, totalBudgets: businessBudgets.length });
+    console.log('ÇÊÅÍ¸µ ½ÃÀÛ:', { selectedYear, selectedBudgetType, totalBudgets: businessBudgets.length });
     
     if (selectedYear && selectedYear !== '') {
       filtered = filtered.filter(budget => budget.budget_year == selectedYear);
-      console.log('ì—°ë„ í•„í„°ë§ í›„:', filtered.length);
+      console.log('¿¬µµ ÇÊÅÍ¸µ ÈÄ:', filtered.length);
     }
     
     if (selectedBudgetType && selectedBudgetType !== '') {
       filtered = filtered.filter(budget => budget.budget_type === selectedBudgetType);
-      console.log('ìœ í˜• í•„í„°ë§ í›„:', filtered.length);
+      console.log('À¯Çü ÇÊÅÍ¸µ ÈÄ:', filtered.length);
     }
     
-    console.log('ìµœì¢… í•„í„°ë§ ê²°ê³¼:', filtered.length);
+    console.log('ÃÖÁ¾ ÇÊÅÍ¸µ °á°ú:', filtered.length);
     setFilteredBudgets(filtered);
   };
 
-  // ì„œë²„ì—ì„œ í’ˆì˜ì„œ ë°ì´í„° ë¡œë“œ
+  // ¼­¹ö¿¡¼­ Ç°ÀÇ¼­ µ¥ÀÌÅÍ ·Îµå
   const loadProposalFromServer = async (proposalId) => {
     try {
-      console.log('ì„œë²„ì—ì„œ í’ˆì˜ì„œ ë°ì´í„° ë¡œë“œ ì‹œì‘:', proposalId);
+      console.log('¼­¹ö¿¡¼­ Ç°ÀÇ¼­ µ¥ÀÌÅÍ ·Îµå ½ÃÀÛ:', proposalId);
       const response = await fetch(`${API_BASE_URL}/api/proposals/${proposalId}`);
       
       if (!response.ok) {
-        throw new Error(`í’ˆì˜ì„œ ë¡œë“œ ì‹¤íŒ¨: ${response.status}`);
+        throw new Error(`Ç°ÀÇ¼­ ·Îµå ½ÇÆĞ: ${response.status}`);
       }
       
       const proposalData = await response.json();
-      console.log('ì„œë²„ì—ì„œ ë¡œë“œëœ í’ˆì˜ì„œ ë°ì´í„°:', proposalData);
-      console.log('ğŸ” ë””ë²„ê¹… - ì„œë²„ì—ì„œ ë°›ì€ wysiwygContent:', proposalData.wysiwygContent);
+      console.log('¼­¹ö¿¡¼­ ·ÎµåµÈ Ç°ÀÇ¼­ µ¥ÀÌÅÍ:', proposalData);
+      console.log('?? µğ¹ö±ë - ¼­¹ö¿¡¼­ ¹ŞÀº wysiwygContent:', proposalData.wysiwygContent);
       
-      // í¸ì§‘ ëª¨ë“œ ì„¤ì •
+      // ÆíÁı ¸ğµå ¼³Á¤
       setIsEditMode(true);
       setEditingProposalId(proposalId);
       setProposalId(proposalId);
       
-      // ê³„ì•½ ìœ í˜• ì„¤ì •
+      // °è¾à À¯Çü ¼³Á¤
       setContractType(proposalData.contractType || 'purchase');
       
-      // í¼ ë°ì´í„° ì„¤ì •
+      // Æû µ¥ÀÌÅÍ ¼³Á¤
       setFormData({
         title: proposalData.title || '',
         purpose: proposalData.purpose || '',
@@ -1133,7 +1133,7 @@ const ProposalForm = () => {
         contractMethod: proposalData.contractMethod || '',
         accountSubject: proposalData.accountSubject || '',
         requestDepartments: (proposalData.requestDepartments || []).map(dept => 
-          typeof dept === 'string' ? dept : dept.name || dept
+          typeof dept === 'string' ? dept : dept.department || dept.name || dept
         ),
         purchaseItems: (proposalData.purchaseItems || []).map(item => ({
           id: item.id || Date.now() + Math.random(),
@@ -1177,25 +1177,25 @@ const ProposalForm = () => {
         qualificationRequirements: proposalData.qualificationRequirements || '',
         evaluationCriteria: proposalData.evaluationCriteria || '',
         priceComparison: proposalData.priceComparison || [],
-        wysiwygContent: proposalData.wysiwygContent || '' // ììœ ì–‘ì‹ ë‚´ìš© ì¶”ê°€
+        wysiwygContent: proposalData.wysiwygContent || '' // ÀÚÀ¯¾ç½Ä ³»¿ë Ãß°¡
       });
       
-      console.log('âœ… ì„œë²„ ë°ì´í„° ë³µì› ì™„ë£Œ');
-      console.log('ğŸ” ë””ë²„ê¹… - formDataì— ì„¤ì •ëœ wysiwygContent:', proposalData.wysiwygContent || '');
+      console.log('? ¼­¹ö µ¥ÀÌÅÍ º¹¿ø ¿Ï·á');
+      console.log('?? µğ¹ö±ë - formData¿¡ ¼³Á¤µÈ wysiwygContent:', proposalData.wysiwygContent || '');
       
-      // ììœ ì–‘ì‹ì¸ ê²½ìš° í…œí”Œë¦¿ ìƒíƒœ ì„¤ì •
+      // ÀÚÀ¯¾ç½ÄÀÎ °æ¿ì ÅÛÇÃ¸´ »óÅÂ ¼³Á¤
       if (proposalData.contractType === 'freeform' && proposalData.wysiwygContent) {
-        setShowTemplates(false); // ì—ë””í„°ë¥¼ ë°”ë¡œ ë³´ì—¬ì¤Œ
-        console.log('ğŸ” ììœ ì–‘ì‹ í’ˆì˜ì„œ - í…œí”Œë¦¿ ì„ íƒ í™”ë©´ ìˆ¨ê¹€');
+        setShowTemplates(false); // ¿¡µğÅÍ¸¦ ¹Ù·Î º¸¿©ÁÜ
+        console.log('?? ÀÚÀ¯¾ç½Ä Ç°ÀÇ¼­ - ÅÛÇÃ¸´ ¼±ÅÃ È­¸é ¼û±è');
       }
       
     } catch (error) {
-      console.error('ì„œë²„ì—ì„œ í’ˆì˜ì„œ ë°ì´í„° ë¡œë“œ ì‹¤íŒ¨:', error);
-      alert('í’ˆì˜ì„œ ë°ì´í„°ë¥¼ ë¶ˆëŸ¬ì˜¤ëŠ”ë° ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤: ' + error.message);
+      console.error('¼­¹ö¿¡¼­ Ç°ÀÇ¼­ µ¥ÀÌÅÍ ·Îµå ½ÇÆĞ:', error);
+      alert('Ç°ÀÇ¼­ µ¥ÀÌÅÍ¸¦ ºÒ·¯¿À´Âµ¥ ½ÇÆĞÇß½À´Ï´Ù: ' + error.message);
     }
   };
 
-  // ì‚¬ì—…ì˜ˆì‚° ì„ íƒ íŒì—… ì—´ê¸°
+  // »ç¾÷¿¹»ê ¼±ÅÃ ÆË¾÷ ¿­±â
   const openBudgetPopup = () => {
     setSelectedYear('');
     setSelectedBudgetType('');
@@ -1203,25 +1203,25 @@ const ProposalForm = () => {
     setShowBudgetPopup(true);
   };
 
-  // ì‚¬ì—…ì˜ˆì‚° ì„ íƒ
+  // »ç¾÷¿¹»ê ¼±ÅÃ
   const selectBudget = (budget) => {
     setFormData({...formData, budget: budget.id});
     setShowBudgetPopup(false);
   };
 
-  // ì—°ë„ ëª©ë¡ ê°€ì ¸ì˜¤ê¸°
+  // ¿¬µµ ¸ñ·Ï °¡Á®¿À±â
   const getYearList = () => {
     const years = [...new Set(businessBudgets.map(budget => budget.budget_year))];
     return years.sort((a, b) => b - a);
   };
 
-  // ì˜ˆì‚° ìœ í˜• ëª©ë¡ ê°€ì ¸ì˜¤ê¸°
+  // ¿¹»ê À¯Çü ¸ñ·Ï °¡Á®¿À±â
   const getBudgetTypeList = () => {
     const types = [...new Set(businessBudgets.map(budget => budget.budget_type))];
     return types.sort();
   };
 
-  // ë¶€ì„œ ê²€ìƒ‰ ë° í•„í„°ë§
+  // ºÎ¼­ °Ë»ö ¹× ÇÊÅÍ¸µ
   const filterDepartments = () => {
     if (!departments || departments.length === 0) {
       setFilteredDepartments([]);
@@ -1237,7 +1237,7 @@ const ProposalForm = () => {
       );
     }
     
-    // ì´ë¯¸ ì„ íƒëœ ë¶€ì„œëŠ” ì œì™¸
+    // ÀÌ¹Ì ¼±ÅÃµÈ ºÎ¼­´Â Á¦¿Ü
     filtered = filtered.filter(dept => 
       !formData.requestDepartments.some(selectedDept => {
         const selectedName = typeof selectedDept === 'string' ? selectedDept : selectedDept.name || selectedDept;
@@ -1248,7 +1248,7 @@ const ProposalForm = () => {
     setFilteredDepartments(filtered);
   };
 
-  // êµ¬ë§¤í’ˆëª©ë³„ ë¶€ì„œ ê²€ìƒ‰ ë° í•„í„°ë§
+  // ±¸¸ÅÇ°¸ñº° ºÎ¼­ °Ë»ö ¹× ÇÊÅÍ¸µ
   const filterDepartmentsForItem = (searchTerm, itemIndex) => {
     if (!departments || departments.length === 0) {
       setFilteredDepartments([]);
@@ -1264,7 +1264,7 @@ const ProposalForm = () => {
       );
     }
     
-    // í•´ë‹¹ í’ˆëª©ì— ì´ë¯¸ ì„ íƒëœ ë¶€ì„œëŠ” ì œì™¸
+    // ÇØ´ç Ç°¸ñ¿¡ ÀÌ¹Ì ¼±ÅÃµÈ ºÎ¼­´Â Á¦¿Ü
     const currentItem = formData.purchaseItems[itemIndex];
     if (currentItem && currentItem.requestDepartments) {
       filtered = filtered.filter(dept => 
@@ -1278,7 +1278,7 @@ const ProposalForm = () => {
     setFilteredDepartments(filtered);
   };
 
-  // ë¶€ì„œ ì…ë ¥ í¬ì»¤ìŠ¤ ì²˜ë¦¬
+  // ºÎ¼­ ÀÔ·Â Æ÷Ä¿½º Ã³¸®
   const handleDepartmentInputFocus = (itemIndex) => {
     setCurrentSuggestionField('department');
     setCurrentSuggestionIndex(itemIndex);
@@ -1286,14 +1286,14 @@ const ProposalForm = () => {
     filterDepartmentsForItem(departmentSearchTerm, itemIndex);
   };
 
-  // ë¶€ì„œ ì…ë ¥ ë¸”ëŸ¬ ì²˜ë¦¬
+  // ºÎ¼­ ÀÔ·Â ºí·¯ Ã³¸®
   const handleDepartmentInputBlur = () => {
     setTimeout(() => {
       setShowDepartmentSuggestions(false);
     }, 200);
   };
 
-  // ë¶€ì„œ ì„ íƒ - ê°œì„ ëœ êµ¬ì¡° (ì¤‘ë³µ í˜¸ì¶œ ë°©ì§€)
+  // ºÎ¼­ ¼±ÅÃ - °³¼±µÈ ±¸Á¶ (Áßº¹ È£Ãâ ¹æÁö)
   const selectDepartment = useCallback((department) => {
     setFormData(prevData => {
       const isAlreadySelected = prevData.requestDepartments.some(selectedDept => {
@@ -1314,28 +1314,28 @@ const ProposalForm = () => {
     setShowDepartmentDropdown(false);
   }, []);
 
-  // ì„ íƒëœ ë¶€ì„œ ì œê±° - ê°œì„ ëœ êµ¬ì¡° (ì¤‘ë³µ í˜¸ì¶œ ë°©ì§€)
+  // ¼±ÅÃµÈ ºÎ¼­ Á¦°Å - °³¼±µÈ ±¸Á¶ (Áßº¹ È£Ãâ ¹æÁö)
   const removeDepartment = useCallback((departmentName) => {
     setFormData(prevData => ({
       ...prevData,
       requestDepartments: prevData.requestDepartments.filter(dept => {
-        const deptName = typeof dept === 'string' ? dept : dept.name || dept;
+        const deptName = typeof dept === 'string' ? dept : dept.department || dept.name || dept;
         return deptName !== departmentName;
       })
     }));
   }, []);
 
-  // êµ¬ë§¤í’ˆëª©ë³„ ìš”ì²­ë¶€ì„œ ì„ íƒ - ê°œì„ ëœ êµ¬ì¡° (ì¤‘ë³µ í˜¸ì¶œ ë°©ì§€)
+  // ±¸¸ÅÇ°¸ñº° ¿äÃ»ºÎ¼­ ¼±ÅÃ - °³¼±µÈ ±¸Á¶ (Áßº¹ È£Ãâ ¹æÁö)
   const selectItemDepartment = useCallback((itemIndex, department) => {
     setFormData(prevData => {
       const updated = [...prevData.purchaseItems];
       
-      // requestDepartmentsê°€ ì—†ìœ¼ë©´ ë¹ˆ ë°°ì—´ë¡œ ì´ˆê¸°í™”
+      // requestDepartments°¡ ¾øÀ¸¸é ºó ¹è¿­·Î ÃÊ±âÈ­
       if (!updated[itemIndex].requestDepartments) {
         updated[itemIndex].requestDepartments = [];
       }
       
-      // ì´ë¯¸ ì„ íƒëœ ë¶€ì„œì¸ì§€ í™•ì¸
+      // ÀÌ¹Ì ¼±ÅÃµÈ ºÎ¼­ÀÎÁö È®ÀÎ
       const isAlreadySelected = updated[itemIndex].requestDepartments.some(selectedDept => {
         const selectedName = typeof selectedDept === 'string' ? selectedDept : selectedDept.name || selectedDept;
         return selectedName === department;
@@ -1351,12 +1351,12 @@ const ProposalForm = () => {
       };
     });
     
-    // ë¶€ì„œ ì„ íƒ í›„ ê²€ìƒ‰ì–´ ì´ˆê¸°í™”
+    // ºÎ¼­ ¼±ÅÃ ÈÄ °Ë»ö¾î ÃÊ±âÈ­
     setDepartmentSearchTerm('');
     setShowDepartmentSuggestions(false);
   }, []);
 
-  // êµ¬ë§¤í’ˆëª© ì œê±°
+  // ±¸¸ÅÇ°¸ñ Á¦°Å
   const removePurchaseItem = useCallback((itemIndex) => {
     setFormData(prevData => {
       const updated = [...prevData.purchaseItems];
@@ -1368,14 +1368,14 @@ const ProposalForm = () => {
     });
   }, []);
 
-  // êµ¬ë§¤í’ˆëª©ë³„ ìš”ì²­ë¶€ì„œ ì œê±° - ê°œì„ ëœ êµ¬ì¡° (ì¤‘ë³µ í˜¸ì¶œ ë°©ì§€)
+  // ±¸¸ÅÇ°¸ñº° ¿äÃ»ºÎ¼­ Á¦°Å - °³¼±µÈ ±¸Á¶ (Áßº¹ È£Ãâ ¹æÁö)
   const removeItemDepartment = useCallback((itemIndex, departmentName) => {
     setFormData(prevData => {
       const updated = [...prevData.purchaseItems];
       
       if (updated[itemIndex].requestDepartments) {
         updated[itemIndex].requestDepartments = updated[itemIndex].requestDepartments.filter(dept => {
-          const deptName = typeof dept === 'string' ? dept : dept.name || dept;
+          const deptName = typeof dept === 'string' ? dept : dept.department || dept.name || dept;
           return deptName !== departmentName;
         });
       }
@@ -1387,13 +1387,13 @@ const ProposalForm = () => {
     });
   }, []);
 
-  // êµ¬ë§¤í’ˆëª© ë¹„ìš©ë¶„ë°° ì¶”ê°€ - ê°•í™”ëœ êµ¬ì¡° (ì¤‘ë³µ í˜¸ì¶œ ë° ìƒíƒœ ë¶ˆì¼ì¹˜ ë°©ì§€)
+  // ±¸¸ÅÇ°¸ñ ºñ¿ëºĞ¹è Ãß°¡ - °­È­µÈ ±¸Á¶ (Áßº¹ È£Ãâ ¹× »óÅÂ ºÒÀÏÄ¡ ¹æÁö)
   const addCostAllocation = useCallback((itemIndex) => {
-    console.log(`ğŸš¨ addCostAllocation í˜¸ì¶œ:`, { itemIndex });
+    console.log(`?? addCostAllocation È£Ãâ:`, { itemIndex });
     
-    // í•¨ìˆ˜ ì‹¤í–‰ ì¤‘ë³µ ë°©ì§€ë¥¼ ìœ„í•œ í”Œë˜ê·¸
+    // ÇÔ¼ö ½ÇÇà Áßº¹ ¹æÁö¸¦ À§ÇÑ ÇÃ·¡±×
     if (addCostAllocation.isExecuting) {
-      console.log(`ğŸš¨ addCostAllocation ì´ë¯¸ ì‹¤í–‰ ì¤‘, ì¤‘ë³µ í˜¸ì¶œ ì°¨ë‹¨`);
+      console.log(`?? addCostAllocation ÀÌ¹Ì ½ÇÇà Áß, Áßº¹ È£Ãâ Â÷´Ü`);
       return;
     }
     
@@ -1401,10 +1401,10 @@ const ProposalForm = () => {
     
     try {
       setFormData(prevData => {
-        // í˜„ì¬ ìƒíƒœì˜ ê¹Šì€ ë³µì‚¬ë³¸ ìƒì„±
+        // ÇöÀç »óÅÂÀÇ ±íÀº º¹»çº» »ı¼º
         const updated = JSON.parse(JSON.stringify(prevData.purchaseItems));
         
-        // costAllocationì´ ì—†ìœ¼ë©´ ìƒì„±
+        // costAllocationÀÌ ¾øÀ¸¸é »ı¼º
         if (!updated[itemIndex].costAllocation) {
           updated[itemIndex].costAllocation = { 
             type: 'percentage',
@@ -1412,12 +1412,12 @@ const ProposalForm = () => {
           };
         }
         
-        // allocationsê°€ ì—†ìœ¼ë©´ ë¹ˆ ë°°ì—´ë¡œ ì´ˆê¸°í™”
+        // allocations°¡ ¾øÀ¸¸é ºó ¹è¿­·Î ÃÊ±âÈ­
         if (!updated[itemIndex].costAllocation.allocations) {
           updated[itemIndex].costAllocation.allocations = [];
         }
         
-        // ìƒˆë¡œìš´ ë¹„ìš©ë¶„ë°° ì¶”ê°€
+        // »õ·Î¿î ºñ¿ëºĞ¹è Ãß°¡
         const newAllocation = {
           id: Date.now() + Math.random(),
           department: '',
@@ -1425,21 +1425,21 @@ const ProposalForm = () => {
           value: 0
         };
         
-        console.log(`ğŸš¨ ìƒˆë¡œìš´ allocation ì¶”ê°€:`, newAllocation);
-        console.log(`ğŸš¨ ì¶”ê°€ ì „ allocations ê°œìˆ˜:`, updated[itemIndex].costAllocation.allocations.length);
+        console.log(`?? »õ·Î¿î allocation Ãß°¡:`, newAllocation);
+        console.log(`?? Ãß°¡ Àü allocations °³¼ö:`, updated[itemIndex].costAllocation.allocations.length);
         
-        // ê¸°ì¡´ allocationsì— ìƒˆ allocation ì¶”ê°€
+        // ±âÁ¸ allocations¿¡ »õ allocation Ãß°¡
         updated[itemIndex].costAllocation.allocations.push(newAllocation);
         
-        console.log(`ğŸš¨ ì¶”ê°€ í›„ allocations ê°œìˆ˜:`, updated[itemIndex].costAllocation.allocations.length);
+        console.log(`?? Ãß°¡ ÈÄ allocations °³¼ö:`, updated[itemIndex].costAllocation.allocations.length);
         
-        // ë¹„ìš©ë¶„ë°° ê°œìˆ˜ì— ë”°ë¼ ê· ë“± ë¶„ë°° ê³„ì‚°
+        // ºñ¿ëºĞ¹è °³¼ö¿¡ µû¶ó ±Õµî ºĞ¹è °è»ê
         const totalAllocations = updated[itemIndex].costAllocation.allocations.length;
         const equalRatio = totalAllocations > 0 ? Math.round(100 / totalAllocations) : 0;
         
-        // ëª¨ë“  ë¹„ìš©ë¶„ë°°ì˜ ë¹„ìœ¨ì„ ê· ë“±í•˜ê²Œ ì„¤ì •
+        // ¸ğµç ºñ¿ëºĞ¹èÀÇ ºñÀ²À» ±ÕµîÇÏ°Ô ¼³Á¤
         const equalizedAllocations = updated[itemIndex].costAllocation.allocations.map((alloc, index) => {
-          // ë§ˆì§€ë§‰ ë¶„ë°°ëŠ” ë‚˜ë¨¸ì§€ ë¹„ìœ¨ì„ ëª¨ë‘ ê°€ì ¸ê°€ë„ë¡ ì„¤ì •
+          // ¸¶Áö¸· ºĞ¹è´Â ³ª¸ÓÁö ºñÀ²À» ¸ğµÎ °¡Á®°¡µµ·Ï ¼³Á¤
           if (index === totalAllocations - 1) {
             const remainingRatio = 100 - (equalRatio * (totalAllocations - 1));
             return {
@@ -1456,8 +1456,8 @@ const ProposalForm = () => {
         
         updated[itemIndex].costAllocation.allocations = equalizedAllocations;
         
-        console.log(`ğŸš¨ ì—…ë°ì´íŠ¸ëœ allocations:`, equalizedAllocations);
-        console.log(`ğŸš¨ ìµœì¢… purchaseItems:`, updated);
+        console.log(`?? ¾÷µ¥ÀÌÆ®µÈ allocations:`, equalizedAllocations);
+        console.log(`?? ÃÖÁ¾ purchaseItems:`, updated);
         
         return {
           ...prevData,
@@ -1465,21 +1465,21 @@ const ProposalForm = () => {
         };
       });
     } finally {
-      // ì‹¤í–‰ ì™„ë£Œ í›„ í”Œë˜ê·¸ í•´ì œ
+      // ½ÇÇà ¿Ï·á ÈÄ ÇÃ·¡±× ÇØÁ¦
       setTimeout(() => {
         addCostAllocation.isExecuting = false;
       }, 100);
     }
   }, []);
 
-  // êµ¬ë§¤í’ˆëª© ë¹„ìš©ë¶„ë°° ì œê±° - ê°œì„ ëœ êµ¬ì¡° (ì¤‘ë³µ í˜¸ì¶œ ë°©ì§€)
+  // ±¸¸ÅÇ°¸ñ ºñ¿ëºĞ¹è Á¦°Å - °³¼±µÈ ±¸Á¶ (Áßº¹ È£Ãâ ¹æÁö)
   const removeCostAllocation = useCallback((itemIndex, allocationIndex) => {
-    console.log(`ğŸš¨ removeCostAllocation í˜¸ì¶œ:`, { itemIndex, allocationIndex });
+    console.log(`?? removeCostAllocation È£Ãâ:`, { itemIndex, allocationIndex });
     
     setFormData(prevData => {
       const updated = [...prevData.purchaseItems];
       
-      // costAllocationì´ ì—†ìœ¼ë©´ ìƒì„±
+      // costAllocationÀÌ ¾øÀ¸¸é »ı¼º
       if (!updated[itemIndex].costAllocation) {
         updated[itemIndex].costAllocation = { 
           type: 'percentage',
@@ -1487,21 +1487,21 @@ const ProposalForm = () => {
         };
       }
       
-      // allocationsê°€ ì—†ìœ¼ë©´ ë¹ˆ ë°°ì—´ë¡œ ì´ˆê¸°í™”
+      // allocations°¡ ¾øÀ¸¸é ºó ¹è¿­·Î ÃÊ±âÈ­
       if (!updated[itemIndex].costAllocation.allocations) {
         updated[itemIndex].costAllocation.allocations = [];
       }
       
-      // í•´ë‹¹ ë¶„ë°° ì œê±°
+      // ÇØ´ç ºĞ¹è Á¦°Å
       const updatedAllocations = updated[itemIndex].costAllocation.allocations.filter((_, index) => index !== allocationIndex);
       
-      console.log(`ğŸš¨ ì œê±° í›„ allocations:`, updatedAllocations);
+      console.log(`?? Á¦°Å ÈÄ allocations:`, updatedAllocations);
       
-      // ì‚­ì œ í›„ ë‚˜ë¨¸ì§€ ë¶„ë°°ë“¤ì˜ ë¹„ìœ¨ì„ ê· ë“±í•˜ê²Œ ì¬ë¶„ë°°
+      // »èÁ¦ ÈÄ ³ª¸ÓÁö ºĞ¹èµéÀÇ ºñÀ²À» ±ÕµîÇÏ°Ô ÀçºĞ¹è
       if (updatedAllocations.length > 0) {
         const equalRatio = Math.round(100 / updatedAllocations.length);
         const equalizedAllocations = updatedAllocations.map((alloc, index) => {
-          // ë§ˆì§€ë§‰ ë¶„ë°°ëŠ” ë‚˜ë¨¸ì§€ ë¹„ìœ¨ì„ ëª¨ë‘ ê°€ì ¸ê°€ë„ë¡ ì„¤ì •
+          // ¸¶Áö¸· ºĞ¹è´Â ³ª¸ÓÁö ºñÀ²À» ¸ğµÎ °¡Á®°¡µµ·Ï ¼³Á¤
           if (index === updatedAllocations.length - 1) {
             const remainingRatio = 100 - (equalRatio * (updatedAllocations.length - 1));
             return {
@@ -1517,12 +1517,12 @@ const ProposalForm = () => {
         });
         
         updated[itemIndex].costAllocation.allocations = equalizedAllocations;
-        console.log(`ğŸš¨ ê· ë“± ë¶„ë°° í›„ allocations:`, equalizedAllocations);
+        console.log(`?? ±Õµî ºĞ¹è ÈÄ allocations:`, equalizedAllocations);
       } else {
         updated[itemIndex].costAllocation.allocations = updatedAllocations;
       }
       
-      console.log(`ğŸš¨ ìµœì¢… purchaseItems:`, updated);
+      console.log(`?? ÃÖÁ¾ purchaseItems:`, updated);
       
       return {
         ...prevData,
@@ -1531,14 +1531,14 @@ const ProposalForm = () => {
     });
   }, []);
 
-  // êµ¬ë§¤í’ˆëª© ë¹„ìš©ë¶„ë°° ì—…ë°ì´íŠ¸ - ê°œì„ ëœ êµ¬ì¡° (ì¤‘ë³µ í˜¸ì¶œ ë°©ì§€)
+  // ±¸¸ÅÇ°¸ñ ºñ¿ëºĞ¹è ¾÷µ¥ÀÌÆ® - °³¼±µÈ ±¸Á¶ (Áßº¹ È£Ãâ ¹æÁö)
   const updateCostAllocation = useCallback((itemIndex, allocationIndex, field, value) => {
-    console.log(`ğŸš¨ updateCostAllocation í˜¸ì¶œ:`, { itemIndex, allocationIndex, field, value });
+    console.log(`?? updateCostAllocation È£Ãâ:`, { itemIndex, allocationIndex, field, value });
     
     setFormData(prevData => {
       const updated = [...prevData.purchaseItems];
       
-      // costAllocationì´ ì—†ìœ¼ë©´ ìƒì„±
+      // costAllocationÀÌ ¾øÀ¸¸é »ı¼º
       if (!updated[itemIndex].costAllocation) {
         updated[itemIndex].costAllocation = { 
           type: 'percentage',
@@ -1546,12 +1546,12 @@ const ProposalForm = () => {
         };
       }
       
-      // allocationsê°€ ì—†ìœ¼ë©´ ë¹ˆ ë°°ì—´ë¡œ ì´ˆê¸°í™”
+      // allocations°¡ ¾øÀ¸¸é ºó ¹è¿­·Î ÃÊ±âÈ­
       if (!updated[itemIndex].costAllocation.allocations) {
         updated[itemIndex].costAllocation.allocations = [];
       }
       
-      // allocationì´ ì—†ìœ¼ë©´ ìƒì„±
+      // allocationÀÌ ¾øÀ¸¸é »ı¼º
       if (!updated[itemIndex].costAllocation.allocations[allocationIndex]) {
         updated[itemIndex].costAllocation.allocations[allocationIndex] = {
           id: Date.now() + Math.random(),
@@ -1561,12 +1561,12 @@ const ProposalForm = () => {
         };
       }
       
-      // ê°’ ì—…ë°ì´íŠ¸
+      // °ª ¾÷µ¥ÀÌÆ®
       updated[itemIndex].costAllocation.allocations[allocationIndex][field] = value;
       
-      console.log(`ğŸš¨ ì—…ë°ì´íŠ¸ í›„ allocation:`, updated[itemIndex].costAllocation.allocations[allocationIndex]);
+      console.log(`?? ¾÷µ¥ÀÌÆ® ÈÄ allocation:`, updated[itemIndex].costAllocation.allocations[allocationIndex]);
       
-      // ì •ë¥ ì¸ ê²½ìš° í•©ì´ 100%ë¥¼ ë„˜ì§€ ì•Šë„ë¡ ì¡°ì •
+      // Á¤·üÀÎ °æ¿ì ÇÕÀÌ 100%¸¦ ³ÑÁö ¾Êµµ·Ï Á¶Á¤
       if (field === 'value' && updated[itemIndex].costAllocation.allocations[allocationIndex].type === 'percentage') {
         const currentAllocations = updated[itemIndex].costAllocation.allocations;
         const totalPercentage = currentAllocations.reduce((sum, alloc, idx) => {
@@ -1576,13 +1576,13 @@ const ProposalForm = () => {
           return sum;
         }, 0) + value;
         
-        // 100%ë¥¼ ë„˜ëŠ” ê²½ìš° í˜„ì¬ ì…ë ¥ê°’ì„ ì¡°ì •
+        // 100%¸¦ ³Ñ´Â °æ¿ì ÇöÀç ÀÔ·Â°ªÀ» Á¶Á¤
         if (totalPercentage > 100) {
           updated[itemIndex].costAllocation.allocations[allocationIndex].value = Math.max(0, 100 - totalPercentage + value);
         }
       }
       
-      console.log(`ğŸš¨ ìµœì¢… ì—…ë°ì´íŠ¸ëœ purchaseItems:`, updated);
+      console.log(`?? ÃÖÁ¾ ¾÷µ¥ÀÌÆ®µÈ purchaseItems:`, updated);
       
       return {
         ...prevData,
@@ -1591,7 +1591,7 @@ const ProposalForm = () => {
     });
   }, []);
 
-  // êµ¬ë§¤í’ˆëª©ë³„ ë¹„ìš©ë¶„ë°° í•©ê³„ ê³„ì‚°
+  // ±¸¸ÅÇ°¸ñº° ºñ¿ëºĞ¹è ÇÕ°è °è»ê
   const calculateItemAllocationTotal = (item) => {
     const total = (item.costAllocation?.allocations ?? []).reduce((sum, alloc) => {
       if (alloc.type === 'percentage') {
@@ -1604,7 +1604,7 @@ const ProposalForm = () => {
     return total;
   };
 
-  // êµ¬ë§¤í’ˆëª©ë³„ ë¹„ìš©ë¶„ë°° í•©ê³„ë¥¼ ì •ë¥ ë¡œ í™˜ì‚°
+  // ±¸¸ÅÇ°¸ñº° ºñ¿ëºĞ¹è ÇÕ°è¸¦ Á¤·ü·Î È¯»ê
   const calculateItemAllocationTotalAsPercentage = (item) => {
     if (!item.amount || item.amount <= 0) return 0;
     
@@ -1619,12 +1619,12 @@ const ProposalForm = () => {
     return totalAmount > 0 ? Math.round((totalAmount / item.amount) * 100 * 100) / 100 : 0;
   };
 
-  // ì „ì²´ ë¹„ìš©ê·€ì†ë¶€ì„œ ë°°ë¶„ ì‹¤ì‹œê°„ ê³„ì‚°
+  // ÀüÃ¼ ºñ¿ë±Í¼ÓºÎ¼­ ¹èºĞ ½Ç½Ã°£ °è»ê
   const calculateTotalCostAllocation = () => {
     const totalAllocation = {};
     const totalContractAmount = calculateTotalAmount();
     
-    // ëª¨ë“  êµ¬ë§¤í’ˆëª©ì˜ ë¹„ìš©ë¶„ë°° ì •ë³´ë¥¼ ìˆ˜ì§‘í•˜ì—¬ ì‹¤ì‹œê°„ ê³„ì‚°
+    // ¸ğµç ±¸¸ÅÇ°¸ñÀÇ ºñ¿ëºĞ¹è Á¤º¸¸¦ ¼öÁıÇÏ¿© ½Ç½Ã°£ °è»ê
     formData.purchaseItems.forEach((item, index) => {
       if (item.costAllocation?.allocations) {
         item.costAllocation.allocations.forEach(alloc => {
@@ -1647,7 +1647,7 @@ const ProposalForm = () => {
       }
     });
     
-    // ì „ì²´ ê³„ì•½ê¸ˆì•¡ ëŒ€ë¹„ ê° ë¶€ì„œë³„ ë¹„ìœ¨ ê³„ì‚°
+    // ÀüÃ¼ °è¾à±İ¾× ´ëºñ °¢ ºÎ¼­º° ºñÀ² °è»ê
     Object.keys(totalAllocation).forEach(department => {
       if (totalContractAmount > 0) {
         totalAllocation[department].percentage = (totalAllocation[department].amount / totalContractAmount) * 100;
@@ -1661,7 +1661,7 @@ const ProposalForm = () => {
 
 
 
-  // ë¶€ì„œ ë“œë¡­ë‹¤ìš´ ì—´ê¸°
+  // ºÎ¼­ µå·Ó´Ù¿î ¿­±â
   const openDepartmentDropdown = () => {
     setDepartmentSearchTerm('');
     setFilteredDepartments(departments.filter(dept => 
@@ -1673,7 +1673,7 @@ const ProposalForm = () => {
     setShowDepartmentDropdown(true);
   };
 
-  // êµ¬ë§¤ ë‚´ì—­ ê°€ì ¸ì˜¤ê¸°
+  // ±¸¸Å ³»¿ª °¡Á®¿À±â
   const fetchPurchaseHistory = async (searchTerm = '', field = '', categoryFilter = null) => {
     try {
       const params = new URLSearchParams();
@@ -1685,17 +1685,17 @@ const ProposalForm = () => {
       }
       if (categoryFilter) {
         params.append('category', categoryFilter);
-        console.log('êµ¬ë¶„ í•„í„° ì ìš©:', categoryFilter);
+        console.log('±¸ºĞ ÇÊÅÍ Àû¿ë:', categoryFilter);
       }
       
       const url = `${API_BASE_URL}/api/purchase-history?${params.toString()}`;
-      console.log('API í˜¸ì¶œ:', url);
+      console.log('API È£Ãâ:', url);
       
       const response = await fetch(url);
       const data = await response.json();
-      console.log('ê²€ìƒ‰ ê²°ê³¼:', data);
+      console.log('°Ë»ö °á°ú:', data);
       
-      // ë™ì¼í•œ í’ˆëª©ì„ ê·¸ë£¹í™”í•˜ê³  í‰ê· ê¸ˆì•¡ ê³„ì‚°
+      // µ¿ÀÏÇÑ Ç°¸ñÀ» ±×·ìÈ­ÇÏ°í Æò±Õ±İ¾× °è»ê
       if (field === 'productName' || field === 'supplier') {
         const groupedData = groupAndCalculateAverage(data, field);
         setPurchaseHistory(groupedData);
@@ -1703,101 +1703,101 @@ const ProposalForm = () => {
         setPurchaseHistory(data);
       }
     } catch (error) {
-      console.error('êµ¬ë§¤ ë‚´ì—­ ë¡œë“œ ì‹¤íŒ¨:', error);
+      console.error('±¸¸Å ³»¿ª ·Îµå ½ÇÆĞ:', error);
     }
   };
 
-  // êµ¬ë¶„ë³„ ê³„ì •ê³¼ëª© ë§¤í•‘ í•¨ìˆ˜
+  // ±¸ºĞº° °èÁ¤°ú¸ñ ¸ÅÇÎ ÇÔ¼ö
   const getAccountSubjectByCategory = (category) => {
     const accountMapping = {
-      'ì†Œí”„íŠ¸ì›¨ì–´': {
-        ê´€: 'ê³ ì •ìì‚°',
-        í•­: 'ê¸°íƒ€ê³ ì •ìì‚°',
-        ëª©: 'ë¬´í˜•ìì‚°',
-        ì ˆ: 'ì†Œí”„íŠ¸ì›¨ì–´'
+      '¼ÒÇÁÆ®¿ş¾î': {
+        °ü: '°íÁ¤ÀÚ»ê',
+        Ç×: '±âÅ¸°íÁ¤ÀÚ»ê',
+        ¸ñ: '¹«ÇüÀÚ»ê',
+        Àı: '¼ÒÇÁÆ®¿ş¾î'
       },
-      'ì „ì‚°ê¸°êµ¬ë¹„í’ˆ': {
-        ê´€: 'ê³ ì •ìì‚°',
-        í•­: 'ìœ í˜•ìì‚°',
-        ëª©: 'ì „ì‚°ê¸°êµ¬ë¹„í’ˆ'
+      'Àü»ê±â±¸ºñÇ°': {
+        °ü: '°íÁ¤ÀÚ»ê',
+        Ç×: 'À¯ÇüÀÚ»ê',
+        ¸ñ: 'Àü»ê±â±¸ºñÇ°'
       },
-      'ì „ì‚°ìˆ˜ì„ ': {
-        ê´€: 'ê³ ì •ìì‚°',
-        í•­: 'ìœ í˜•ìì‚°',
-        ëª©: 'ì „ì‚°ìˆ˜ì„ ë¹„'
+      'Àü»ê¼ö¼±': {
+        °ü: '°íÁ¤ÀÚ»ê',
+        Ç×: 'À¯ÇüÀÚ»ê',
+        ¸ñ: 'Àü»ê¼ö¼±ºñ'
       },
-      'ì „ì‚°ì„¤ì¹˜': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ì „ì‚°ìš´ìš©ë¹„',
-        ì ˆ: 'ì „ì‚°ì„¤ì¹˜ë¹„'
+      'Àü»ê¼³Ä¡': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: 'Àü»ê¿î¿ëºñ',
+        Àı: 'Àü»ê¼³Ä¡ºñ'
       },
-      'ì „ì‚°ì†Œëª¨í’ˆ': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ì „ì‚°ìš´ìš©ë¹„',
-        ì ˆ: 'ì „ì‚°ì†Œëª¨í’ˆë¹„'
+      'Àü»ê¼Ò¸ğÇ°': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: 'Àü»ê¿î¿ëºñ',
+        Àı: 'Àü»ê¼Ò¸ğÇ°ºñ'
       },
-      'ì „ì‚°ìš©ì—­': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ì „ì‚°ìš´ìš©ë¹„',
-        ì ˆ: 'ì „ì‚°ìš©ì—­ë¹„'
+      'Àü»ê¿ë¿ª': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: 'Àü»ê¿î¿ëºñ',
+        Àı: 'Àü»ê¿ë¿ªºñ'
       },
-      'ì „ì‚°ì„ì°¨': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ì „ì‚°ìš´ìš©ë¹„',
-        ì ˆ: 'ì „ì‚°ì„ì°¨ë£Œ'
+      'Àü»êÀÓÂ÷': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: 'Àü»ê¿î¿ëºñ',
+        Àı: 'Àü»êÀÓÂ÷·á'
       },
-      'ì „ì‚°íšŒì„ ': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ì „ì‚°ìš´ìš©ë¹„',
-        ì ˆ: 'ì „ì‚°íšŒì„ ë£Œ'
+      'Àü»êÈ¸¼±': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: 'Àü»ê¿î¿ëºñ',
+        Àı: 'Àü»êÈ¸¼±·á'
       },
-      'ì „ì‹ ì „í™”': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ì „ì‚°ìš´ìš©ë¹„',
-        ì ˆ: 'ì „ì‹ ì „í™”ë£Œ'
+      'Àü½ÅÀüÈ­': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: 'Àü»ê¿î¿ëºñ',
+        Àı: 'Àü½ÅÀüÈ­·á'
       },
-      'ì¦ê¶Œì „ì‚°ìš´ìš©': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ì „ì‚°ìš´ìš©ë¹„',
-        ì ˆ: 'ì¦ê¶Œì „ì‚°ìš´ìš©ë¹„'
+      'Áõ±ÇÀü»ê¿î¿ë': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: 'Àü»ê¿î¿ëºñ',
+        Àı: 'Áõ±ÇÀü»ê¿î¿ëºñ'
       },
-      'ë³´í—˜ë¹„': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ê¸°íƒ€íŒê´€ë¹„',
-        ì ˆ: 'ë³´í—˜ë£Œ'
+      'º¸Çèºñ': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: '±âÅ¸ÆÇ°üºñ',
+        Àı: 'º¸Çè·á'
       },
-      'ì¼ë°˜ì—…ë¬´ìˆ˜ìˆ˜ë£Œ': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ê¸°íƒ€íŒê´€ë¹„',
-        ì ˆ: 'ì¼ë°˜ì—…ë¬´ìˆ˜ìˆ˜ë£Œ'
+      'ÀÏ¹İ¾÷¹«¼ö¼ö·á': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: '±âÅ¸ÆÇ°üºñ',
+        Àı: 'ÀÏ¹İ¾÷¹«¼ö¼ö·á'
       },
-      'í†µì‹ ì •ë³´ë£Œ': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ê¸°íƒ€íŒê´€ë¹„',
-        ì ˆ: 'í†µì‹ ì •ë³´ë£Œ'
+      'Åë½ÅÁ¤º¸·á': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: '±âÅ¸ÆÇ°üºñ',
+        Àı: 'Åë½ÅÁ¤º¸·á'
       },
-      'íšŒë¹„ë°ê³µê³¼ê¸ˆ': {
-        ê´€: 'ì˜ì—…ë¹„ìš©',
-        í•­: 'íŒê´€ë¹„',
-        ëª©: 'ì„¸ê¸ˆê³¼ê³µê³¼ê¸ˆ',
-        ì ˆ: 'íšŒë¹„ë°ê³µê³¼ê¸ˆ'
+      'È¸ºñ¹×°ø°ú±İ': {
+        °ü: '¿µ¾÷ºñ¿ë',
+        Ç×: 'ÆÇ°üºñ',
+        ¸ñ: '¼¼±İ°ú°ø°ú±İ',
+        Àı: 'È¸ºñ¹×°ø°ú±İ'
       }
     };
     
     return accountMapping[category] || null;
   };
 
-  // ë™ì¼í•œ í’ˆëª©ì„ ê·¸ë£¹í™”í•˜ê³  í‰ê· ê¸ˆì•¡ ê³„ì‚°í•˜ëŠ” í•¨ìˆ˜
+  // µ¿ÀÏÇÑ Ç°¸ñÀ» ±×·ìÈ­ÇÏ°í Æò±Õ±İ¾× °è»êÇÏ´Â ÇÔ¼ö
   const groupAndCalculateAverage = (data, field) => {
     const grouped = {};
     
@@ -1808,7 +1808,7 @@ const ProposalForm = () => {
       } else if (field === 'supplier') {
         key = item.supplier;
       } else {
-        return; // ë‹¤ë¥¸ í•„ë“œì¸ ê²½ìš° ê·¸ë£¹í™”í•˜ì§€ ì•ŠìŒ
+        return; // ´Ù¸¥ ÇÊµåÀÎ °æ¿ì ±×·ìÈ­ÇÏÁö ¾ÊÀ½
       }
       
       if (!grouped[key]) {
@@ -1835,7 +1835,7 @@ const ProposalForm = () => {
       }
     });
     
-    // í‰ê·  ë‹¨ê°€ ê³„ì‚° ë° ë°°ì—´ë¡œ ë³€í™˜
+    // Æò±Õ ´Ü°¡ °è»ê ¹× ¹è¿­·Î º¯È¯
     const result = Object.values(grouped).map(item => ({
       ...item,
       avg_unit_price: item.frequency > 0 ? Math.round(item.total_amount / item.frequency) : 0,
@@ -1843,22 +1843,22 @@ const ProposalForm = () => {
       max_price: item.max_price === Infinity ? 0 : item.max_price
     }));
     
-    // êµ¬ë§¤íšŸìˆ˜ ê¸°ì¤€ìœ¼ë¡œ ì •ë ¬ (ë†’ì€ ìˆœ)
+    // ±¸¸ÅÈ½¼ö ±âÁØÀ¸·Î Á¤·Ä (³ôÀº ¼ø)
     result.sort((a, b) => b.frequency - a.frequency);
     
     return result;
   };
 
-  // ì‹¤ì‹œê°„ ê²€ìƒ‰ ë””ë°”ìš´ìŠ¤
+  // ½Ç½Ã°£ °Ë»ö µğ¹Ù¿î½º
   const [searchTimeout, setSearchTimeout] = useState(null);
 
-  // ë¯¸ë¦¬ë³´ê¸° ê´€ë ¨ ìƒíƒœ
+  // ¹Ì¸®º¸±â °ü·Ã »óÅÂ
   const [showPreview, setShowPreview] = useState(false);
-  const [popupSize, setPopupSize] = useState({ width: 99, height: 97 }); // íŒì—… í¬ê¸° ìƒíƒœ (vw, vh ë‹¨ìœ„)
+  const [popupSize, setPopupSize] = useState({ width: 99, height: 97 }); // ÆË¾÷ Å©±â »óÅÂ (vw, vh ´ÜÀ§)
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState(null);
 
-  // ë¦¬ì‚¬ì´ì¦ˆ í•¸ë“¤ëŸ¬
+  // ¸®»çÀÌÁî ÇÚµé·¯
   const handleResizeStart = (e, direction) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1906,9 +1906,9 @@ const ProposalForm = () => {
     }
     
     const timeout = setTimeout(() => {
-      console.log('ê²€ìƒ‰ ì‹¤í–‰:', { searchTerm, field, itemIndex });
+      console.log('°Ë»ö ½ÇÇà:', { searchTerm, field, itemIndex });
       if (searchTerm.trim()) {
-        // ë‚´ì—­ ê²€ìƒ‰ ì‹œ í•´ë‹¹ í’ˆëª©ì˜ êµ¬ë¶„ ì •ë³´ ì „ë‹¬
+        // ³»¿ª °Ë»ö ½Ã ÇØ´ç Ç°¸ñÀÇ ±¸ºĞ Á¤º¸ Àü´Ş
         let categoryFilter = null;
         if (field === 'productName' && formData.purchaseItems[itemIndex]?.item) {
           categoryFilter = formData.purchaseItems[itemIndex].item;
@@ -1922,7 +1922,7 @@ const ProposalForm = () => {
         else if (field === 'productName') setShowProductSuggestions(true);
         else if (field === 'supplier') setShowSupplierSuggestions(true);
       } else {
-        // ê²€ìƒ‰ì–´ê°€ ì—†ìœ¼ë©´ ì¶”ì²œ ìˆ¨ê¸°ê¸°
+        // °Ë»ö¾î°¡ ¾øÀ¸¸é ÃßÃµ ¼û±â±â
         setShowItemSuggestions(false);
         setShowProductSuggestions(false);
         setShowSupplierSuggestions(false);
@@ -1932,13 +1932,13 @@ const ProposalForm = () => {
     setSearchTimeout(timeout);
   };
 
-  // ì¶”ì²œ ì„ íƒ
+  // ÃßÃµ ¼±ÅÃ
   const selectSuggestion = (field, value, itemIndex) => {
     const updated = [...formData.purchaseItems];
     updated[itemIndex][field] = value;
     setFormData({...formData, purchaseItems: updated});
     
-    // ì¶”ì²œ ì°½ ë‹«ê¸°
+    // ÃßÃµ Ã¢ ´İ±â
     setShowItemSuggestions(false);
     setShowProductSuggestions(false);
     setShowSupplierSuggestions(false);
@@ -1946,12 +1946,12 @@ const ProposalForm = () => {
     setCurrentSuggestionIndex(null);
   };
 
-  // ì…ë ¥ í•„ë“œ í¬ì»¤ìŠ¤ ì‹œ ì¶”ì²œ í‘œì‹œ
+  // ÀÔ·Â ÇÊµå Æ÷Ä¿½º ½Ã ÃßÃµ Ç¥½Ã
   const handleInputFocus = async (field, itemIndex, searchTerm = '') => {
     setCurrentSuggestionField(field);
     setCurrentSuggestionIndex(itemIndex);
     
-    // ë‚´ì—­ í•„ë“œ í¬ì»¤ìŠ¤ ì‹œ êµ¬ë¶„ ì •ë³´ ì „ë‹¬
+    // ³»¿ª ÇÊµå Æ÷Ä¿½º ½Ã ±¸ºĞ Á¤º¸ Àü´Ş
     let categoryFilter = null;
     if (field === 'productName' && formData.purchaseItems[itemIndex]?.item) {
       categoryFilter = formData.purchaseItems[itemIndex].item;
@@ -1968,7 +1968,7 @@ const ProposalForm = () => {
     else if (field === 'supplier') setShowSupplierSuggestions(true);
   };
 
-  // ì…ë ¥ í•„ë“œ ë¸”ëŸ¬ ì‹œ ì¶”ì²œ ìˆ¨ê¸°ê¸°
+  // ÀÔ·Â ÇÊµå ºí·¯ ½Ã ÃßÃµ ¼û±â±â
   const handleInputBlur = () => {
     setTimeout(() => {
       setShowItemSuggestions(false);
@@ -1979,7 +1979,7 @@ const ProposalForm = () => {
     }, 200);
   };
 
-  // í¸ì§‘ ëª¨ë“œ ë°ì´í„° ì •ê·œí™” í•¨ìˆ˜
+  // ÆíÁı ¸ğµå µ¥ÀÌÅÍ Á¤±ÔÈ­ ÇÔ¼ö
   const normalizeEditModeData = (formData, totalAmount, approvalLine) => {
     const normalizedPurchaseItems = [];
     
@@ -2018,14 +2018,14 @@ const ProposalForm = () => {
     };
   };
 
-  // í†µí•© í’ˆì˜ì„œ ì €ì¥ í•¨ìˆ˜ (ì„ì‹œì €ì¥ + ì‘ì„±ì™„ë£Œ)
+  // ÅëÇÕ Ç°ÀÇ¼­ ÀúÀå ÇÔ¼ö (ÀÓ½ÃÀúÀå + ÀÛ¼º¿Ï·á)
   const handleProposalSave = async (isDraft = true, preventNavigation = false) => {
     try {
-      console.log(isDraft ? 'ì„ì‹œì €ì¥ ì‹œì‘...' : 'ì‘ì„±ì™„ë£Œ ì €ì¥ ì‹œì‘...');
+      console.log(isDraft ? 'ÀÓ½ÃÀúÀå ½ÃÀÛ...' : 'ÀÛ¼º¿Ï·á ÀúÀå ½ÃÀÛ...');
       
-      // ë°ì´í„° ê²€ì¦
+      // µ¥ÀÌÅÍ °ËÁõ
       if (isDraft) {
-        // ì„ì‹œì €ì¥: ìµœì†Œ 1ê°œ ì´ìƒì˜ ê°’ì´ ìˆëŠ”ì§€ í™•ì¸
+        // ÀÓ½ÃÀúÀå: ÃÖ¼Ò 1°³ ÀÌ»óÀÇ °ªÀÌ ÀÖ´ÂÁö È®ÀÎ
         const hasAnyData = formData.title?.trim() ||
                           formData.purpose?.trim() || 
                           formData.basis?.trim() || 
@@ -2033,137 +2033,137 @@ const ProposalForm = () => {
                           formData.accountSubject?.trim() ||
                           (formData.purchaseItems && formData.purchaseItems.length > 0) ||
                           (formData.serviceItems && formData.serviceItems.length > 0) ||
-                          formData.wysiwygContent?.trim(); // ììœ ì–‘ì‹ ë‚´ìš© ì¶”ê°€
+                          formData.wysiwygContent?.trim(); // ÀÚÀ¯¾ç½Ä ³»¿ë Ãß°¡
         
         if (!hasAnyData) {
-          alert('ì €ì¥í•  ë°ì´í„°ê°€ ì—†ìŠµë‹ˆë‹¤. ìµœì†Œ 1ê°œ ì´ìƒì˜ í•­ëª©ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+          alert('ÀúÀåÇÒ µ¥ÀÌÅÍ°¡ ¾ø½À´Ï´Ù. ÃÖ¼Ò 1°³ ÀÌ»óÀÇ Ç×¸ñÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.');
           return;
         }
-        console.log('âœ… ì„ì‹œì €ì¥ ìµœì†Œ ë°ì´í„° í™•ì¸ ì™„ë£Œ');
-        console.log('ğŸ” ë””ë²„ê¹… - wysiwygContent ê°’:', formData.wysiwygContent);
-        console.log('ğŸ” ë””ë²„ê¹… - wysiwygContent ê¸¸ì´:', formData.wysiwygContent?.length);
-        console.log('ğŸ” ë””ë²„ê¹… - contractType:', contractType);
+        console.log('? ÀÓ½ÃÀúÀå ÃÖ¼Ò µ¥ÀÌÅÍ È®ÀÎ ¿Ï·á');
+        console.log('?? µğ¹ö±ë - wysiwygContent °ª:', formData.wysiwygContent);
+        console.log('?? µğ¹ö±ë - wysiwygContent ±æÀÌ:', formData.wysiwygContent?.length);
+        console.log('?? µğ¹ö±ë - contractType:', contractType);
       } else {
-        // ì‘ì„±ì™„ë£Œ: í•„ìˆ˜ í•­ëª© ê²€ì¦
-        console.log('âœ… ì‘ì„±ì™„ë£Œ í•„ìˆ˜ í•­ëª© ê²€ì¦ ì‹œì‘');
+        // ÀÛ¼º¿Ï·á: ÇÊ¼ö Ç×¸ñ °ËÁõ
+        console.log('? ÀÛ¼º¿Ï·á ÇÊ¼ö Ç×¸ñ °ËÁõ ½ÃÀÛ');
         
         if (!formData.purpose?.trim()) {
-          alert('í’ˆì˜ì„œ ëª©ì ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+          alert('Ç°ÀÇ¼­ ¸ñÀûÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.');
           return;
         }
         
         if (!formData.basis?.trim()) {
-          alert('ê³„ì•½ ê·¼ê±°ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+          alert('°è¾à ±Ù°Å¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä.');
           return;
         }
         
         if (!formData.budget) {
-          alert('ì‚¬ì—…ì˜ˆì‚°ì„ ì„ íƒí•´ì£¼ì„¸ìš”.');
+          alert('»ç¾÷¿¹»êÀ» ¼±ÅÃÇØÁÖ¼¼¿ä.');
           return;
         }
         
         if (!formData.accountSubject?.trim()) {
-          alert('ê¸°íƒ€ ì‚¬í•­ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+          alert('±âÅ¸ »çÇ×À» ÀÔ·ÂÇØÁÖ¼¼¿ä.');
           return;
         }
         
-        // ê³„ì•½ ìœ í˜•ë³„ í•„ìˆ˜ í•­ëª© ê²€ì¦
+        // °è¾à À¯Çüº° ÇÊ¼ö Ç×¸ñ °ËÁõ
         if (contractType === 'purchase' || contractType === 'change' || contractType === 'extension') {
           if (!formData.purchaseItems || formData.purchaseItems.length === 0) {
-            alert('êµ¬ë§¤í’ˆëª©ì„ ì¶”ê°€í•´ì£¼ì„¸ìš”.');
+            alert('±¸¸ÅÇ°¸ñÀ» Ãß°¡ÇØÁÖ¼¼¿ä.');
             return;
           }
           
-          // ê° êµ¬ë§¤í’ˆëª©ì˜ í•„ìˆ˜ í•­ëª© ê²€ì¦
+          // °¢ ±¸¸ÅÇ°¸ñÀÇ ÇÊ¼ö Ç×¸ñ °ËÁõ
           for (let i = 0; i < formData.purchaseItems.length; i++) {
             const item = formData.purchaseItems[i];
             if (!item.item?.trim()) {
-              alert(`${i + 1}ë²ˆì§¸ êµ¬ë§¤í’ˆëª©ì˜ êµ¬ë¶„ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+              alert(`${i + 1}¹øÂ° ±¸¸ÅÇ°¸ñÀÇ ±¸ºĞÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
               return;
             }
             if (!item.productName?.trim()) {
-              alert(`${i + 1}ë²ˆì§¸ êµ¬ë§¤í’ˆëª©ì˜ ë‚´ì—­ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+              alert(`${i + 1}¹øÂ° ±¸¸ÅÇ°¸ñÀÇ ³»¿ªÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
               return;
             }
             if (!item.quantity || item.quantity <= 0) {
-              alert(`${i + 1}ë²ˆì§¸ êµ¬ë§¤í’ˆëª©ì˜ ìˆ˜ëŸ‰ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+              alert(`${i + 1}¹øÂ° ±¸¸ÅÇ°¸ñÀÇ ¼ö·®À» ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
               return;
             }
             if (!item.unitPrice || item.unitPrice <= 0) {
-              alert(`${i + 1}ë²ˆì§¸ êµ¬ë§¤í’ˆëª©ì˜ ë‹¨ê°€ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+              alert(`${i + 1}¹øÂ° ±¸¸ÅÇ°¸ñÀÇ ´Ü°¡¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
               return;
             }
           }
         } else if (contractType === 'service') {
           if (!formData.serviceItems || formData.serviceItems.length === 0) {
-            alert('ìš©ì—­í’ˆëª©ì„ ì¶”ê°€í•´ì£¼ì„¸ìš”.');
+            alert('¿ë¿ªÇ°¸ñÀ» Ãß°¡ÇØÁÖ¼¼¿ä.');
             return;
           }
           
-          // ê° ìš©ì—­í’ˆëª©ì˜ í•„ìˆ˜ í•­ëª© ê²€ì¦
+          // °¢ ¿ë¿ªÇ°¸ñÀÇ ÇÊ¼ö Ç×¸ñ °ËÁõ
           for (let i = 0; i < formData.serviceItems.length; i++) {
             const item = formData.serviceItems[i];
             if (!item.item?.trim()) {
-              alert(`${i + 1}ë²ˆì§¸ ìš©ì—­í’ˆëª©ì˜ í•­ëª©ëª…ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+              alert(`${i + 1}¹øÂ° ¿ë¿ªÇ°¸ñÀÇ Ç×¸ñ¸íÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
               return;
             }
             if (!item.personnel || item.personnel <= 0) {
-              alert(`${i + 1}ë²ˆì§¸ ìš©ì—­í’ˆëª©ì˜ ì¸ì›ìˆ˜ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+              alert(`${i + 1}¹øÂ° ¿ë¿ªÇ°¸ñÀÇ ÀÎ¿ø¼ö¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
               return;
             }
             if (!item.contractAmount || item.contractAmount <= 0) {
-              alert(`${i + 1}ë²ˆì§¸ ìš©ì—­í’ˆëª©ì˜ ê³„ì•½ê¸ˆì•¡ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+              alert(`${i + 1}¹øÂ° ¿ë¿ªÇ°¸ñÀÇ °è¾à±İ¾×À» ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
               return;
             }
           }
         } else if (contractType === 'freeform') {
           if (!formData.wysiwygContent?.trim()) {
-            alert('ììœ ì–‘ì‹ ë¬¸ì„œ ë‚´ìš©ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+            alert('ÀÚÀ¯¾ç½Ä ¹®¼­ ³»¿ëÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.');
             return;
           }
         }
         
-        // ë¹„ìš©ê·€ì†ë¶„ë°° í•„ìˆ˜ ê²€ì¦ (êµ¬ë§¤ê³„ì•½ì˜ ê²½ìš°)
+        // ºñ¿ë±Í¼ÓºĞ¹è ÇÊ¼ö °ËÁõ (±¸¸Å°è¾àÀÇ °æ¿ì)
         if (contractType === 'purchase' || contractType === 'change' || contractType === 'extension') {
           for (let i = 0; i < formData.purchaseItems.length; i++) {
             const item = formData.purchaseItems[i];
             if (!item.costAllocation || !item.costAllocation.allocations || item.costAllocation.allocations.length === 0) {
-              alert(`${i + 1}ë²ˆì§¸ êµ¬ë§¤í’ˆëª©ì˜ ë¹„ìš©ê·€ì†ë¶„ë°° ì •ë³´ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+              alert(`${i + 1}¹øÂ° ±¸¸ÅÇ°¸ñÀÇ ºñ¿ë±Í¼ÓºĞ¹è Á¤º¸¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
               return;
             }
             
-            // ë¹„ìš©ë¶„ë°° í•©ê³„ ê²€ì¦
+            // ºñ¿ëºĞ¹è ÇÕ°è °ËÁõ
             const totalPercentage = item.costAllocation.allocations.reduce((sum, alloc) => {
               return alloc.type === 'percentage' ? sum + (alloc.value || 0) : sum;
             }, 0);
             
             if (Math.abs(totalPercentage - 100) > 0.01) {
-              alert(`${i + 1}ë²ˆì§¸ êµ¬ë§¤í’ˆëª©ì˜ ë¹„ìš©ë¶„ë°° ë¹„ìœ¨ í•©ê³„ê°€ 100%ê°€ ì•„ë‹™ë‹ˆë‹¤. (í˜„ì¬: ${totalPercentage}%)`);
+              alert(`${i + 1}¹øÂ° ±¸¸ÅÇ°¸ñÀÇ ºñ¿ëºĞ¹è ºñÀ² ÇÕ°è°¡ 100%°¡ ¾Æ´Õ´Ï´Ù. (ÇöÀç: ${totalPercentage}%)`);
               return;
             }
           }
         }
         
-        console.log('âœ… ì‘ì„±ì™„ë£Œ í•„ìˆ˜ í•­ëª© ê²€ì¦ ì™„ë£Œ');
+        console.log('? ÀÛ¼º¿Ï·á ÇÊ¼ö Ç×¸ñ °ËÁõ ¿Ï·á');
       }
       
-      // êµ¬ë§¤í’ˆëª©ë³„ ë¹„ìš©ë¶„ë°° ì •ë³´ ìˆ˜ì§‘ (ê°•í™”ëœ ë¡œì§)
+      // ±¸¸ÅÇ°¸ñº° ºñ¿ëºĞ¹è Á¤º¸ ¼öÁı (°­È­µÈ ·ÎÁ÷)
       const purchaseItemCostAllocations = [];
-      console.log(`=== ${isDraft ? 'ì„ì‹œì €ì¥' : 'ì‘ì„±ì™„ë£Œ'} ì‹œ ë¹„ìš©ë¶„ë°° ì •ë³´ ìˆ˜ì§‘ ===`);
-      console.log('ì „ì²´ êµ¬ë§¤í’ˆëª© ìˆ˜:', formData.purchaseItems.length);
+      console.log(`=== ${isDraft ? 'ÀÓ½ÃÀúÀå' : 'ÀÛ¼º¿Ï·á'} ½Ã ºñ¿ëºĞ¹è Á¤º¸ ¼öÁı ===`);
+      console.log('ÀüÃ¼ ±¸¸ÅÇ°¸ñ ¼ö:', formData.purchaseItems.length);
       
       formData.purchaseItems.forEach((item, itemIndex) => {
-        console.log(`êµ¬ë§¤í’ˆëª© ${itemIndex + 1} (${item.item}) ë¹„ìš©ë¶„ë°° ì •ë³´:`, {
+        console.log(`±¸¸ÅÇ°¸ñ ${itemIndex + 1} (${item.item}) ºñ¿ëºĞ¹è Á¤º¸:`, {
           hasCostAllocation: !!item.costAllocation,
           costAllocationData: item.costAllocation,
           allocationsCount: item.costAllocation?.allocations?.length || 0,
           itemData: item
         });
         
-        // ë¹„ìš©ë¶„ë°° ì •ë³´ê°€ ìˆëŠ” ê²½ìš°ì—ë§Œ ìˆ˜ì§‘
+        // ºñ¿ëºĞ¹è Á¤º¸°¡ ÀÖ´Â °æ¿ì¿¡¸¸ ¼öÁı
         if (item.costAllocation && item.costAllocation.allocations && item.costAllocation.allocations.length > 0) {
           item.costAllocation.allocations.forEach((alloc, allocIndex) => {
-            // ìœ íš¨ì„± ê²€ì‚¬ ì¶”ê°€
+            // À¯È¿¼º °Ë»ç Ãß°¡
             if (alloc && alloc.department && (alloc.value || alloc.value === 0)) {
               const allocationData = {
                 itemIndex,
@@ -2172,26 +2172,26 @@ const ProposalForm = () => {
                 type: alloc.type || 'percentage',
                 value: alloc.value,
                 amount: alloc.type === 'percentage' ? (item.amount * (alloc.value / 100)) : alloc.value,
-                // ì¶”ê°€ ì‹ë³„ ì •ë³´
+                // Ãß°¡ ½Äº° Á¤º¸
                 itemName: item.item,
                 productName: item.productName
               };
               purchaseItemCostAllocations.push(allocationData);
-              console.log(`  í• ë‹¹ ${allocIndex + 1}:`, allocationData);
+              console.log(`  ÇÒ´ç ${allocIndex + 1}:`, allocationData);
             } else {
-              console.log(`  í• ë‹¹ ${allocIndex + 1} ìœ íš¨í•˜ì§€ ì•ŠìŒ:`, alloc);
+              console.log(`  ÇÒ´ç ${allocIndex + 1} À¯È¿ÇÏÁö ¾ÊÀ½:`, alloc);
             }
           });
         } else {
-          console.log(`  ë¹„ìš©ë¶„ë°° ì •ë³´ ì—†ìŒ`);
+          console.log(`  ºñ¿ëºĞ¹è Á¤º¸ ¾øÀ½`);
         }
       });
       
-      console.log('ìµœì¢… ìˆ˜ì§‘ëœ ë¹„ìš©ë¶„ë°° ì •ë³´:', purchaseItemCostAllocations);
+      console.log('ÃÖÁ¾ ¼öÁıµÈ ºñ¿ëºĞ¹è Á¤º¸:', purchaseItemCostAllocations);
 
-      // êµ¬ë§¤í’ˆëª©ì— ë¹„ìš©ë¶„ë°° ì •ë³´ë¥¼ ì§ì ‘ í¬í•¨í•˜ì—¬ ì €ì¥ (ê°•í™”ëœ êµ¬ì¡°)
+      // ±¸¸ÅÇ°¸ñ¿¡ ºñ¿ëºĞ¹è Á¤º¸¸¦ Á÷Á¢ Æ÷ÇÔÇÏ¿© ÀúÀå (°­È­µÈ ±¸Á¶)
       const purchaseItemsWithAllocations = formData.purchaseItems.map(item => {
-        // costAllocationì´ ì—†ê±°ë‚˜ allocationsê°€ ì—†ìœ¼ë©´ ê¸°ë³¸ê°’ ìƒì„±
+        // costAllocationÀÌ ¾ø°Å³ª allocations°¡ ¾øÀ¸¸é ±âº»°ª »ı¼º
         const costAllocation = item.costAllocation && item.costAllocation.allocations 
           ? {
               type: item.costAllocation.type || 'percentage',
@@ -2204,7 +2204,7 @@ const ProposalForm = () => {
             }
           : { type: 'percentage', allocations: [] };
         
-        // requestDepartmentsê°€ ì—†ìœ¼ë©´ ë¹ˆ ë°°ì—´ë¡œ ì´ˆê¸°í™”
+        // requestDepartments°¡ ¾øÀ¸¸é ºó ¹è¿­·Î ÃÊ±âÈ­
         const requestDepartments = item.requestDepartments || [];
         
         return {
@@ -2214,40 +2214,40 @@ const ProposalForm = () => {
         };
       });
 
-      // ìš”ì²­ë¶€ì„œ ë°ì´í„° ì •ê·œí™” (ë¬¸ìì—´ ë°°ì—´ë¡œ ë³€í™˜)
+      // ¿äÃ»ºÎ¼­ µ¥ÀÌÅÍ Á¤±ÔÈ­ (¹®ÀÚ¿­ ¹è¿­·Î º¯È¯)
       const normalizedRequestDepartments = (formData.requestDepartments || []).map(dept => 
-        typeof dept === 'string' ? dept : dept.name || dept
-      ).filter(Boolean); // ë¹ˆ ê°’ ì œê±°
+        typeof dept === 'string' ? dept : dept.department || dept.name || dept
+      ).filter(Boolean); // ºó °ª Á¦°Å
 
-      // ê³„ì•½ ìœ í˜• ê²€ì¦
+      // °è¾à À¯Çü °ËÁõ
       if (!contractType) {
-        alert('ê³„ì•½ ìœ í˜•ì„ ì„ íƒí•´ì£¼ì„¸ìš”.');
+        alert('°è¾à À¯ÇüÀ» ¼±ÅÃÇØÁÖ¼¼¿ä.');
         return;
       }
       
-      // budget ê°’ ë””ë²„ê¹…
-      console.log('ğŸ” ì„ì‹œì €ì¥ ì‹œ budget ê°’ í™•ì¸:', {
+      // budget °ª µğ¹ö±ë
+      console.log('?? ÀÓ½ÃÀúÀå ½Ã budget °ª È®ÀÎ:', {
         'formData.budget': formData.budget,
         'typeof formData.budget': typeof formData.budget,
         'parseInt(formData.budget)': parseInt(formData.budget),
         'isNaN(parseInt(formData.budget))': isNaN(parseInt(formData.budget))
       });
 
-      // ì´ ê¸ˆì•¡ ê³„ì‚°
+      // ÃÑ ±İ¾× °è»ê
       const totalAmount = calculateTotalAmount();
-      console.log('ğŸ” ì„ì‹œì €ì¥ ì‹œ ì´ ê¸ˆì•¡:', totalAmount);
+      console.log('?? ÀÓ½ÃÀúÀå ½Ã ÃÑ ±İ¾×:', totalAmount);
 
       const proposalData = {
-        contractType: contractType, // ì‚¬ìš©ìê°€ ì„ íƒí•œ ê³„ì•½ ìœ í˜•
+        contractType: contractType, // »ç¿ëÀÚ°¡ ¼±ÅÃÇÑ °è¾à À¯Çü
         title: formData.title || '',
-        purpose: formData.purpose || 'í’ˆì˜ì„œ',
+        purpose: formData.purpose || 'Ç°ÀÇ¼­',
         basis: formData.basis || '',
         budget: formData.budget || '',
         contractMethod: formData.contractMethod || '',
         accountSubject: formData.accountSubject || '',
-        totalAmount: totalAmount, // ì´ ê¸ˆì•¡ ì¶”ê°€
-        requestDepartments: normalizedRequestDepartments, // ì •ê·œí™”ëœ ìš”ì²­ë¶€ì„œ
-        purchaseItems: purchaseItemsWithAllocations, // ë¹„ìš©ë¶„ë°° ì •ë³´ê°€ í¬í•¨ëœ êµ¬ë§¤í’ˆëª©
+        totalAmount: totalAmount, // ÃÑ ±İ¾× Ãß°¡
+        requestDepartments: normalizedRequestDepartments, // Á¤±ÔÈ­µÈ ¿äÃ»ºÎ¼­
+        purchaseItems: purchaseItemsWithAllocations, // ºñ¿ëºĞ¹è Á¤º¸°¡ Æ÷ÇÔµÈ ±¸¸ÅÇ°¸ñ
         serviceItems: formData.serviceItems || [],
         suppliers: formData.suppliers || [],
         changeReason: formData.changeReason || '',
@@ -2260,51 +2260,51 @@ const ProposalForm = () => {
         qualificationRequirements: formData.qualificationRequirements || '',
         evaluationCriteria: formData.evaluationCriteria || '',
         priceComparison: formData.priceComparison || [],
-        wysiwygContent: formData.wysiwygContent || '', // ììœ ì–‘ì‹ ë¬¸ì„œ ë‚´ìš© ì¶”ê°€
-        createdBy: 'ì‚¬ìš©ì1', // ê³ ì •ê°’ìœ¼ë¡œ ì„¤ì •
-        isDraft: isDraft, // ë§¤ê°œë³€ìˆ˜ì— ë”°ë¼ ì„¤ì •
-        status: isDraft ? 'draft' : 'submitted', // ì„ì‹œì €ì¥: draft, ì‘ì„±ì™„ë£Œ: submitted
-        purchaseItemCostAllocations // ì¶”ê°€ë¡œ ë³„ë„ ì €ì¥ (ë°±ì—…ìš©)
+        wysiwygContent: formData.wysiwygContent || '', // ÀÚÀ¯¾ç½Ä ¹®¼­ ³»¿ë Ãß°¡
+        createdBy: '»ç¿ëÀÚ1', // °íÁ¤°ªÀ¸·Î ¼³Á¤
+        isDraft: isDraft, // ¸Å°³º¯¼ö¿¡ µû¶ó ¼³Á¤
+        status: isDraft ? 'draft' : 'submitted', // ÀÓ½ÃÀúÀå: draft, ÀÛ¼º¿Ï·á: submitted
+        purchaseItemCostAllocations // Ãß°¡·Î º°µµ ÀúÀå (¹é¾÷¿ë)
       };
 
-      // í¸ì§‘ ëª¨ë“œì¸ ê²½ìš° proposalIdëŠ” ì¶”ê°€í•˜ì§€ ì•ŠìŒ (ì„œë²„ì—ì„œ ìë™ ìƒì„±)
+      // ÆíÁı ¸ğµåÀÎ °æ¿ì proposalId´Â Ãß°¡ÇÏÁö ¾ÊÀ½ (¼­¹ö¿¡¼­ ÀÚµ¿ »ı¼º)
 
-      console.log('ì„œë²„ë¡œ ì „ì†¡í•  ë°ì´í„°:', proposalData);
-      console.log('ğŸ” ë””ë²„ê¹… - ì „ì†¡í•  wysiwygContent:', proposalData.wysiwygContent);
+      console.log('¼­¹ö·Î Àü¼ÛÇÒ µ¥ÀÌÅÍ:', proposalData);
+      console.log('?? µğ¹ö±ë - Àü¼ÛÇÒ wysiwygContent:', proposalData.wysiwygContent);
 
-      // í¸ì§‘ ëª¨ë“œì¸ ê²½ìš° PUT, ìƒˆë¡œ ì‘ì„±ì¸ ê²½ìš° POST
+      // ÆíÁı ¸ğµåÀÎ °æ¿ì PUT, »õ·Î ÀÛ¼ºÀÎ °æ¿ì POST
       let url, method;
       
-      // API ì„ íƒ ë° í¸ì§‘ ëª¨ë“œ ì²˜ë¦¬
+      // API ¼±ÅÃ ¹× ÆíÁı ¸ğµå Ã³¸®
       if (isDraft) {
-        // ì„ì‹œì €ì¥: draft API ì‚¬ìš© (í¸ì§‘ ëª¨ë“œì™€ ì‹ ê·œ ì‘ì„± ëª¨ë‘)
+        // ÀÓ½ÃÀúÀå: draft API »ç¿ë (ÆíÁı ¸ğµå¿Í ½Å±Ô ÀÛ¼º ¸ğµÎ)
         url = `${API_BASE_URL}/api/proposals/draft`;
         method = 'POST';
         
-        // í¸ì§‘ ëª¨ë“œì¸ ê²½ìš° proposalId í¬í•¨
+        // ÆíÁı ¸ğµåÀÎ °æ¿ì proposalId Æ÷ÇÔ
         if (editingProposalId) {
           proposalData.proposalId = editingProposalId;
-          console.log('ì„ì‹œì €ì¥ - í¸ì§‘ ëª¨ë“œ (ID í¬í•¨):', editingProposalId);
+          console.log('ÀÓ½ÃÀúÀå - ÆíÁı ¸ğµå (ID Æ÷ÇÔ):', editingProposalId);
         } else {
-          console.log('ì„ì‹œì €ì¥ - ìƒˆë¡œ ì‘ì„±');
+          console.log('ÀÓ½ÃÀúÀå - »õ·Î ÀÛ¼º');
         }
       } else {
-        // ì‘ì„±ì™„ë£Œ: ì¼ë°˜ API ì‚¬ìš©
+        // ÀÛ¼º¿Ï·á: ÀÏ¹İ API »ç¿ë
         if (isEditMode && editingProposalId) {
-          // í¸ì§‘ ëª¨ë“œ: PUT ìš”ì²­
+          // ÆíÁı ¸ğµå: PUT ¿äÃ»
           url = `${API_BASE_URL}/api/proposals/${editingProposalId}`;
           method = 'PUT';
-          console.log('ì‘ì„±ì™„ë£Œ - í¸ì§‘ ëª¨ë“œ PUT ìš”ì²­:', url);
+          console.log('ÀÛ¼º¿Ï·á - ÆíÁı ¸ğµå PUT ¿äÃ»:', url);
         } else {
-          // ì‹ ê·œ ì‘ì„±: POST ìš”ì²­
+          // ½Å±Ô ÀÛ¼º: POST ¿äÃ»
                       url = `${API_BASE_URL}/api/proposals`;
           method = 'POST';
-          console.log('ì‘ì„±ì™„ë£Œ - ì‹ ê·œ ì‘ì„± POST ìš”ì²­:', url);
+          console.log('ÀÛ¼º¿Ï·á - ½Å±Ô ÀÛ¼º POST ¿äÃ»:', url);
         }
       }
       
-      console.log('ìš”ì²­ URL:', url);
-      console.log('ìš”ì²­ ë©”ì„œë“œ:', method);
+      console.log('¿äÃ» URL:', url);
+      console.log('¿äÃ» ¸Ş¼­µå:', method);
       
       const response = await fetch(url, {
         method: method,
@@ -2314,109 +2314,109 @@ const ProposalForm = () => {
         body: JSON.stringify(proposalData)
       });
 
-      // ì‘ë‹µ í…ìŠ¤íŠ¸ë¥¼ ë¨¼ì € í™•ì¸
+      // ÀÀ´ä ÅØ½ºÆ®¸¦ ¸ÕÀú È®ÀÎ
       const responseText = await response.text();
-      console.log('ì„ì‹œì €ì¥ ì‘ë‹µ í…ìŠ¤íŠ¸:', responseText);
+      console.log('ÀÓ½ÃÀúÀå ÀÀ´ä ÅØ½ºÆ®:', responseText);
       
       let result;
       try {
         result = JSON.parse(responseText);
-        console.log('ì„ì‹œì €ì¥ ì‘ë‹µ (JSON):', result);
+        console.log('ÀÓ½ÃÀúÀå ÀÀ´ä (JSON):', result);
       } catch (parseError) {
-        console.error('JSON íŒŒì‹± ì˜¤ë¥˜:', parseError);
-        console.error('ì‘ë‹µ í…ìŠ¤íŠ¸:', responseText);
-        alert(`ì„œë²„ ì‘ë‹µì„ íŒŒì‹±í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤: ${responseText.substring(0, 100)}...`);
+        console.error('JSON ÆÄ½Ì ¿À·ù:', parseError);
+        console.error('ÀÀ´ä ÅØ½ºÆ®:', responseText);
+        alert(`¼­¹ö ÀÀ´äÀ» ÆÄ½ÌÇÒ ¼ö ¾ø½À´Ï´Ù: ${responseText.substring(0, 100)}...`);
         return;
       }
 
       if (result.error) {
-        console.log('ì„ì‹œì €ì¥ ì‹¤íŒ¨:', result);
-        alert(`ì„ì‹œì €ì¥ ì‹¤íŒ¨: ${result.error}`);
+        console.log('ÀÓ½ÃÀúÀå ½ÇÆĞ:', result);
+        alert(`ÀÓ½ÃÀúÀå ½ÇÆĞ: ${result.error}`);
         return;
       }
 
-      // ì„±ê³µ ì‹œ proposalId ì„¤ì •
+      // ¼º°ø ½Ã proposalId ¼³Á¤
       if (result.proposalId) {
         setProposalId(result.proposalId);
-        console.log('í’ˆì˜ì„œ ID ì„¤ì •:', result.proposalId);
+        console.log('Ç°ÀÇ¼­ ID ¼³Á¤:', result.proposalId);
       }
 
-      // ì„±ê³µ ë©”ì‹œì§€ (preventNavigationì´ trueì¸ ê²½ìš° ë©”ì‹œì§€ í‘œì‹œ ì•ˆí•¨)
+      // ¼º°ø ¸Ş½ÃÁö (preventNavigationÀÌ trueÀÎ °æ¿ì ¸Ş½ÃÁö Ç¥½Ã ¾ÈÇÔ)
       if (!preventNavigation) {
         if (isDraft) {
-          // ì„ì‹œì €ì¥ ë©”ì‹œì§€
+          // ÀÓ½ÃÀúÀå ¸Ş½ÃÁö
           if (editingProposalId) {
-            alert('í’ˆì˜ì„œê°€ ìˆ˜ì •ë˜ì—ˆìŠµë‹ˆë‹¤.');
+            alert('Ç°ÀÇ¼­°¡ ¼öÁ¤µÇ¾ú½À´Ï´Ù.');
           } else {
-            alert('í’ˆì˜ì„œê°€ ì„ì‹œì €ì¥ë˜ì—ˆìŠµë‹ˆë‹¤.');
+            alert('Ç°ÀÇ¼­°¡ ÀÓ½ÃÀúÀåµÇ¾ú½À´Ï´Ù.');
           }
         } else {
-          // ì‘ì„±ì™„ë£Œ ë©”ì‹œì§€
+          // ÀÛ¼º¿Ï·á ¸Ş½ÃÁö
           const currentProposalId = result.proposalId || editingProposalId;
           const message = (isEditMode && editingProposalId)
-            ? `í’ˆì˜ì„œê°€ ì„±ê³µì ìœ¼ë¡œ ìˆ˜ì •ë˜ì—ˆìŠµë‹ˆë‹¤! (ID: ${currentProposalId})`
-            : `í’ˆì˜ì„œê°€ ì„±ê³µì ìœ¼ë¡œ ì‘ì„±ì™„ë£Œë˜ì—ˆìŠµë‹ˆë‹¤! (ID: ${currentProposalId})`;
+            ? `Ç°ÀÇ¼­°¡ ¼º°øÀûÀ¸·Î ¼öÁ¤µÇ¾ú½À´Ï´Ù! (ID: ${currentProposalId})`
+            : `Ç°ÀÇ¼­°¡ ¼º°øÀûÀ¸·Î ÀÛ¼º¿Ï·áµÇ¾ú½À´Ï´Ù! (ID: ${currentProposalId})`;
           alert(message);
         }
       }
       
-      // ë„¤ë¹„ê²Œì´ì…˜ ì²˜ë¦¬
+      // ³×ºñ°ÔÀÌ¼Ç Ã³¸®
       if (!preventNavigation) {
         if (isDraft) {
-          // ì„ì‹œì €ì¥: ì‘ì„±ì¤‘ì¸ í’ˆì˜ì„œ í˜ì´ì§€ë¡œ ì´ë™
+          // ÀÓ½ÃÀúÀå: ÀÛ¼ºÁßÀÎ Ç°ÀÇ¼­ ÆäÀÌÁö·Î ÀÌµ¿
           if (!editingProposalId) {
-            console.log('ì„ì‹œì €ì¥ ì™„ë£Œ - ì‘ì„±ì¤‘ì¸ í’ˆì˜ì„œ í˜ì´ì§€ë¡œ ì´ë™');
+            console.log('ÀÓ½ÃÀúÀå ¿Ï·á - ÀÛ¼ºÁßÀÎ Ç°ÀÇ¼­ ÆäÀÌÁö·Î ÀÌµ¿');
             setTimeout(() => {
               navigate('/draft-list');
             }, 1500);
           }
         } else {
-          // ì‘ì„±ì™„ë£Œ: í’ˆì˜ì„œ ì¡°íšŒ í˜ì´ì§€ë¡œ ì´ë™
-          console.log('ì‘ì„±ì™„ë£Œ - í’ˆì˜ì„œ ì¡°íšŒ í˜ì´ì§€ë¡œ ì´ë™');
-          console.log('í˜„ì¬ ìƒíƒœ:', { isEditMode, editingProposalId, proposalId });
+          // ÀÛ¼º¿Ï·á: Ç°ÀÇ¼­ Á¶È¸ ÆäÀÌÁö·Î ÀÌµ¿
+          console.log('ÀÛ¼º¿Ï·á - Ç°ÀÇ¼­ Á¶È¸ ÆäÀÌÁö·Î ÀÌµ¿');
+          console.log('ÇöÀç »óÅÂ:', { isEditMode, editingProposalId, proposalId });
           
-          // í¸ì§‘ ëª¨ë“œ ì™„ë£Œ í›„ í¸ì§‘ ìƒíƒœ ì´ˆê¸°í™”
+          // ÆíÁı ¸ğµå ¿Ï·á ÈÄ ÆíÁı »óÅÂ ÃÊ±âÈ­
           if (isEditMode && editingProposalId) {
-            console.log('í¸ì§‘ ëª¨ë“œ ì™„ë£Œ - ìƒíƒœ ì´ˆê¸°í™”');
+            console.log('ÆíÁı ¸ğµå ¿Ï·á - »óÅÂ ÃÊ±âÈ­');
             setIsEditMode(false);
             setEditingProposalId(null);
             setProposalId(null);
           }
           
-          // ì¦‰ì‹œ ì´ë™ (ì•Œë¦¼ í›„ ë°”ë¡œ ì´ë™)
-          console.log('í’ˆì˜ì„œ ì¡°íšŒ í™”ë©´ìœ¼ë¡œ ì´ë™ ì‹œì‘...');
-          console.log('ğŸš€ ë„¤ë¹„ê²Œì´ì…˜ ê²½ë¡œ: /contract-list');
+          // Áï½Ã ÀÌµ¿ (¾Ë¸² ÈÄ ¹Ù·Î ÀÌµ¿)
+          console.log('Ç°ÀÇ¼­ Á¶È¸ È­¸éÀ¸·Î ÀÌµ¿ ½ÃÀÛ...');
+          console.log('?? ³×ºñ°ÔÀÌ¼Ç °æ·Î: /contract-list');
           setTimeout(() => {
-            console.log('ì‹¤ì œ ë„¤ë¹„ê²Œì´ì…˜ ì‹¤í–‰: /contract-list');
+            console.log('½ÇÁ¦ ³×ºñ°ÔÀÌ¼Ç ½ÇÇà: /contract-list');
             navigate('/contract-list', { 
               state: { 
                 refreshList: true,
-                message: (isEditMode && editingProposalId) ? 'í’ˆì˜ì„œê°€ ì„±ê³µì ìœ¼ë¡œ ìˆ˜ì •ë˜ì—ˆìŠµë‹ˆë‹¤!' : 'í’ˆì˜ì„œê°€ ì„±ê³µì ìœ¼ë¡œ ì‘ì„±ë˜ì—ˆìŠµë‹ˆë‹¤!'
+                message: (isEditMode && editingProposalId) ? 'Ç°ÀÇ¼­°¡ ¼º°øÀûÀ¸·Î ¼öÁ¤µÇ¾ú½À´Ï´Ù!' : 'Ç°ÀÇ¼­°¡ ¼º°øÀûÀ¸·Î ÀÛ¼ºµÇ¾ú½À´Ï´Ù!'
               }
             });
-            console.log('âœ… ë„¤ë¹„ê²Œì´ì…˜ ì™„ë£Œ: /contract-list');
-          }, 500); // 500msë¡œ ë‹¨ì¶•
+            console.log('? ³×ºñ°ÔÀÌ¼Ç ¿Ï·á: /contract-list');
+          }, 500); // 500ms·Î ´ÜÃà
         }
       }
       
     } catch (error) {
-      console.error('ì„ì‹œì €ì¥ ì‹¤íŒ¨:', error);
-      alert('ì„ì‹œì €ì¥ ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤.');
+      console.error('ÀÓ½ÃÀúÀå ½ÇÆĞ:', error);
+      alert('ÀÓ½ÃÀúÀå Áß ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù.');
     }
   };
 
-  // ë¯¸ë¦¬ë³´ê¸° í•¨ìˆ˜
+  // ¹Ì¸®º¸±â ÇÔ¼ö
   const handlePreview = () => {
     setShowPreview(true);
   };
 
   const handleClosePreview = () => {
     setShowPreview(false);
-    // íŒì—… í¬ê¸° ì´ˆê¸°í™” (ì„ íƒì‚¬í•­)
+    // ÆË¾÷ Å©±â ÃÊ±âÈ­ (¼±ÅÃ»çÇ×)
     // setPopupSize({ width: 99, height: 97 });
   };
 
-  // í‚¤ë³´ë“œ ë‹¨ì¶•í‚¤ ì²˜ë¦¬
+  // Å°º¸µå ´ÜÃàÅ° Ã³¸®
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (showPreview) {
@@ -2436,13 +2436,13 @@ const ProposalForm = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showPreview]);
 
-  // ìˆ«ìë¥¼ í•œê¸€ë¡œ ë³€í™˜í•˜ëŠ” í•¨ìˆ˜
+  // ¼ıÀÚ¸¦ ÇÑ±Û·Î º¯È¯ÇÏ´Â ÇÔ¼ö
   const numberToKorean = (number) => {
     if (!number || number === 0) return '';
     
-    const units = ['', 'ë§Œ', 'ì–µ', 'ì¡°'];
-    const digits = ['', 'ì¼', 'ì´', 'ì‚¼', 'ì‚¬', 'ì˜¤', 'ìœ¡', 'ì¹ ', 'íŒ”', 'êµ¬'];
-    const tens = ['', 'ì‹­', 'ì´ì‹­', 'ì‚¼ì‹­', 'ì‚¬ì‹­', 'ì˜¤ì‹­', 'ìœ¡ì‹­', 'ì¹ ì‹­', 'íŒ”ì‹­', 'êµ¬ì‹­'];
+    const units = ['', '¸¸', '¾ï', 'Á¶'];
+    const digits = ['', 'ÀÏ', 'ÀÌ', '»ï', '»ç', '¿À', 'À°', 'Ä¥', 'ÆÈ', '±¸'];
+    const tens = ['', '½Ê', 'ÀÌ½Ê', '»ï½Ê', '»ç½Ê', '¿À½Ê', 'À°½Ê', 'Ä¥½Ê', 'ÆÈ½Ê', '±¸½Ê'];
     
     let result = '';
     let unitIndex = 0;
@@ -2457,11 +2457,11 @@ const ProposalForm = () => {
         const remainder = chunk % 100;
         
         if (thousands > 0) {
-          chunkStr += (thousands === 1 ? '' : digits[thousands]) + 'ì²œ';
+          chunkStr += (thousands === 1 ? '' : digits[thousands]) + 'Ãµ';
         }
         
         if (hundreds > 0) {
-          chunkStr += (hundreds === 1 ? '' : digits[hundreds]) + 'ë°±';
+          chunkStr += (hundreds === 1 ? '' : digits[hundreds]) + '¹é';
         }
         
         if (remainder >= 20) {
@@ -2470,7 +2470,7 @@ const ProposalForm = () => {
             chunkStr += digits[remainder % 10];
           }
         } else if (remainder >= 10) {
-          chunkStr += 'ì‹­';
+          chunkStr += '½Ê';
           if (remainder % 10 > 0) {
             chunkStr += digits[remainder % 10];
           }
@@ -2485,74 +2485,74 @@ const ProposalForm = () => {
       unitIndex++;
     }
     
-    return result + 'ì›';
+    return result + '¿ø';
   };
 
-  // ì´ë¯¸ì§€ ìº¡ì²˜ í•¨ìˆ˜
+  // ÀÌ¹ÌÁö Ä¸Ã³ ÇÔ¼ö
   const handleCaptureImage = async () => {
     try {
-      // ìº¡ì²˜ìš© ìš”ì†Œ (7ë²ˆ ë¹„ìš©ê·€ì†ê¹Œì§€ë§Œ)
+      // Ä¸Ã³¿ë ¿ä¼Ò (7¹ø ºñ¿ë±Í¼Ó±îÁö¸¸)
       const element = document.getElementById('capture-content');
       if (!element) {
-        alert('ìº¡ì²˜í•  ìš”ì†Œë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.');
+        alert('Ä¸Ã³ÇÒ ¿ä¼Ò¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù.');
         return;
       }
 
-      // í´ë¦½ë³´ë“œ ì €ì¥ ì‹œë„ (ì‹¤íŒ¨ ì‹œ ìë™ìœ¼ë¡œ ë‹¤ìš´ë¡œë“œë¡œ fallback)
+      // Å¬¸³º¸µå ÀúÀå ½Ãµµ (½ÇÆĞ ½Ã ÀÚµ¿À¸·Î ´Ù¿î·Îµå·Î fallback)
       await captureAndSaveToClipboard(element);
       
     } catch (error) {
-      console.error('ì´ë¯¸ì§€ ìº¡ì²˜ ì˜¤ë¥˜:', error);
-      alert('ì´ë¯¸ì§€ ìº¡ì²˜ ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤: ' + error.message);
+      console.error('ÀÌ¹ÌÁö Ä¸Ã³ ¿À·ù:', error);
+      alert('ÀÌ¹ÌÁö Ä¸Ã³ Áß ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù: ' + error.message);
       
-      // ë²„íŠ¼ ìƒíƒœ ë³µì›
+      // ¹öÆ° »óÅÂ º¹¿ø
       const captureBtn = document.querySelector('.capture-btn');
       if (captureBtn) {
-        captureBtn.textContent = 'ğŸ“¸ í•µì‹¬ë‚´ìš© ìº¡ì²˜';
+        captureBtn.textContent = '?? ÇÙ½É³»¿ë Ä¸Ã³';
         captureBtn.disabled = false;
       }
     }
   };
 
-    // í´ë¦½ë³´ë“œì— ì €ì¥í•˜ëŠ” í•¨ìˆ˜
+    // Å¬¸³º¸µå¿¡ ÀúÀåÇÏ´Â ÇÔ¼ö
   const captureAndSaveToClipboard = async (element) => {
-    // ìº¡ì²˜ ì˜µì…˜ ì„¤ì •
+    // Ä¸Ã³ ¿É¼Ç ¼³Á¤
     const options = {
-      scale: 2, // ê³ í•´ìƒë„ ìº¡ì²˜
-      useCORS: true, // ì™¸ë¶€ ë¦¬ì†ŒìŠ¤ í—ˆìš©
-      backgroundColor: '#ffffff', // ë°°ê²½ìƒ‰ ì„¤ì •
+      scale: 2, // °íÇØ»óµµ Ä¸Ã³
+      useCORS: true, // ¿ÜºÎ ¸®¼Ò½º Çã¿ë
+      backgroundColor: '#ffffff', // ¹è°æ»ö ¼³Á¤
       width: element.scrollWidth,
       height: element.scrollHeight,
       scrollX: 0,
       scrollY: 0
     };
 
-    // ë¡œë”© í‘œì‹œ
+    // ·Îµù Ç¥½Ã
     const captureBtn = document.querySelector('.capture-btn');
     if (captureBtn) {
-      captureBtn.textContent = 'ğŸ“¸ ìº¡ì²˜ ì¤‘...';
+      captureBtn.textContent = '?? Ä¸Ã³ Áß...';
       captureBtn.disabled = true;
     }
 
     try {
-      // ìº¡ì²˜ìš© ìš”ì†Œë¥¼ ì„ì‹œë¡œ í‘œì‹œ
+      // Ä¸Ã³¿ë ¿ä¼Ò¸¦ ÀÓ½Ã·Î Ç¥½Ã
       element.style.display = 'block';
       
-      // ì´ë¯¸ì§€ ìº¡ì²˜ ì‹¤í–‰
+      // ÀÌ¹ÌÁö Ä¸Ã³ ½ÇÇà
       const canvas = await html2canvas(element, options);
       
-      // ìº¡ì²˜ìš© ìš”ì†Œë¥¼ ë‹¤ì‹œ ìˆ¨ê¹€
+      // Ä¸Ã³¿ë ¿ä¼Ò¸¦ ´Ù½Ã ¼û±è
       element.style.display = 'none';
       
-      // ìº”ë²„ìŠ¤ë¥¼ ì´ë¯¸ì§€ ë°ì´í„°ë¡œ ë³€í™˜
+      // Äµ¹ö½º¸¦ ÀÌ¹ÌÁö µ¥ÀÌÅÍ·Î º¯È¯
       const imageDataUrl = canvas.toDataURL('image/png', 1.0);
       
-      // ê¶Œí•œ ë¬¸ì œë¥¼ ìš°íšŒí•˜ì—¬ ì´ë¯¸ì§€ ë³µì‚¬ ì‹œë„
+      // ±ÇÇÑ ¹®Á¦¸¦ ¿ìÈ¸ÇÏ¿© ÀÌ¹ÌÁö º¹»ç ½Ãµµ
       try {
-        // ë¸Œë¼ìš°ì € í™˜ê²½ í™•ì¸
+        // ºê¶ó¿ìÀú È¯°æ È®ÀÎ
         if (navigator.clipboard && window.ClipboardItem) {
           try {
-            // Data URLì„ Blobìœ¼ë¡œ ë³€í™˜
+            // Data URLÀ» BlobÀ¸·Î º¯È¯
             const response = await fetch(imageDataUrl);
             const blob = await response.blob();
             
@@ -2561,29 +2561,29 @@ const ProposalForm = () => {
             });
             await navigator.clipboard.write([clipboardItem]);
             
-            // ì„±ê³µ ì‹œ ë²„íŠ¼ ìƒíƒœ ë³µì›
+            // ¼º°ø ½Ã ¹öÆ° »óÅÂ º¹¿ø
             if (captureBtn) {
-              captureBtn.textContent = 'ğŸ“¸ í´ë¦½ë³´ë“œ ì €ì¥';
+              captureBtn.textContent = '?? Å¬¸³º¸µå ÀúÀå';
               captureBtn.disabled = false;
             }
             
-            alert('ì´ë¯¸ì§€ê°€ í´ë¦½ë³´ë“œì— ì„±ê³µì ìœ¼ë¡œ ì €ì¥ë˜ì—ˆìŠµë‹ˆë‹¤! Ctrl+Vë¡œ ë¶™ì—¬ë„£ê¸°í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.');
+            alert('ÀÌ¹ÌÁö°¡ Å¬¸³º¸µå¿¡ ¼º°øÀûÀ¸·Î ÀúÀåµÇ¾ú½À´Ï´Ù! Ctrl+V·Î ºÙ¿©³Ö±âÇÒ ¼ö ÀÖ½À´Ï´Ù.');
             return;
           } catch (clipboardError) {
-            console.log('í´ë¦½ë³´ë“œ ì €ì¥ ì‹¤íŒ¨, ë‹¤ìš´ë¡œë“œë¡œ ì§„í–‰:', clipboardError);
-            // ê¶Œí•œ ë¬¸ì œ ì‹œ ì‚¬ìš©ìì—ê²Œ ì•ˆë‚´
+            console.log('Å¬¸³º¸µå ÀúÀå ½ÇÆĞ, ´Ù¿î·Îµå·Î ÁøÇà:', clipboardError);
+            // ±ÇÇÑ ¹®Á¦ ½Ã »ç¿ëÀÚ¿¡°Ô ¾È³»
             const userChoice = window.confirm(
-              'í´ë¦½ë³´ë“œ ì €ì¥ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.\n\n' +
-              'ì´ëŠ” ë¸Œë¼ìš°ì € ë³´ì•ˆ ì •ì±… ë•Œë¬¸ì¼ ìˆ˜ ìˆìŠµë‹ˆë‹¤.\n\n' +
-              '"í™•ì¸"ì„ í´ë¦­í•˜ë©´ ì´ë¯¸ì§€ë¥¼ ë‹¤ìš´ë¡œë“œí•©ë‹ˆë‹¤.'
+              'Å¬¸³º¸µå ÀúÀå¿¡ ½ÇÆĞÇß½À´Ï´Ù.\n\n' +
+              'ÀÌ´Â ºê¶ó¿ìÀú º¸¾È Á¤Ã¥ ¶§¹®ÀÏ ¼ö ÀÖ½À´Ï´Ù.\n\n' +
+              '"È®ÀÎ"À» Å¬¸¯ÇÏ¸é ÀÌ¹ÌÁö¸¦ ´Ù¿î·ÎµåÇÕ´Ï´Ù.'
             );
             
             if (userChoice) {
               await captureAndDownload(element, imageDataUrl, captureBtn);
             } else {
-              // ì‚¬ìš©ìê°€ ì·¨ì†Œí•œ ê²½ìš° ë²„íŠ¼ ìƒíƒœë§Œ ë³µì›
+              // »ç¿ëÀÚ°¡ Ãë¼ÒÇÑ °æ¿ì ¹öÆ° »óÅÂ¸¸ º¹¿ø
               if (captureBtn) {
-                captureBtn.textContent = 'ğŸ“¸ í´ë¦½ë³´ë“œ ì €ì¥';
+                captureBtn.textContent = '?? Å¬¸³º¸µå ÀúÀå';
                 captureBtn.disabled = false;
               }
             }
@@ -2591,26 +2591,26 @@ const ProposalForm = () => {
           }
         }
         
-        // ClipboardItemì„ ì§€ì›í•˜ì§€ ì•ŠëŠ” ë¸Œë¼ìš°ì €ëŠ” ë°”ë¡œ ë‹¤ìš´ë¡œë“œ
+        // ClipboardItemÀ» Áö¿øÇÏÁö ¾Ê´Â ºê¶ó¿ìÀú´Â ¹Ù·Î ´Ù¿î·Îµå
         await captureAndDownload(element, imageDataUrl, captureBtn);
         
       } catch (error) {
-        console.error('ì´ë¯¸ì§€ ì²˜ë¦¬ ì˜¤ë¥˜:', error);
-        // ìµœì¢… fallback: ë‹¤ìš´ë¡œë“œ
+        console.error('ÀÌ¹ÌÁö Ã³¸® ¿À·ù:', error);
+        // ÃÖÁ¾ fallback: ´Ù¿î·Îµå
         await captureAndDownload(element, imageDataUrl, captureBtn);
       }
     } catch (error) {
-      console.error('ìº¡ì²˜ ì˜¤ë¥˜:', error);
+      console.error('Ä¸Ã³ ¿À·ù:', error);
       throw error;
     }
   };
 
-  // ë‹¤ìš´ë¡œë“œ í•¨ìˆ˜
+  // ´Ù¿î·Îµå ÇÔ¼ö
   const captureAndDownload = async (element, imageDataUrl = null, captureBtn = null) => {
     try {
       let finalImageDataUrl = imageDataUrl;
       
-      // ì´ë¯¸ì§€ ë°ì´í„°ê°€ ì—†ëŠ” ê²½ìš° ìƒˆë¡œ ìº¡ì²˜
+      // ÀÌ¹ÌÁö µ¥ÀÌÅÍ°¡ ¾ø´Â °æ¿ì »õ·Î Ä¸Ã³
       if (!finalImageDataUrl) {
         const options = {
           scale: 2,
@@ -2622,7 +2622,7 @@ const ProposalForm = () => {
           scrollY: 0
         };
 
-        // ìº¡ì²˜ìš© ìš”ì†Œë¥¼ ì„ì‹œë¡œ í‘œì‹œ
+        // Ä¸Ã³¿ë ¿ä¼Ò¸¦ ÀÓ½Ã·Î Ç¥½Ã
         element.style.display = 'block';
         
         const canvas = await html2canvas(element, options);
@@ -2631,138 +2631,138 @@ const ProposalForm = () => {
         finalImageDataUrl = canvas.toDataURL('image/png', 1.0);
       }
 
-      // ë‹¤ìš´ë¡œë“œ ì‹¤í–‰
+      // ´Ù¿î·Îµå ½ÇÇà
       const link = document.createElement('a');
-      link.download = `í’ˆì˜ì„œ_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+      link.download = `Ç°ÀÇ¼­_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
       link.href = finalImageDataUrl;
       link.click();
       
-      // ë²„íŠ¼ ìƒíƒœ ë³µì›
+      // ¹öÆ° »óÅÂ º¹¿ø
       if (captureBtn) {
-        captureBtn.textContent = 'ğŸ“¸ í´ë¦½ë³´ë“œ ì €ì¥';
+        captureBtn.textContent = '?? Å¬¸³º¸µå ÀúÀå';
         captureBtn.disabled = false;
       }
       
-      alert('ì´ë¯¸ì§€ê°€ ë‹¤ìš´ë¡œë“œë˜ì—ˆìŠµë‹ˆë‹¤!');
+      alert('ÀÌ¹ÌÁö°¡ ´Ù¿î·ÎµåµÇ¾ú½À´Ï´Ù!');
     } catch (error) {
-      console.error('ë‹¤ìš´ë¡œë“œ ì˜¤ë¥˜:', error);
+      console.error('´Ù¿î·Îµå ¿À·ù:', error);
       
-      // ë²„íŠ¼ ìƒíƒœ ë³µì›
+      // ¹öÆ° »óÅÂ º¹¿ø
       if (captureBtn) {
-        captureBtn.textContent = 'ğŸ“¸ í´ë¦½ë³´ë“œ ì €ì¥';
+        captureBtn.textContent = '?? Å¬¸³º¸µå ÀúÀå';
         captureBtn.disabled = false;
       }
       
-      alert('ì´ë¯¸ì§€ ë‹¤ìš´ë¡œë“œì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤. ë‹¤ì‹œ ì‹œë„í•´ì£¼ì„¸ìš”.');
+      alert('ÀÌ¹ÌÁö ´Ù¿î·Îµå¿¡ ½ÇÆĞÇß½À´Ï´Ù. ´Ù½Ã ½ÃµµÇØÁÖ¼¼¿ä.');
     }
   };
 
 
 
-  // ìƒˆë¡œìš´ handleSubmit í•¨ìˆ˜ (ì„ì‹œì €ì¥ ê¸°ëŠ¥ í™œìš©)
+  // »õ·Î¿î handleSubmit ÇÔ¼ö (ÀÓ½ÃÀúÀå ±â´É È°¿ë)
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    console.log('=== í’ˆì˜ì„œ ì‘ì„±ì™„ë£Œ ì‹œì‘ ===');
+    console.log('=== Ç°ÀÇ¼­ ÀÛ¼º¿Ï·á ½ÃÀÛ ===');
     console.log('isEditMode:', isEditMode);
     console.log('editingProposalId:', editingProposalId);
     console.log('proposalId:', proposalId);
     
-    // í•„ìˆ˜ í•­ëª© ê²€ì¦
+    // ÇÊ¼ö Ç×¸ñ °ËÁõ
     if (!formData.purpose?.trim()) {
-      alert('í’ˆì˜ì„œ ëª©ì ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+      alert('Ç°ÀÇ¼­ ¸ñÀûÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.');
       return;
     }
     
     if (!formData.basis?.trim()) {
-      alert('ê³„ì•½ ê·¼ê±°ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+      alert('°è¾à ±Ù°Å¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä.');
       return;
     }
     
     if (!formData.budget) {
-      alert('ì‚¬ì—…ì˜ˆì‚°ì„ ì„ íƒí•´ì£¼ì„¸ìš”.');
+      alert('»ç¾÷¿¹»êÀ» ¼±ÅÃÇØÁÖ¼¼¿ä.');
       return;
     }
     
     if (!formData.accountSubject?.trim()) {
-      alert('ê¸°íƒ€ ì‚¬í•­ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+      alert('±âÅ¸ »çÇ×À» ÀÔ·ÂÇØÁÖ¼¼¿ä.');
       return;
     }
     
-    // ê³„ì•½ ìœ í˜•ë³„ í•„ìˆ˜ í•­ëª© ê²€ì¦
+    // °è¾à À¯Çüº° ÇÊ¼ö Ç×¸ñ °ËÁõ
     if (contractType === 'purchase' || contractType === 'change' || contractType === 'extension') {
       if (!formData.purchaseItems || formData.purchaseItems.length === 0) {
-        alert('êµ¬ë§¤í’ˆëª©ì„ ì¶”ê°€í•´ì£¼ì„¸ìš”.');
+        alert('±¸¸ÅÇ°¸ñÀ» Ãß°¡ÇØÁÖ¼¼¿ä.');
         return;
       }
       
-      // ê° êµ¬ë§¤í’ˆëª©ì˜ í•„ìˆ˜ í•­ëª© ê²€ì¦
+      // °¢ ±¸¸ÅÇ°¸ñÀÇ ÇÊ¼ö Ç×¸ñ °ËÁõ
       for (let i = 0; i < formData.purchaseItems.length; i++) {
         const item = formData.purchaseItems[i];
         if (!item.item?.trim()) {
-          alert(`${i + 1}ë²ˆì§¸ êµ¬ë§¤í’ˆëª©ì˜ êµ¬ë¶„ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+          alert(`${i + 1}¹øÂ° ±¸¸ÅÇ°¸ñÀÇ ±¸ºĞÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
           return;
         }
         if (!item.productName?.trim()) {
-          alert(`${i + 1}ë²ˆì§¸ êµ¬ë§¤í’ˆëª©ì˜ ë‚´ì—­ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+          alert(`${i + 1}¹øÂ° ±¸¸ÅÇ°¸ñÀÇ ³»¿ªÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
           return;
         }
         if (!item.quantity || item.quantity <= 0) {
-          alert(`${i + 1}ë²ˆì§¸ êµ¬ë§¤í’ˆëª©ì˜ ìˆ˜ëŸ‰ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+          alert(`${i + 1}¹øÂ° ±¸¸ÅÇ°¸ñÀÇ ¼ö·®À» ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
           return;
         }
         if (!item.unitPrice || item.unitPrice <= 0) {
-          alert(`${i + 1}ë²ˆì§¸ êµ¬ë§¤í’ˆëª©ì˜ ë‹¨ê°€ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+          alert(`${i + 1}¹øÂ° ±¸¸ÅÇ°¸ñÀÇ ´Ü°¡¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
           return;
         }
       }
     } else if (contractType === 'service') {
       if (!formData.serviceItems || formData.serviceItems.length === 0) {
-        alert('ìš©ì—­í’ˆëª©ì„ ì¶”ê°€í•´ì£¼ì„¸ìš”.');
+        alert('¿ë¿ªÇ°¸ñÀ» Ãß°¡ÇØÁÖ¼¼¿ä.');
         return;
       }
       
-      // ê° ìš©ì—­í’ˆëª©ì˜ í•„ìˆ˜ í•­ëª© ê²€ì¦
+      // °¢ ¿ë¿ªÇ°¸ñÀÇ ÇÊ¼ö Ç×¸ñ °ËÁõ
       for (let i = 0; i < formData.serviceItems.length; i++) {
         const item = formData.serviceItems[i];
         if (!item.item?.trim()) {
-          alert(`${i + 1}ë²ˆì§¸ ìš©ì—­í’ˆëª©ì˜ í•­ëª©ëª…ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+          alert(`${i + 1}¹øÂ° ¿ë¿ªÇ°¸ñÀÇ Ç×¸ñ¸íÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
           return;
         }
         if (!item.personnel || item.personnel <= 0) {
-          alert(`${i + 1}ë²ˆì§¸ ìš©ì—­í’ˆëª©ì˜ ì¸ì›ìˆ˜ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+          alert(`${i + 1}¹øÂ° ¿ë¿ªÇ°¸ñÀÇ ÀÎ¿ø¼ö¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
           return;
         }
         if (!item.contractAmount || item.contractAmount <= 0) {
-          alert(`${i + 1}ë²ˆì§¸ ìš©ì—­í’ˆëª©ì˜ ê³„ì•½ê¸ˆì•¡ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.`);
+          alert(`${i + 1}¹øÂ° ¿ë¿ªÇ°¸ñÀÇ °è¾à±İ¾×À» ÀÔ·ÂÇØÁÖ¼¼¿ä.`);
           return;
         }
       }
     } else if (contractType === 'freeform') {
       if (!formData.wysiwygContent?.trim()) {
-        alert('ììœ ì–‘ì‹ ë¬¸ì„œ ë‚´ìš©ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+        alert('ÀÚÀ¯¾ç½Ä ¹®¼­ ³»¿ëÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.');
         return;
       }
     }
     
     try {
-      console.log('âœ… í•„ìˆ˜ í•­ëª© ê²€ì¦ ì™„ë£Œ');
+      console.log('? ÇÊ¼ö Ç×¸ñ °ËÁõ ¿Ï·á');
       
-      // ì‘ì„±ì™„ë£Œ: í†µí•© í•¨ìˆ˜ í˜¸ì¶œ (ë©”ì‹œì§€ì™€ ë„¤ë¹„ê²Œì´ì…˜ì€ í†µí•© í•¨ìˆ˜ì—ì„œ ì²˜ë¦¬)
-      console.log('ì‘ì„±ì™„ë£Œ: í†µí•© í•¨ìˆ˜ í˜¸ì¶œ');
-      await handleProposalSave(false); // isDraft = false (ì‘ì„±ì™„ë£Œ)
+      // ÀÛ¼º¿Ï·á: ÅëÇÕ ÇÔ¼ö È£Ãâ (¸Ş½ÃÁö¿Í ³×ºñ°ÔÀÌ¼ÇÀº ÅëÇÕ ÇÔ¼ö¿¡¼­ Ã³¸®)
+      console.log('ÀÛ¼º¿Ï·á: ÅëÇÕ ÇÔ¼ö È£Ãâ');
+      await handleProposalSave(false); // isDraft = false (ÀÛ¼º¿Ï·á)
       
     } catch (error) {
-      console.error('í’ˆì˜ì„œ ì‘ì„±ì™„ë£Œ ì˜¤ë¥˜:', error);
+      console.error('Ç°ÀÇ¼­ ÀÛ¼º¿Ï·á ¿À·ù:', error);
       
       let errorMessage = isEditMode
-        ? 'í’ˆì˜ì„œ ìˆ˜ì • ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤: '
-        : 'í’ˆì˜ì„œ ì‘ì„± ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤: ';
+        ? 'Ç°ÀÇ¼­ ¼öÁ¤ Áß ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù: '
+        : 'Ç°ÀÇ¼­ ÀÛ¼º Áß ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù: ';
       
       if (error.message) {
         errorMessage += error.message;
       } else {
-        errorMessage += 'ì•Œ ìˆ˜ ì—†ëŠ” ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤.';
+        errorMessage += '¾Ë ¼ö ¾ø´Â ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù.';
       }
       
       alert(errorMessage);
@@ -2772,7 +2772,7 @@ const ProposalForm = () => {
   const handleSubmit_OLD = async (e) => {
     e.preventDefault();
     
-    console.log('handleSubmit í•¨ìˆ˜ ì‹œì‘');
+    console.log('handleSubmit ÇÔ¼ö ½ÃÀÛ');
     console.log('isEditMode:', isEditMode);
     console.log('editingProposalId:', editingProposalId);
     
@@ -2780,61 +2780,61 @@ const ProposalForm = () => {
       const totalAmount = calculateTotalAmount();
       const approvalLine = getRecommendedApprovalLine();
       
-      // í•„ìˆ˜ í•„ë“œ ê²€ì¦ ë° ê¸°ë³¸ê°’ ì„¤ì •
-      // contractTypeì€ ì‚¬ìš©ìê°€ ì„ íƒí•œ ê³„ì•½ ìœ í˜•ì„ ì •í™•íˆ ì €ì¥
+      // ÇÊ¼ö ÇÊµå °ËÁõ ¹× ±âº»°ª ¼³Á¤
+      // contractTypeÀº »ç¿ëÀÚ°¡ ¼±ÅÃÇÑ °è¾à À¯ÇüÀ» Á¤È®È÷ ÀúÀå
       if (!contractType) {
-        throw new Error('ê³„ì•½ ìœ í˜•ì„ ì„ íƒí•´ì£¼ì„¸ìš”. (êµ¬ë§¤ê³„ì•½, ìš©ì—­ê³„ì•½, ë³€ê²½ê³„ì•½, ì—°ì¥ê³„ì•½, ììœ ì–‘ì‹ ì¤‘ ì„ íƒ)');
+        throw new Error('°è¾à À¯ÇüÀ» ¼±ÅÃÇØÁÖ¼¼¿ä. (±¸¸Å°è¾à, ¿ë¿ª°è¾à, º¯°æ°è¾à, ¿¬Àå°è¾à, ÀÚÀ¯¾ç½Ä Áß ¼±ÅÃ)');
       }
       
-      // í•„ìˆ˜ í•„ë“œ ê²€ì¦
+      // ÇÊ¼ö ÇÊµå °ËÁõ
       if (!formData.budget) {
-        throw new Error('ì‚¬ì—…ì˜ˆì‚°ì„ ì„ íƒí•´ì£¼ì„¸ìš”.');
+        throw new Error('»ç¾÷¿¹»êÀ» ¼±ÅÃÇØÁÖ¼¼¿ä.');
       }
       
       if (!formData.accountSubject || formData.accountSubject.trim() === '') {
-        throw new Error('ê¸°íƒ€ ì‚¬í•­ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+        throw new Error('±âÅ¸ »çÇ×À» ÀÔ·ÂÇØÁÖ¼¼¿ä.');
       }
       
       if (!formData.basis || formData.basis.trim() === '') {
-        throw new Error('ê·¼ê±°ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”.');
+        throw new Error('±Ù°Å¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä.');
       }
       
-      // createdByëŠ” ê³ ì •ê°’ 'ì‚¬ìš©ì1'ë¡œ ì„¤ì •
-      const finalCreatedBy = 'ì‚¬ìš©ì1';
+      // createdBy´Â °íÁ¤°ª '»ç¿ëÀÚ1'·Î ¼³Á¤
+      const finalCreatedBy = '»ç¿ëÀÚ1';
       
-      console.log('=== ë°ì´í„° ê²€ì¦ ê²°ê³¼ ===');
-      console.log('ì‚¬ìš©ì ì„ íƒ ê³„ì•½ ìœ í˜•:', contractType);
-      console.log('ê³„ì•½ ìœ í˜• ë§¤í•‘:', {
-        'purchase': 'êµ¬ë§¤ê³„ì•½',
-        'service': 'ìš©ì—­ê³„ì•½', 
-        'change': 'ë³€ê²½ê³„ì•½',
-        'extension': 'ì—°ì¥ê³„ì•½',
-        'freeform': 'ììœ ì–‘ì‹'
+      console.log('=== µ¥ÀÌÅÍ °ËÁõ °á°ú ===');
+      console.log('»ç¿ëÀÚ ¼±ÅÃ °è¾à À¯Çü:', contractType);
+      console.log('°è¾à À¯Çü ¸ÅÇÎ:', {
+        'purchase': '±¸¸Å°è¾à',
+        'service': '¿ë¿ª°è¾à', 
+        'change': 'º¯°æ°è¾à',
+        'extension': '¿¬Àå°è¾à',
+        'freeform': 'ÀÚÀ¯¾ç½Ä'
       }[contractType]);
-      console.log('ì‘ì„±ì:', finalCreatedBy);
+      console.log('ÀÛ¼ºÀÚ:', finalCreatedBy);
       console.log('formData.purpose:', formData.purpose);
       console.log('formData.budget:', formData.budget);
       console.log('hasPurpose:', !!formData.purpose);
       console.log('hasBudget:', !!formData.budget);
-      console.log('ì „ì²´ formData:', formData);
+      console.log('ÀüÃ¼ formData:', formData);
       
-      // í¸ì§‘ ëª¨ë“œì—ì„œ ì €ì¥í•  ë•Œ ë°ì´í„° êµ¬ì¡° ì •ê·œí™”
+      // ÆíÁı ¸ğµå¿¡¼­ ÀúÀåÇÒ ¶§ µ¥ÀÌÅÍ ±¸Á¶ Á¤±ÔÈ­
       let proposalData;
       
       if (isEditMode) {
-        // í¸ì§‘ ëª¨ë“œ: ë°ì´í„° êµ¬ì¡° ì •ê·œí™”
+        // ÆíÁı ¸ğµå: µ¥ÀÌÅÍ ±¸Á¶ Á¤±ÔÈ­
         proposalData = {
-          // í•„ìˆ˜ í•„ë“œ (ì ˆëŒ€ nullì´ ë  ìˆ˜ ì—†ìŒ)
-          contractType: contractType, // ì‚¬ìš©ìê°€ ì„ íƒí•œ ê³„ì•½ ìœ í˜•
-          createdBy: finalCreatedBy, // ë¡œê·¸ì¸í•œ ì‚¬ìš©ì ì •ë³´
-          purpose: formData.purpose || 'í’ˆì˜ì„œ',
+          // ÇÊ¼ö ÇÊµå (Àı´ë nullÀÌ µÉ ¼ö ¾øÀ½)
+          contractType: contractType, // »ç¿ëÀÚ°¡ ¼±ÅÃÇÑ °è¾à À¯Çü
+          createdBy: finalCreatedBy, // ·Î±×ÀÎÇÑ »ç¿ëÀÚ Á¤º¸
+          purpose: formData.purpose || 'Ç°ÀÇ¼­',
           
-          // í•„ìˆ˜ í•„ë“œ
-          basis: formData.basis, // ì´ë¯¸ ê²€ì¦ë¨
-          budget: formData.budget, // ì´ë¯¸ ê²€ì¦ë¨
-          accountSubject: formData.accountSubject, // ì´ë¯¸ ê²€ì¦ë¨
+          // ÇÊ¼ö ÇÊµå
+          basis: formData.basis, // ÀÌ¹Ì °ËÁõµÊ
+          budget: formData.budget, // ÀÌ¹Ì °ËÁõµÊ
+          accountSubject: formData.accountSubject, // ÀÌ¹Ì °ËÁõµÊ
           
-          // ì„ íƒ í•„ë“œ
+          // ¼±ÅÃ ÇÊµå
           contractMethod: formData.contractMethod || '',
           requestDepartments: formData.requestDepartments || [],
           purchaseItems: formData.purchaseItems.map(item => ({
@@ -2859,26 +2859,26 @@ const ProposalForm = () => {
           isDraft: false
         };
         
-        console.log('í¸ì§‘ ëª¨ë“œ - proposalData êµ¬ì„± ì™„ë£Œ:', {
+        console.log('ÆíÁı ¸ğµå - proposalData ±¸¼º ¿Ï·á:', {
           contractType: proposalData.contractType,
           createdBy: proposalData.createdBy,
           purpose: proposalData.purpose,
           hasTotalAmount: !!proposalData.totalAmount
         });
       } else {
-        // ìƒˆë¡œ ì‘ì„±: ì™„ì „íˆ ìƒˆë¡œìš´ ê°ì²´ ìƒì„±
+        // »õ·Î ÀÛ¼º: ¿ÏÀüÈ÷ »õ·Î¿î °´Ã¼ »ı¼º
         proposalData = {
-          // í•„ìˆ˜ í•„ë“œ (ì ˆëŒ€ nullì´ ë  ìˆ˜ ì—†ìŒ)
-          contractType: contractType, // ì‚¬ìš©ìê°€ ì„ íƒí•œ ê³„ì•½ ìœ í˜•
-          createdBy: finalCreatedBy, // ë¡œê·¸ì¸í•œ ì‚¬ìš©ì ì •ë³´
-          purpose: formData.purpose || 'í’ˆì˜ì„œ',
+          // ÇÊ¼ö ÇÊµå (Àı´ë nullÀÌ µÉ ¼ö ¾øÀ½)
+          contractType: contractType, // »ç¿ëÀÚ°¡ ¼±ÅÃÇÑ °è¾à À¯Çü
+          createdBy: finalCreatedBy, // ·Î±×ÀÎÇÑ »ç¿ëÀÚ Á¤º¸
+          purpose: formData.purpose || 'Ç°ÀÇ¼­',
           
-          // í•„ìˆ˜ í•„ë“œ
-          basis: formData.basis, // ì´ë¯¸ ê²€ì¦ë¨
-          budget: formData.budget, // ì´ë¯¸ ê²€ì¦ë¨
-          accountSubject: formData.accountSubject, // ì´ë¯¸ ê²€ì¦ë¨
+          // ÇÊ¼ö ÇÊµå
+          basis: formData.basis, // ÀÌ¹Ì °ËÁõµÊ
+          budget: formData.budget, // ÀÌ¹Ì °ËÁõµÊ
+          accountSubject: formData.accountSubject, // ÀÌ¹Ì °ËÁõµÊ
           
-          // ì„ íƒ í•„ë“œ
+          // ¼±ÅÃ ÇÊµå
           contractMethod: formData.contractMethod || '',
           requestDepartments: formData.requestDepartments || [],
           purchaseItems: formData.purchaseItems.map(item => ({
@@ -2903,7 +2903,7 @@ const ProposalForm = () => {
           isDraft: false
         };
         
-        console.log('ìƒˆë¡œ ì‘ì„± ëª¨ë“œ - proposalData êµ¬ì„± ì™„ë£Œ:', {
+        console.log('»õ·Î ÀÛ¼º ¸ğµå - proposalData ±¸¼º ¿Ï·á:', {
           contractType: proposalData.contractType,
           createdBy: proposalData.createdBy,
           purpose: proposalData.purpose,
@@ -2913,37 +2913,37 @@ const ProposalForm = () => {
 
       console.log('proposalData:', proposalData);
       
-      // ìµœì¢… ë°ì´í„° ê²€ì¦
+      // ÃÖÁ¾ µ¥ÀÌÅÍ °ËÁõ
       if (!proposalData.contractType) {
-        throw new Error('ê³„ì•½ ìœ í˜•ì´ ì„¤ì •ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.');
+        throw new Error('°è¾à À¯ÇüÀÌ ¼³Á¤µÇÁö ¾Ê¾Ò½À´Ï´Ù.');
       }
       
       if (!proposalData.createdBy) {
-        throw new Error('ì‘ì„±ì ì •ë³´ê°€ ì„¤ì •ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.');
+        throw new Error('ÀÛ¼ºÀÚ Á¤º¸°¡ ¼³Á¤µÇÁö ¾Ê¾Ò½À´Ï´Ù.');
       }
       
       if (!proposalData.purpose) {
-        throw new Error('í’ˆì˜ì„œ ëª©ì ì´ ì…ë ¥ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.');
+        throw new Error('Ç°ÀÇ¼­ ¸ñÀûÀÌ ÀÔ·ÂµÇÁö ¾Ê¾Ò½À´Ï´Ù.');
       }
       
-      console.log('ë°ì´í„° ê²€ì¦ ì™„ë£Œ - API ìš”ì²­ ì¤€ë¹„ë¨');
+      console.log('µ¥ÀÌÅÍ °ËÁõ ¿Ï·á - API ¿äÃ» ÁØºñµÊ');
       
-      // êµ¬ë§¤í’ˆëª©ë³„ ë¹„ìš©ë¶„ë°° ì •ë³´ ìˆ˜ì§‘ (handleDraftSaveì™€ ë™ì¼í•œ ë¡œì§)
+      // ±¸¸ÅÇ°¸ñº° ºñ¿ëºĞ¹è Á¤º¸ ¼öÁı (handleDraftSave¿Í µ¿ÀÏÇÑ ·ÎÁ÷)
       const purchaseItemCostAllocations = [];
-      console.log('=== ì‘ì„±ì™„ë£Œ ì‹œ ë¹„ìš©ë¶„ë°° ì •ë³´ ìˆ˜ì§‘ ===');
-      console.log('ì „ì²´ êµ¬ë§¤í’ˆëª© ìˆ˜:', formData.purchaseItems.length);
+      console.log('=== ÀÛ¼º¿Ï·á ½Ã ºñ¿ëºĞ¹è Á¤º¸ ¼öÁı ===');
+      console.log('ÀüÃ¼ ±¸¸ÅÇ°¸ñ ¼ö:', formData.purchaseItems.length);
       
       formData.purchaseItems.forEach((item, itemIndex) => {
-        console.log(`êµ¬ë§¤í’ˆëª© ${itemIndex + 1} (${item.item}) ë¹„ìš©ë¶„ë°° ì •ë³´:`, {
+        console.log(`±¸¸ÅÇ°¸ñ ${itemIndex + 1} (${item.item}) ºñ¿ëºĞ¹è Á¤º¸:`, {
           hasCostAllocation: !!item.costAllocation,
           costAllocationData: item.costAllocation,
           allocationsCount: item.costAllocation?.allocations?.length || 0
         });
         
-        // ë¹„ìš©ë¶„ë°° ì •ë³´ê°€ ìˆëŠ” ê²½ìš°ì—ë§Œ ìˆ˜ì§‘
+        // ºñ¿ëºĞ¹è Á¤º¸°¡ ÀÖ´Â °æ¿ì¿¡¸¸ ¼öÁı
         if (item.costAllocation && item.costAllocation.allocations && item.costAllocation.allocations.length > 0) {
           item.costAllocation.allocations.forEach((alloc, allocIndex) => {
-            // ìœ íš¨ì„± ê²€ì‚¬ ì¶”ê°€
+            // À¯È¿¼º °Ë»ç Ãß°¡
             if (alloc && alloc.department && (alloc.value || alloc.value === 0)) {
               const allocationData = {
                 itemIndex,
@@ -2952,82 +2952,82 @@ const ProposalForm = () => {
                 type: alloc.type || 'percentage',
                 value: alloc.value,
                 amount: alloc.type === 'percentage' ? (item.amount * (alloc.value / 100)) : alloc.value,
-                // ì¶”ê°€ ì‹ë³„ ì •ë³´
+                // Ãß°¡ ½Äº° Á¤º¸
                 itemName: item.item,
                 productName: item.productName
               };
               purchaseItemCostAllocations.push(allocationData);
-              console.log(`  í• ë‹¹ ${allocIndex + 1}:`, allocationData);
+              console.log(`  ÇÒ´ç ${allocIndex + 1}:`, allocationData);
             } else {
-              console.log(`  í• ë‹¹ ${allocIndex + 1} ìœ íš¨í•˜ì§€ ì•ŠìŒ:`, alloc);
+              console.log(`  ÇÒ´ç ${allocIndex + 1} À¯È¿ÇÏÁö ¾ÊÀ½:`, alloc);
             }
           });
         } else {
-          console.log(`  ë¹„ìš©ë¶„ë°° ì •ë³´ ì—†ìŒ`);
+          console.log(`  ºñ¿ëºĞ¹è Á¤º¸ ¾øÀ½`);
         }
       });
       
-      console.log('ìµœì¢… ìˆ˜ì§‘ëœ ë¹„ìš©ë¶„ë°° ì •ë³´:', purchaseItemCostAllocations);
+      console.log('ÃÖÁ¾ ¼öÁıµÈ ºñ¿ëºĞ¹è Á¤º¸:', purchaseItemCostAllocations);
       
-      // proposalDataì— ë¹„ìš©ë¶„ë°° ì •ë³´ ì¶”ê°€
+      // proposalData¿¡ ºñ¿ëºĞ¹è Á¤º¸ Ãß°¡
       proposalData.purchaseItemCostAllocations = purchaseItemCostAllocations;
       
-      // ìµœì¢… ë°ì´í„° í™•ì¸ ë° ë¡œê¹…
-      console.log('=== ìµœì¢… ì „ì†¡ ë°ì´í„° ===');
+      // ÃÖÁ¾ µ¥ÀÌÅÍ È®ÀÎ ¹× ·Î±ë
+      console.log('=== ÃÖÁ¾ Àü¼Û µ¥ÀÌÅÍ ===');
       console.log('contractType:', proposalData.contractType);
       console.log('createdBy:', proposalData.createdBy);
       console.log('purpose:', proposalData.purpose);
-      console.log('ì „ì²´ ë°ì´í„°:', JSON.stringify(proposalData, null, 2));
+      console.log('ÀüÃ¼ µ¥ÀÌÅÍ:', JSON.stringify(proposalData, null, 2));
       
-      // í•„ìˆ˜ í•„ë“œ ì¬í™•ì¸ ë° ê°•ì œ ì„¤ì •
+      // ÇÊ¼ö ÇÊµå ÀçÈ®ÀÎ ¹× °­Á¦ ¼³Á¤
       if (!proposalData.contractType) {
-        console.log('âš ï¸ contractType ëˆ„ë½, ê°•ì œ ì„¤ì •');
+        console.log('?? contractType ´©¶ô, °­Á¦ ¼³Á¤');
         proposalData.contractType = 'purchase';
       }
       
       if (!proposalData.createdBy) {
-        console.log('âš ï¸ createdBy ëˆ„ë½, ê°•ì œ ì„¤ì •');
-        proposalData.createdBy = 'ì‚¬ìš©ì1';
+        console.log('?? createdBy ´©¶ô, °­Á¦ ¼³Á¤');
+        proposalData.createdBy = '»ç¿ëÀÚ1';
       }
       
       if (!proposalData.purpose) {
-        console.log('âš ï¸ purpose ëˆ„ë½, ê°•ì œ ì„¤ì •');
-        proposalData.purpose = 'í’ˆì˜ì„œ';
+        console.log('?? purpose ´©¶ô, °­Á¦ ¼³Á¤');
+        proposalData.purpose = 'Ç°ÀÇ¼­';
       }
       
-      // ìµœì¢… í™•ì¸
-      console.log('=== ê°•ì œ ì„¤ì • í›„ ìµœì¢… ë°ì´í„° ===');
+      // ÃÖÁ¾ È®ÀÎ
+      console.log('=== °­Á¦ ¼³Á¤ ÈÄ ÃÖÁ¾ µ¥ÀÌÅÍ ===');
       console.log('contractType:', proposalData.contractType);
       console.log('createdBy:', proposalData.createdBy);
       console.log('purpose:', proposalData.purpose);
       
       if (!proposalData.contractType || !proposalData.createdBy || !proposalData.purpose) {
-        throw new Error(`í•„ìˆ˜ í•„ë“œ ì„¤ì • ì‹¤íŒ¨: contractType=${proposalData.contractType}, createdBy=${proposalData.createdBy}, purpose=${proposalData.purpose}`);
+        throw new Error(`ÇÊ¼ö ÇÊµå ¼³Á¤ ½ÇÆĞ: contractType=${proposalData.contractType}, createdBy=${proposalData.createdBy}, purpose=${proposalData.purpose}`);
       }
 
-      // API ìš”ì²­ ì§ì „ ìµœì¢… ë°ì´í„° í™•ì¸ (í•„ìˆ˜ í•„ë“œ ê²€ì¦)
+      // API ¿äÃ» Á÷Àü ÃÖÁ¾ µ¥ÀÌÅÍ È®ÀÎ (ÇÊ¼ö ÇÊµå °ËÁõ)
       const finalProposalData = {
         ...proposalData
       };
       
-      console.log('\nğŸš€ğŸš€ğŸš€ === API ìš”ì²­ ì§ì „ ìµœì¢… ë°ì´í„° (ìƒì„¸) === ğŸš€ğŸš€ğŸš€');
-      console.log('ì „ì²´ ë°ì´í„°:', JSON.stringify(finalProposalData, null, 2));
-      console.log('contractType:', finalProposalData.contractType, 'íƒ€ì…:', typeof finalProposalData.contractType);
-      console.log('createdBy:', finalProposalData.createdBy, 'íƒ€ì…:', typeof finalProposalData.createdBy);
-      console.log('purpose:', finalProposalData.purpose, 'íƒ€ì…:', typeof finalProposalData.purpose);
-      console.log('budget:', finalProposalData.budget, 'íƒ€ì…:', typeof finalProposalData.budget);
-      console.log('accountSubject:', finalProposalData.accountSubject, 'íƒ€ì…:', typeof finalProposalData.accountSubject);
-      console.log('basis:', finalProposalData.basis, 'íƒ€ì…:', typeof finalProposalData.basis);
+      console.log('\n?????? === API ¿äÃ» Á÷Àü ÃÖÁ¾ µ¥ÀÌÅÍ (»ó¼¼) === ??????');
+      console.log('ÀüÃ¼ µ¥ÀÌÅÍ:', JSON.stringify(finalProposalData, null, 2));
+      console.log('contractType:', finalProposalData.contractType, 'Å¸ÀÔ:', typeof finalProposalData.contractType);
+      console.log('createdBy:', finalProposalData.createdBy, 'Å¸ÀÔ:', typeof finalProposalData.createdBy);
+      console.log('purpose:', finalProposalData.purpose, 'Å¸ÀÔ:', typeof finalProposalData.purpose);
+      console.log('budget:', finalProposalData.budget, 'Å¸ÀÔ:', typeof finalProposalData.budget);
+      console.log('accountSubject:', finalProposalData.accountSubject, 'Å¸ÀÔ:', typeof finalProposalData.accountSubject);
+      console.log('basis:', finalProposalData.basis, 'Å¸ÀÔ:', typeof finalProposalData.basis);
       
-      // ìµœì¢… ê²€ì¦
+      // ÃÖÁ¾ °ËÁõ
       if (!finalProposalData.contractType) {
-        throw new Error('ê³„ì•½ ìœ í˜•ì´ ì„¤ì •ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.');
+        throw new Error('°è¾à À¯ÇüÀÌ ¼³Á¤µÇÁö ¾Ê¾Ò½À´Ï´Ù.');
       }
       if (!finalProposalData.createdBy) {
-        throw new Error('ì‘ì„±ì ì •ë³´ê°€ ì„¤ì •ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.');
+        throw new Error('ÀÛ¼ºÀÚ Á¤º¸°¡ ¼³Á¤µÇÁö ¾Ê¾Ò½À´Ï´Ù.');
       }
       if (!finalProposalData.purpose) {
-        throw new Error('í’ˆì˜ì„œ ëª©ì ì´ ì„¤ì •ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.');
+        throw new Error('Ç°ÀÇ¼­ ¸ñÀûÀÌ ¼³Á¤µÇÁö ¾Ê¾Ò½À´Ï´Ù.');
       }
 
       const url = isEditMode 
@@ -3036,10 +3036,10 @@ const ProposalForm = () => {
       
       const method = isEditMode ? 'PUT' : 'POST';
 
-      console.log('ìš”ì²­ URL:', url);
-      console.log('ìš”ì²­ ë©”ì„œë“œ:', method);
+      console.log('¿äÃ» URL:', url);
+      console.log('¿äÃ» ¸Ş¼­µå:', method);
 
-      console.log('API ìš”ì²­ ì‹œì‘:', { url, method, finalProposalData });
+      console.log('API ¿äÃ» ½ÃÀÛ:', { url, method, finalProposalData });
       
       const response = await fetch(url, {
         method: method,
@@ -3049,36 +3049,36 @@ const ProposalForm = () => {
         body: JSON.stringify(finalProposalData)
       });
 
-      console.log('API ì‘ë‹µ ìƒíƒœ:', response.status, response.statusText);
+      console.log('API ÀÀ´ä »óÅÂ:', response.status, response.statusText);
       
-      // ì‘ë‹µ í…ìŠ¤íŠ¸ë¥¼ ë¨¼ì € í™•ì¸
+      // ÀÀ´ä ÅØ½ºÆ®¸¦ ¸ÕÀú È®ÀÎ
       const responseText = await response.text();
-      console.log('API ì‘ë‹µ í…ìŠ¤íŠ¸:', responseText);
+      console.log('API ÀÀ´ä ÅØ½ºÆ®:', responseText);
       
       let responseData;
       try {
         responseData = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('JSON íŒŒì‹± ì˜¤ë¥˜:', parseError);
-        console.error('ì‘ë‹µ í…ìŠ¤íŠ¸:', responseText);
-        throw new Error(`ì„œë²„ ì‘ë‹µì„ íŒŒì‹±í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤: ${responseText.substring(0, 100)}...`);
+        console.error('JSON ÆÄ½Ì ¿À·ù:', parseError);
+        console.error('ÀÀ´ä ÅØ½ºÆ®:', responseText);
+        throw new Error(`¼­¹ö ÀÀ´äÀ» ÆÄ½ÌÇÒ ¼ö ¾ø½À´Ï´Ù: ${responseText.substring(0, 100)}...`);
       }
       
       if (response.ok) {
         const result = responseData;
         const proposalId = isEditMode ? editingProposalId : result.proposalId;
         
-        // í¸ì§‘ ëª¨ë“œì—ì„œ ì„±ê³µ ì‹œ localStorage ì •ë¦¬
+        // ÆíÁı ¸ğµå¿¡¼­ ¼º°ø ½Ã localStorage Á¤¸®
         if (isEditMode) {
           try {
             localStorage.removeItem('editingDraft');
-            console.log('í¸ì§‘ ëª¨ë“œ ì™„ë£Œ - localStorage ì •ë¦¬ë¨');
+            console.log('ÆíÁı ¸ğµå ¿Ï·á - localStorage Á¤¸®µÊ');
           } catch (localStorageError) {
-            console.warn('localStorage ì •ë¦¬ ì‹¤íŒ¨:', localStorageError);
+            console.warn('localStorage Á¤¸® ½ÇÆĞ:', localStorageError);
           }
         }
         
-        // í’ˆì˜ì„œ ìƒíƒœë¥¼ "ì œì¶œì™„ë£Œ"ë¡œ ì—…ë°ì´íŠ¸
+        // Ç°ÀÇ¼­ »óÅÂ¸¦ "Á¦Ãâ¿Ï·á"·Î ¾÷µ¥ÀÌÆ®
         try {
           const statusResponse = await fetch(`${API_BASE_URL}/api/proposals/${proposalId}/status`, {
             method: 'PATCH',
@@ -3090,33 +3090,33 @@ const ProposalForm = () => {
 
           if (statusResponse.ok) {
             const message = isEditMode 
-              ? `í’ˆì˜ì„œê°€ ì„±ê³µì ìœ¼ë¡œ ìˆ˜ì •ë˜ê³  ì œì¶œì™„ë£Œë˜ì—ˆìŠµë‹ˆë‹¤! (ID: ${proposalId})`
-              : `í’ˆì˜ì„œê°€ ì„±ê³µì ìœ¼ë¡œ ì‘ì„±ë˜ê³  ì œì¶œì™„ë£Œë˜ì—ˆìŠµë‹ˆë‹¤! (ID: ${proposalId})`;
+              ? `Ç°ÀÇ¼­°¡ ¼º°øÀûÀ¸·Î ¼öÁ¤µÇ°í Á¦Ãâ¿Ï·áµÇ¾ú½À´Ï´Ù! (ID: ${proposalId})`
+              : `Ç°ÀÇ¼­°¡ ¼º°øÀûÀ¸·Î ÀÛ¼ºµÇ°í Á¦Ãâ¿Ï·áµÇ¾ú½À´Ï´Ù! (ID: ${proposalId})`;
             alert(message);
             
-            // í¸ì§‘ ëª¨ë“œ ì™„ë£Œ í›„ í¸ì§‘ ìƒíƒœ ì´ˆê¸°í™”
+            // ÆíÁı ¸ğµå ¿Ï·á ÈÄ ÆíÁı »óÅÂ ÃÊ±âÈ­
             if (isEditMode) {
               setIsEditMode(false);
               setEditingProposalId(null);
               setProposalId(null);
             }
             
-            // ìƒˆë¡œ ì‘ì„±ëœ í’ˆì˜ì„œ ì •ë³´ë¥¼ localStorageì— ì €ì¥í•˜ì—¬ ë¦¬ìŠ¤íŠ¸ì—ì„œ ì¦‰ì‹œ í‘œì‹œ
+            // »õ·Î ÀÛ¼ºµÈ Ç°ÀÇ¼­ Á¤º¸¸¦ localStorage¿¡ ÀúÀåÇÏ¿© ¸®½ºÆ®¿¡¼­ Áï½Ã Ç¥½Ã
             const newProposalData = {
               id: proposalId,
-              title: formData.purpose || 'í’ˆì˜ì„œ',
-              department: formData.requestDepartments?.[0] || 'ë¯¸ì§€ì •',
-              contractor: formData.purchaseItems?.[0]?.supplier || formData.serviceItems?.[0]?.supplier || 'ë¯¸ì§€ì •',
-              author: 'ì‘ì„±ì',
+              title: formData.purpose || 'Ç°ÀÇ¼­',
+              department: formData.requestDepartments?.[0] || '¹ÌÁöÁ¤',
+              contractor: formData.purchaseItems?.[0]?.supplier || formData.serviceItems?.[0]?.supplier || '¹ÌÁöÁ¤',
+              author: 'ÀÛ¼ºÀÚ',
               amount: calculateTotalAmount() || 0,
-              status: 'ì œì¶œì™„ë£Œ',
+              status: 'Á¦Ãâ¿Ï·á',
               startDate: new Date().toISOString().split('T')[0],
               endDate: formData.contractPeriod || '',
-              contractType: formData.contractType === 'purchase' ? 'êµ¬ë§¤ê³„ì•½' :
-                           formData.contractType === 'service' ? 'ìš©ì—­ê³„ì•½' :
-                           formData.contractType === 'change' ? 'ë³€ê²½ê³„ì•½' :
-                           formData.contractType === 'extension' ? 'ì—°ì¥ê³„ì•½' :
-                           formData.contractType === 'freeform' ? 'ììœ ì–‘ì‹' : 'ê¸°íƒ€',
+              contractType: formData.contractType === 'purchase' ? '±¸¸Å°è¾à' :
+                           formData.contractType === 'service' ? '¿ë¿ª°è¾à' :
+                           formData.contractType === 'change' ? 'º¯°æ°è¾à' :
+                           formData.contractType === 'extension' ? '¿¬Àå°è¾à' :
+                           formData.contractType === 'freeform' ? 'ÀÚÀ¯¾ç½Ä' : '±âÅ¸',
               purpose: formData.purpose || '',
               basis: formData.basis || '',
               budget: formData.budgetInfo?.projectName || formData.budgetId || '',
@@ -3152,74 +3152,74 @@ const ProposalForm = () => {
               })) || []
             };
             
-            // ìƒˆë¡œ ì‘ì„±ëœ í’ˆì˜ì„œ ì •ë³´ë¥¼ localStorageì— ì €ì¥
+            // »õ·Î ÀÛ¼ºµÈ Ç°ÀÇ¼­ Á¤º¸¸¦ localStorage¿¡ ÀúÀå
             localStorage.setItem('newProposal', JSON.stringify(newProposalData));
             
-                        // ì‘ì„±ì™„ë£Œëœ í’ˆì˜ì„œëŠ” í’ˆì˜ì„œ ì¡°íšŒ í™”ë©´ìœ¼ë¡œ ì´ë™
-            console.log('ğŸš€ ë‹¤ë¥¸ ë„¤ë¹„ê²Œì´ì…˜ ê²½ë¡œ: /contract-list');
+                        // ÀÛ¼º¿Ï·áµÈ Ç°ÀÇ¼­´Â Ç°ÀÇ¼­ Á¶È¸ È­¸éÀ¸·Î ÀÌµ¿
+            console.log('?? ´Ù¸¥ ³×ºñ°ÔÀÌ¼Ç °æ·Î: /contract-list');
             navigate('/contract-list', { 
               state: { 
                 refreshList: true, 
                 newProposalId: proposalId, 
-                message: isEditMode ? 'í’ˆì˜ì„œê°€ ì„±ê³µì ìœ¼ë¡œ ìˆ˜ì •ë˜ì—ˆìŠµë‹ˆë‹¤!' : 'í’ˆì˜ì„œê°€ ì„±ê³µì ìœ¼ë¡œ ì‘ì„±ë˜ì—ˆìŠµë‹ˆë‹¤!' 
+                message: isEditMode ? 'Ç°ÀÇ¼­°¡ ¼º°øÀûÀ¸·Î ¼öÁ¤µÇ¾ú½À´Ï´Ù!' : 'Ç°ÀÇ¼­°¡ ¼º°øÀûÀ¸·Î ÀÛ¼ºµÇ¾ú½À´Ï´Ù!' 
               } 
             });
-            console.log('âœ… ë‹¤ë¥¸ ë„¤ë¹„ê²Œì´ì…˜ ì™„ë£Œ: /contract-list');
+            console.log('? ´Ù¸¥ ³×ºñ°ÔÀÌ¼Ç ¿Ï·á: /contract-list');
           } else {
             const statusError = await statusResponse.json();
-            alert(`í’ˆì˜ì„œ ì‘ì„±ì€ ì„±ê³µí–ˆì§€ë§Œ ìƒíƒœ ì—…ë°ì´íŠ¸ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤: ${statusError.error}`);
+            alert(`Ç°ÀÇ¼­ ÀÛ¼ºÀº ¼º°øÇßÁö¸¸ »óÅÂ ¾÷µ¥ÀÌÆ®¿¡ ½ÇÆĞÇß½À´Ï´Ù: ${statusError.error}`);
             navigate('/draft-list');
           }
         } catch (statusError) {
-          console.error('ìƒíƒœ ì—…ë°ì´íŠ¸ ì‹¤íŒ¨:', statusError);
-          alert(`í’ˆì˜ì„œ ì‘ì„±ì€ ì„±ê³µí–ˆì§€ë§Œ ìƒíƒœ ì—…ë°ì´íŠ¸ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.`);
+          console.error('»óÅÂ ¾÷µ¥ÀÌÆ® ½ÇÆĞ:', statusError);
+          alert(`Ç°ÀÇ¼­ ÀÛ¼ºÀº ¼º°øÇßÁö¸¸ »óÅÂ ¾÷µ¥ÀÌÆ®¿¡ ½ÇÆĞÇß½À´Ï´Ù.`);
           navigate('/draft-list');
         }
       } else {
         const error = responseData;
-        console.error('API ì˜¤ë¥˜ ì‘ë‹µ:', error);
+        console.error('API ¿À·ù ÀÀ´ä:', error);
         
-        // í¸ì§‘ ëª¨ë“œì—ì„œ ë°œìƒí•˜ëŠ” êµ¬ì²´ì ì¸ ì˜¤ë¥˜ ì²˜ë¦¬
+        // ÆíÁı ¸ğµå¿¡¼­ ¹ß»ıÇÏ´Â ±¸Ã¼ÀûÀÎ ¿À·ù Ã³¸®
         let errorMessage;
         if (isEditMode) {
           if (error.error && error.error.includes('not found')) {
-            errorMessage = 'í¸ì§‘í•˜ë ¤ëŠ” í’ˆì˜ì„œë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤. ë‹¤ì‹œ ì‹œë„í•´ì£¼ì„¸ìš”.';
+            errorMessage = 'ÆíÁıÇÏ·Á´Â Ç°ÀÇ¼­¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù. ´Ù½Ã ½ÃµµÇØÁÖ¼¼¿ä.';
           } else if (error.error && error.error.includes('validation')) {
-            errorMessage = 'ì…ë ¥ ë°ì´í„°ê°€ ì˜¬ë°”ë¥´ì§€ ì•ŠìŠµë‹ˆë‹¤. ëª¨ë“  í•„ìˆ˜ í•­ëª©ì„ í™•ì¸í•´ì£¼ì„¸ìš”.';
+            errorMessage = 'ÀÔ·Â µ¥ÀÌÅÍ°¡ ¿Ã¹Ù¸£Áö ¾Ê½À´Ï´Ù. ¸ğµç ÇÊ¼ö Ç×¸ñÀ» È®ÀÎÇØÁÖ¼¼¿ä.';
           } else {
-            errorMessage = `í’ˆì˜ì„œ ìˆ˜ì • ì‹¤íŒ¨: ${error.error || 'ì•Œ ìˆ˜ ì—†ëŠ” ì˜¤ë¥˜'}`;
+            errorMessage = `Ç°ÀÇ¼­ ¼öÁ¤ ½ÇÆĞ: ${error.error || '¾Ë ¼ö ¾ø´Â ¿À·ù'}`;
           }
         } else {
-          errorMessage = `í’ˆì˜ì„œ ì‘ì„± ì‹¤íŒ¨: ${error.error || 'ì•Œ ìˆ˜ ì—†ëŠ” ì˜¤ë¥˜'}`;
+          errorMessage = `Ç°ÀÇ¼­ ÀÛ¼º ½ÇÆĞ: ${error.error || '¾Ë ¼ö ¾ø´Â ¿À·ù'}`;
         }
         
         alert(errorMessage);
       }
     } catch (error) {
-      console.error('í’ˆì˜ì„œ ì²˜ë¦¬ ì‹¤íŒ¨:', error);
-      console.error('ì˜¤ë¥˜ ìƒì„¸ ì •ë³´:', {
+      console.error('Ç°ÀÇ¼­ Ã³¸® ½ÇÆĞ:', error);
+      console.error('¿À·ù »ó¼¼ Á¤º¸:', {
         message: error.message,
         stack: error.stack,
         name: error.name
       });
       
-      // ì‚¬ìš©ì ì¹œí™”ì ì¸ ì—ëŸ¬ ë©”ì‹œì§€
+      // »ç¿ëÀÚ Ä£È­ÀûÀÎ ¿¡·¯ ¸Ş½ÃÁö
       let errorMessage = isEditMode 
-        ? 'í’ˆì˜ì„œ ìˆ˜ì •ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.'
-        : 'í’ˆì˜ì„œ ì‘ì„±ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.';
+        ? 'Ç°ÀÇ¼­ ¼öÁ¤¿¡ ½ÇÆĞÇß½À´Ï´Ù.'
+        : 'Ç°ÀÇ¼­ ÀÛ¼º¿¡ ½ÇÆĞÇß½À´Ï´Ù.';
       
-      if (error.message.includes('ê³„ì•½ ìœ í˜•')) {
-        errorMessage += ' ê³„ì•½ ìœ í˜•ì„ ì„ íƒí•´ì£¼ì„¸ìš”.';
-      } else if (error.message.includes('ì‘ì„±ì')) {
-        errorMessage += ' ì‘ì„±ì ì •ë³´ê°€ ëˆ„ë½ë˜ì—ˆìŠµë‹ˆë‹¤.';
-      } else if (error.message.includes('ëª©ì ')) {
-        errorMessage += ' í’ˆì˜ì„œ ëª©ì ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.';
+      if (error.message.includes('°è¾à À¯Çü')) {
+        errorMessage += ' °è¾à À¯ÇüÀ» ¼±ÅÃÇØÁÖ¼¼¿ä.';
+      } else if (error.message.includes('ÀÛ¼ºÀÚ')) {
+        errorMessage += ' ÀÛ¼ºÀÚ Á¤º¸°¡ ´©¶ôµÇ¾ú½À´Ï´Ù.';
+      } else if (error.message.includes('¸ñÀû')) {
+        errorMessage += ' Ç°ÀÇ¼­ ¸ñÀûÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.';
       } else if (error.message.includes('notNull Violation')) {
-        errorMessage += ' í•„ìˆ˜ ì •ë³´ê°€ ëˆ„ë½ë˜ì—ˆìŠµë‹ˆë‹¤. ëª¨ë“  í•„ë“œë¥¼ í™•ì¸í•´ì£¼ì„¸ìš”.';
-      } else if (error.message.includes('ì„œë²„ ì‘ë‹µì„ íŒŒì‹±í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤')) {
-        errorMessage += ' ì„œë²„ ì‘ë‹µ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤.';
+        errorMessage += ' ÇÊ¼ö Á¤º¸°¡ ´©¶ôµÇ¾ú½À´Ï´Ù. ¸ğµç ÇÊµå¸¦ È®ÀÎÇØÁÖ¼¼¿ä.';
+      } else if (error.message.includes('¼­¹ö ÀÀ´äÀ» ÆÄ½ÌÇÒ ¼ö ¾ø½À´Ï´Ù')) {
+        errorMessage += ' ¼­¹ö ÀÀ´ä ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù.';
       } else {
-        errorMessage += ' ì„œë²„ê°€ ì‹¤í–‰ ì¤‘ì¸ì§€ í™•ì¸í•´ì£¼ì„¸ìš”.';
+        errorMessage += ' ¼­¹ö°¡ ½ÇÇà ÁßÀÎÁö È®ÀÎÇØÁÖ¼¼¿ä.';
       }
       
       alert(errorMessage);
@@ -3229,7 +3229,7 @@ const ProposalForm = () => {
   if (loading) {
     return (
       <div className="loading">
-        <h2>ë°ì´í„°ë¥¼ ë¶ˆëŸ¬ì˜¤ëŠ” ì¤‘...</h2>
+        <h2>µ¥ÀÌÅÍ¸¦ ºÒ·¯¿À´Â Áß...</h2>
         <div className="spinner"></div>
       </div>
     );
@@ -3238,42 +3238,42 @@ const ProposalForm = () => {
   return (
     <div className="proposal-form">
       <div className="proposal-header">
-        <h1>{isEditMode ? 'í’ˆì˜ì„œ ìˆ˜ì •' : 'í’ˆì˜ì„œ ì‘ì„±'}</h1>
+        <h1>{isEditMode ? 'Ç°ÀÇ¼­ ¼öÁ¤' : 'Ç°ÀÇ¼­ ÀÛ¼º'}</h1>
         {proposalId && (
           <div className="proposal-id">
-            <span className="id-label">í’ˆì˜ì„œ ID:</span>
+            <span className="id-label">Ç°ÀÇ¼­ ID:</span>
             <span className="id-value">{proposalId}</span>
           </div>
         )}
       </div>
       
-      {/* ê³„ì•½ ìœ í˜• ì„ íƒ */}
+      {/* °è¾à À¯Çü ¼±ÅÃ */}
       <div className="contract-type-selection">
-        <h2>ê³„ì•½ ìœ í˜• ì„ íƒ</h2>
+        <h2>°è¾à À¯Çü ¼±ÅÃ</h2>
         <div className="type-buttons">
           <button
             className={`type-btn ${contractType === 'purchase' ? 'active' : ''}`}
             onClick={() => changeContractType('purchase')}
           >
-            ì‹ ê·œ ê³„ì•½
+            ½Å±Ô °è¾à
           </button>
           <button
             className={`type-btn ${contractType === 'change' ? 'active' : ''}`}
             onClick={() => changeContractType('change')}
           >
-            ë³€ê²½ ê³„ì•½
+            º¯°æ °è¾à
           </button>
           <button
             className={`type-btn ${contractType === 'extension' ? 'active' : ''}`}
             onClick={() => changeContractType('extension')}
           >
-            ì—°ì¥ ê³„ì•½
+            ¿¬Àå °è¾à
           </button>
           <button
             className={`type-btn ${contractType === 'service' ? 'active' : ''}`}
             onClick={() => changeContractType('service')}
           >
-            ìš©ì—­ ê³„ì•½
+            ¿ë¿ª °è¾à
           </button>
 
           <button
@@ -3285,25 +3285,25 @@ const ProposalForm = () => {
               color: contractType === 'freeform' ? 'white' : '#333'
             }}
           >
-            ğŸ“ ììœ ì–‘ì‹
+            ?? ÀÚÀ¯¾ç½Ä
           </button>
         </div>
       </div>
 
       {contractType && (
         <form onSubmit={handleSubmit}>
-          {/* ê³µí†µ í•­ëª© */}
+          {/* °øÅë Ç×¸ñ */}
           <div className="form-section">
-            <h3>ê³µí†µ ì •ë³´</h3>
+            <h3>°øÅë Á¤º¸</h3>
             
             <div className="form-row">
               <div className="form-group">
-                <label>ì œëª©</label>
+                <label>Á¦¸ñ</label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData(prevData => ({...prevData, title: e.target.value}))}
-                  placeholder="í’ˆì˜ì„œ ì œëª©ì„ ì…ë ¥í•˜ì„¸ìš”"
+                  placeholder="Ç°ÀÇ¼­ Á¦¸ñÀ» ÀÔ·ÂÇÏ¼¼¿ä"
                   required
                 />
               </div>
@@ -3311,11 +3311,11 @@ const ProposalForm = () => {
             
             <div className="form-row">
               <div className="form-group">
-                <label>ì‚¬ì—… ëª©ì </label>
+                <label>»ç¾÷ ¸ñÀû</label>
                 <textarea
                   value={formData.purpose}
                   onChange={(e) => setFormData(prevData => ({...prevData, purpose: e.target.value}))}
-                  placeholder="ì‚¬ì—… ëª©ì ì„ ì…ë ¥í•˜ì„¸ìš”"
+                  placeholder="»ç¾÷ ¸ñÀûÀ» ÀÔ·ÂÇÏ¼¼¿ä"
                   required
                   rows={3}
                   style={{ resize: 'vertical', minHeight: '70px' }}
@@ -3323,11 +3323,11 @@ const ProposalForm = () => {
               </div>
 
               <div className="form-group">
-                <label>ê·¼ê±°</label>
+                <label>±Ù°Å</label>
                 <textarea
                   value={formData.basis}
                   onChange={(e) => setFormData(prevData => ({...prevData, basis: e.target.value}))}
-                  placeholder="ê³„ì•½ ê·¼ê±°ë¥¼ ì…ë ¥í•˜ì„¸ìš”"
+                  placeholder="°è¾à ±Ù°Å¸¦ ÀÔ·ÂÇÏ¼¼¿ä"
                   required
                   rows={2}
                   style={{ resize: 'vertical', minHeight: '60px' }}
@@ -3337,7 +3337,7 @@ const ProposalForm = () => {
 
             <div className="form-row">
               <div className="form-group">
-                <label>ì‚¬ì—…ì˜ˆì‚°</label>
+                <label>»ç¾÷¿¹»ê</label>
                 <div className="budget-selector">
                   <button 
                     type="button" 
@@ -3348,10 +3348,10 @@ const ProposalForm = () => {
                       (() => {
                         const selectedBudget = businessBudgets.find(b => b.id === formData.budget);
                         return selectedBudget ? 
-                          `${selectedBudget.project_name} (${selectedBudget.budget_year}ë…„) - ${selectedBudget.budget_type}` :
-                          'ì‚¬ì—…ì˜ˆì‚°ì„ ì„ íƒí•˜ì„¸ìš”';
+                          `${selectedBudget.project_name} (${selectedBudget.budget_year}³â) - ${selectedBudget.budget_type}` :
+                          '»ç¾÷¿¹»êÀ» ¼±ÅÃÇÏ¼¼¿ä';
                       })() :
-                      'ì‚¬ì—…ì˜ˆì‚°ì„ ì„ íƒí•˜ì„¸ìš”'
+                      '»ç¾÷¿¹»êÀ» ¼±ÅÃÇÏ¼¼¿ä'
                     }
                   </button>
                   {formData.budget && (
@@ -3362,10 +3362,10 @@ const ProposalForm = () => {
                           const remainingAmount = (selectedBudget.budget_amount || 0) - (selectedBudget.executed_amount || 0);
                           return (
                             <>
-                              <span>ì„ íƒëœ ì˜ˆì‚°: {selectedBudget.project_name}</span>
-                              <span>ì˜ˆì‚°ì´ì•¡: {formatCurrency(selectedBudget.budget_amount || 0)}</span>
-                              <span>ì‚¬ìš©ê¸ˆì•¡: {formatCurrency(selectedBudget.executed_amount || 0)}</span>
-                              <span>ì”ì—¬ì˜ˆì‚°: {formatCurrency(remainingAmount)}</span>
+                              <span>¼±ÅÃµÈ ¿¹»ê: {selectedBudget.project_name}</span>
+                              <span>¿¹»êÃÑ¾×: {formatCurrency(selectedBudget.budget_amount || 0)}</span>
+                              <span>»ç¿ë±İ¾×: {formatCurrency(selectedBudget.executed_amount || 0)}</span>
+                              <span>ÀÜ¿©¿¹»ê: {formatCurrency(remainingAmount)}</span>
                             </>
                           );
                         }
@@ -3377,13 +3377,13 @@ const ProposalForm = () => {
               </div>
 
               <div className="form-group">
-                <label>ê³„ì•½ë°©ì‹</label>
+                <label>°è¾à¹æ½Ä</label>
                 <select
                   value={formData.contractMethod}
                   onChange={(e) => setFormData({...formData, contractMethod: e.target.value})}
                   required
                 >
-                  <option value="">ê³„ì•½ë°©ì‹ì„ ì„ íƒí•˜ì„¸ìš”</option>
+                  <option value="">°è¾à¹æ½ÄÀ» ¼±ÅÃÇÏ¼¼¿ä</option>
                   {contractMethods.map(method => (
                     <option key={method.value} value={method.value}>
                       {method.name}
@@ -3392,7 +3392,7 @@ const ProposalForm = () => {
                 </select>
                 {formData.contractMethod && (
                   <div className="regulation-info">
-                    <span>ì‚¬ë‚´ê·œì •: {contractMethods.find(m => m.value === formData.contractMethod)?.regulation}</span>
+                    <span>»ç³»±ÔÁ¤: {contractMethods.find(m => m.value === formData.contractMethod)?.regulation}</span>
                   </div>
                 )}
               </div>
@@ -3400,11 +3400,11 @@ const ProposalForm = () => {
 
             <div className="form-row">
               <div className="form-group">
-                <label>ê¸°íƒ€</label>
+                <label>±âÅ¸</label>
                 <textarea
                   value={formData.accountSubject || ''}
                   onChange={(e) => setFormData(prevData => ({...prevData, accountSubject: e.target.value}))}
-                  placeholder="ê¸°íƒ€ ì‚¬í•­ì„ ì…ë ¥í•˜ì„¸ìš”"
+                  placeholder="±âÅ¸ »çÇ×À» ÀÔ·ÂÇÏ¼¼¿ä"
                   required
                   rows={2}
                   style={{ resize: 'vertical', minHeight: '60px' }}
@@ -3412,21 +3412,21 @@ const ProposalForm = () => {
               </div>
 
               <div className="form-group">
-                <label>ìš”ì²­ë¶€ì„œ (ë‹¤ì¤‘ì„ íƒ ê°€ëŠ¥)</label>
+                <label>¿äÃ»ºÎ¼­ (´ÙÁß¼±ÅÃ °¡´É)</label>
                 <div className="department-selector">
                   <button 
                     type="button" 
                     className="department-select-btn"
                     onClick={openDepartmentDropdown}
                   >
-                    ë¶€ì„œë¥¼ ì„ íƒí•˜ì„¸ìš” ({formData.requestDepartments.length}ê°œ ì„ íƒë¨)
+                    ºÎ¼­¸¦ ¼±ÅÃÇÏ¼¼¿ä ({formData.requestDepartments.length}°³ ¼±ÅÃµÊ)
                   </button>
                   
-                  {/* ì„ íƒëœ ë¶€ì„œ ëª©ë¡ */}
+                  {/* ¼±ÅÃµÈ ºÎ¼­ ¸ñ·Ï */}
                   {formData.requestDepartments.length > 0 && (
                     <div className="selected-departments">
                       {formData.requestDepartments.map((dept, index) => {
-                        const deptName = typeof dept === 'string' ? dept : dept.name || dept;
+                        const deptName = typeof dept === 'string' ? dept : dept.department || dept.name || dept;
                         return (
                           <div key={index} className="selected-department-tag">
                             <span>{deptName}</span>
@@ -3435,7 +3435,7 @@ const ProposalForm = () => {
                               className="remove-department-btn"
                               onClick={() => removeDepartment(deptName)}
                             >
-                              âœ•
+                              ?
                             </button>
                           </div>
                         );
@@ -3447,36 +3447,36 @@ const ProposalForm = () => {
             </div>
           </div>
 
-          {/* ê³„ì•½ë³„ íŠ¹í™” ì…ë ¥ */}
+          {/* °è¾àº° Æ¯È­ ÀÔ·Â */}
           {contractType === 'purchase' && (
             <div className="form-section purchase-items-section">
               <div className="section-header">
-                <h3>ğŸ›ï¸ ì‹ ê·œí’ˆëª©</h3>
+                <h3>??? ½Å±ÔÇ°¸ñ</h3>
                 <button type="button" onClick={addPurchaseItem} className="add-item-btn">
                   <span className="btn-icon">+</span>
-                  <span className="btn-text">ì‹ ê·œí’ˆëª© ì¶”ê°€</span>
+                  <span className="btn-text">½Å±ÔÇ°¸ñ Ãß°¡</span>
                 </button>
               </div>
               
-              {/* ì‹ ê·œí’ˆëª© í…Œì´ë¸” */}
+              {/* ½Å±ÔÇ°¸ñ Å×ÀÌºí */}
               <div className="purchase-items-table-container">
                 <table className="purchase-items-table">
                   <thead>
                     <tr>
-                                      <th>êµ¬ë¶„</th>
-                <th>ë‚´ì—­</th>
-                      <th>ìˆ˜ëŸ‰</th>
-                      <th>ë‹¨ê°€</th>
-                      <th>ê¸ˆì•¡</th>
-                      <th>ê³µê¸‰ì—…ì²´</th>
-                      <th>ê³„ì•½ê¸°ê°„</th>
-                      <th>ì‘ì—…</th>
+                                      <th>±¸ºĞ</th>
+                <th>³»¿ª</th>
+                      <th>¼ö·®</th>
+                      <th>´Ü°¡</th>
+                      <th>±İ¾×</th>
+                      <th>°ø±Ş¾÷Ã¼</th>
+                      <th>°è¾à±â°£</th>
+                      <th>ÀÛ¾÷</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(formData.purchaseItems || []).map((item, index) => (
                       <tr key={item.id} className="purchase-item-row">
-                        {/* êµ¬ë¶„ */}
+                        {/* ±¸ºĞ */}
                         <td>
                           <select
                             value={item.item || ''}
@@ -3490,7 +3490,7 @@ const ProposalForm = () => {
                                 };
                               });
                               
-                              // êµ¬ë¶„ ë³€ê²½ ì‹œ í•´ë‹¹ í–‰ì˜ ë‚´ì—­ ì¶”ì²œ ìƒˆë¡œê³ ì¹¨
+                              // ±¸ºĞ º¯°æ ½Ã ÇØ´ç ÇàÀÇ ³»¿ª ÃßÃµ »õ·Î°íÄ§
                               if (currentSuggestionField === 'productName' && currentSuggestionIndex === index) {
                                 const currentProductName = formData.purchaseItems[index]?.productName || '';
                                 if (currentProductName.trim()) {
@@ -3510,25 +3510,25 @@ const ProposalForm = () => {
                               backgroundColor: 'white'
                             }}
                           >
-                            <option value="">êµ¬ë¶„ ì„ íƒ</option>
-                            <option value="ì†Œí”„íŠ¸ì›¨ì–´">ì†Œí”„íŠ¸ì›¨ì–´</option>
-                            <option value="ì „ì‚°ê¸°êµ¬ë¹„í’ˆ">ì „ì‚°ê¸°êµ¬ë¹„í’ˆ</option>
-                            <option value="ì „ì‚°ìˆ˜ì„ ">ì „ì‚°ìˆ˜ì„ </option>
-                            <option value="ì „ì‚°ì„¤ì¹˜">ì „ì‚°ì„¤ì¹˜</option>
-                            <option value="ì „ì‚°ì†Œëª¨í’ˆ">ì „ì‚°ì†Œëª¨í’ˆ</option>
-                            <option value="ì „ì‚°ìš©ì—­">ì „ì‚°ìš©ì—­</option>
-                            <option value="ì „ì‚°ì„ì°¨">ì „ì‚°ì„ì°¨</option>
-                            <option value="ì „ì‚°íšŒì„ ">ì „ì‚°íšŒì„ </option>
-                            <option value="ì „ì‹ ì „í™”">ì „ì‹ ì „í™”</option>
-                            <option value="ì¦ê¶Œì „ì‚°ìš´ìš©">ì¦ê¶Œì „ì‚°ìš´ìš©</option>
-                            <option value="ë³´í—˜ë¹„">ë³´í—˜ë¹„</option>
-                            <option value="ì¼ë°˜ì—…ë¬´ìˆ˜ìˆ˜ë£Œ">ì¼ë°˜ì—…ë¬´ìˆ˜ìˆ˜ë£Œ</option>
-                            <option value="í†µì‹ ì •ë³´ë£Œ">í†µì‹ ì •ë³´ë£Œ</option>
-                            <option value="íšŒë¹„ë°ê³µê³¼ê¸ˆ">íšŒë¹„ë°ê³µê³¼ê¸ˆ</option>
+                            <option value="">±¸ºĞ ¼±ÅÃ</option>
+                            <option value="¼ÒÇÁÆ®¿ş¾î">¼ÒÇÁÆ®¿ş¾î</option>
+                            <option value="Àü»ê±â±¸ºñÇ°">Àü»ê±â±¸ºñÇ°</option>
+                            <option value="Àü»ê¼ö¼±">Àü»ê¼ö¼±</option>
+                            <option value="Àü»ê¼³Ä¡">Àü»ê¼³Ä¡</option>
+                            <option value="Àü»ê¼Ò¸ğÇ°">Àü»ê¼Ò¸ğÇ°</option>
+                            <option value="Àü»ê¿ë¿ª">Àü»ê¿ë¿ª</option>
+                            <option value="Àü»êÀÓÂ÷">Àü»êÀÓÂ÷</option>
+                            <option value="Àü»êÈ¸¼±">Àü»êÈ¸¼±</option>
+                            <option value="Àü½ÅÀüÈ­">Àü½ÅÀüÈ­</option>
+                            <option value="Áõ±ÇÀü»ê¿î¿ë">Áõ±ÇÀü»ê¿î¿ë</option>
+                            <option value="º¸Çèºñ">º¸Çèºñ</option>
+                            <option value="ÀÏ¹İ¾÷¹«¼ö¼ö·á">ÀÏ¹İ¾÷¹«¼ö¼ö·á</option>
+                            <option value="Åë½ÅÁ¤º¸·á">Åë½ÅÁ¤º¸·á</option>
+                            <option value="È¸ºñ¹×°ø°ú±İ">È¸ºñ¹×°ø°ú±İ</option>
                           </select>
                         </td>
                         
-                        {/* ë‚´ì—­ */}
+                        {/* ³»¿ª */}
                         <td>
                           <div className="input-with-suggestions">
                             <input
@@ -3547,7 +3547,7 @@ const ProposalForm = () => {
                               }}
                               onFocus={() => handleInputFocus('productName', index, item.productName)}
                               onBlur={handleInputBlur}
-                              placeholder="ë‚´ì—­"
+                              placeholder="³»¿ª"
                               required
                             />
                             {showProductSuggestions && currentSuggestionField === 'productName' && currentSuggestionIndex === index && purchaseHistory.length > 0 && (
@@ -3560,15 +3560,15 @@ const ProposalForm = () => {
                                   >
                                     <div className="suggestion-main">{history.product_name}</div>
                                     <div className="suggestion-details">
-                                      êµ¬ë§¤íšŸìˆ˜: {history.frequency}íšŒ | í‰ê· ë‹¨ê°€: {formatCurrency(history.avg_unit_price)}
+                                      ±¸¸ÅÈ½¼ö: {history.frequency}È¸ | Æò±Õ´Ü°¡: {formatCurrency(history.avg_unit_price)}
                                       {history.contract_type && (
                                         <span className="contract-type">
-                                          | ê³„ì•½ìœ í˜•: {history.contract_type}
+                                          | °è¾àÀ¯Çü: {history.contract_type}
                                         </span>
                                       )}
                                       {history.proposal_total_amount && (
                                         <span className="proposal-amount">
-                                          | í’ˆì˜ì„œê¸ˆì•¡: {formatCurrency(history.proposal_total_amount)}
+                                          | Ç°ÀÇ¼­±İ¾×: {formatCurrency(history.proposal_total_amount)}
                                         </span>
                                       )}
                                     </div>
@@ -3579,7 +3579,7 @@ const ProposalForm = () => {
                           </div>
                         </td>
                         
-                        {/* ìˆ˜ëŸ‰ */}
+                        {/* ¼ö·® */}
                         <td>
                           <input
                             type="number"
@@ -3596,12 +3596,12 @@ const ProposalForm = () => {
                                 };
                               });
                             }}
-                            placeholder="ìˆ˜ëŸ‰"
+                            placeholder="¼ö·®"
                             required
                           />
                         </td>
                         
-                        {/* ë‹¨ê°€ */}
+                        {/* ´Ü°¡ */}
                         <td>
                           <input
                             type="text"
@@ -3618,12 +3618,12 @@ const ProposalForm = () => {
                                 };
                               });
                             }}
-                            placeholder="ë‹¨ê°€"
+                            placeholder="´Ü°¡"
                             required
                           />
                         </td>
                         
-                        {/* ê¸ˆì•¡ */}
+                        {/* ±İ¾× */}
                         <td>
                           <input
                             type="text"
@@ -3633,7 +3633,7 @@ const ProposalForm = () => {
                           />
                         </td>
                         
-                        {/* ê³µê¸‰ì—…ì²´ */}
+                        {/* °ø±Ş¾÷Ã¼ */}
                         <td>
                           <div className="input-with-suggestions">
                             <input
@@ -3652,7 +3652,7 @@ const ProposalForm = () => {
                               }}
                               onFocus={() => handleInputFocus('supplier', index, item.supplier)}
                               onBlur={handleInputBlur}
-                              placeholder="ê³µê¸‰ì—…ì²´"
+                              placeholder="°ø±Ş¾÷Ã¼"
                               required
                             />
                             {showSupplierSuggestions && currentSuggestionField === 'supplier' && currentSuggestionIndex === index && purchaseHistory.length > 0 && (
@@ -3665,10 +3665,10 @@ const ProposalForm = () => {
                                   >
                                     <div className="suggestion-main">{history.supplier}</div>
                                     <div className="suggestion-details">
-                                      êµ¬ë§¤íšŸìˆ˜: {history.frequency}íšŒ | í‰ê· ë‹¨ê°€: {formatCurrency(history.avg_unit_price)}
+                                      ±¸¸ÅÈ½¼ö: {history.frequency}È¸ | Æò±Õ´Ü°¡: {formatCurrency(history.avg_unit_price)}
                                       {history.contract_type && (
                                         <span className="contract-type">
-                                          | ê³„ì•½ìœ í˜•: {history.contract_type}
+                                          | °è¾àÀ¯Çü: {history.contract_type}
                                         </span>
                                       )}
                                     </div>
@@ -3679,7 +3679,7 @@ const ProposalForm = () => {
                           </div>
                         </td>
                         
-                        {/* ê³„ì•½ê¸°ê°„ */}
+                        {/* °è¾à±â°£ */}
                         <td>
                           <div className="contract-period-selector">
                             <select
@@ -3701,20 +3701,20 @@ const ProposalForm = () => {
                               }}
                               className="contract-period-select"
                             >
-                              <option value="1month">1ê°œì›”</option>
-                              <option value="3months">3ê°œì›”</option>
-                              <option value="6months">6ê°œì›”</option>
-                              <option value="1year">1ë…„</option>
-                              <option value="2years">2ë…„</option>
-                              <option value="3years">3ë…„</option>
-                              <option value="permanent">ì˜êµ¬</option>
-                              <option value="custom">ì§ì ‘ì…ë ¥</option>
+                              <option value="1month">1°³¿ù</option>
+                              <option value="3months">3°³¿ù</option>
+                              <option value="6months">6°³¿ù</option>
+                              <option value="1year">1³â</option>
+                              <option value="2years">2³â</option>
+                              <option value="3years">3³â</option>
+                              <option value="permanent">¿µ±¸</option>
+                              <option value="custom">Á÷Á¢ÀÔ·Â</option>
                             </select>
                             
                             {item.contractPeriodType === 'custom' && (
                               <div className="contract-date-inputs">
                                 <div className="date-input-group">
-                                  <label className="date-label">ì‹œì‘ì¼:</label>
+                                  <label className="date-label">½ÃÀÛÀÏ:</label>
                                   <input
                                     type="date"
                                     value={item.contractStartDate || ''}
@@ -3732,7 +3732,7 @@ const ProposalForm = () => {
                                   />
                                 </div>
                                 <div className="date-input-group">
-                                  <label className="date-label">ì¢…ë£Œì¼:</label>
+                                  <label className="date-label">Á¾·áÀÏ:</label>
                                   <input
                                     type="date"
                                     value={item.contractEndDate || ''}
@@ -3755,13 +3755,13 @@ const ProposalForm = () => {
                           </div>
                         </td>
                         
-                        {/* ì‘ì—… */}
+                        {/* ÀÛ¾÷ */}
                         <td>
                           <button 
                             type="button" 
                             className="remove-btn"
                             onClick={() => removePurchaseItem(index)}
-                            title="í’ˆëª© ì œê±°"
+                            title="Ç°¸ñ Á¦°Å"
                           >
                             X
                           </button>
@@ -3773,12 +3773,12 @@ const ProposalForm = () => {
                 </table>
               </div>
 
-              {/* ë¹„ìš©ê·€ì†ë¶€ì„œ ë¶„ë°° ì„¹ì…˜ - ê° í’ˆëª©ë³„ë¡œ í‘œì‹œ */}
+              {/* ºñ¿ë±Í¼ÓºÎ¼­ ºĞ¹è ¼½¼Ç - °¢ Ç°¸ñº°·Î Ç¥½Ã */}
               <div className="cost-allocations-container">
                 {(formData.purchaseItems || []).map((item, index) => (
                   <div key={`allocation-${item.id}`} className="cost-allocation-section">
                     <div className="allocation-header">
-                      <h4>"{item.productName}" ë¹„ìš©ê·€ì†ë¶€ì„œ ë¶„ë°°</h4>
+                      <h4>"{item.productName}" ºñ¿ë±Í¼ÓºÎ¼­ ºĞ¹è</h4>
                       <button 
                         type="button" 
                         className="add-allocation-btn"
@@ -3787,33 +3787,33 @@ const ProposalForm = () => {
                           e.stopPropagation();
                           e.nativeEvent.stopImmediatePropagation();
                           
-                          // ì¤‘ë³µ í´ë¦­ ë°©ì§€
+                          // Áßº¹ Å¬¸¯ ¹æÁö
                           if (e.target.disabled) {
-                            console.log(`ğŸš¨ ë¶„ë°° ì¶”ê°€ ë²„íŠ¼ ì´ë¯¸ ë¹„í™œì„±í™”ë¨`);
+                            console.log(`?? ºĞ¹è Ãß°¡ ¹öÆ° ÀÌ¹Ì ºñÈ°¼ºÈ­µÊ`);
                             return;
                           }
                           
-                          // ë²„íŠ¼ ë¹„í™œì„±í™”
+                          // ¹öÆ° ºñÈ°¼ºÈ­
                           e.target.disabled = true;
-                          e.target.textContent = 'ì¶”ê°€ ì¤‘...';
+                          e.target.textContent = 'Ãß°¡ Áß...';
                           
-                          console.log(`ğŸš¨ ë¶„ë°° ì¶”ê°€ ë²„íŠ¼ í´ë¦­: êµ¬ë§¤í’ˆëª© ${index}`);
+                          console.log(`?? ºĞ¹è Ãß°¡ ¹öÆ° Å¬¸¯: ±¸¸ÅÇ°¸ñ ${index}`);
                           
-                          // ë¹„ë™ê¸°ë¡œ ì‹¤í–‰í•˜ì—¬ ì¤‘ë³µ í˜¸ì¶œ ë°©ì§€
+                          // ºñµ¿±â·Î ½ÇÇàÇÏ¿© Áßº¹ È£Ãâ ¹æÁö
                           setTimeout(() => {
                             addCostAllocation(index);
                             
-                            // ë²„íŠ¼ ë³µì›
+                            // ¹öÆ° º¹¿ø
                             e.target.disabled = false;
-                            e.target.textContent = '+ ë¶„ë°° ì¶”ê°€';
+                            e.target.textContent = '+ ºĞ¹è Ãß°¡';
                           }, 100);
                         }}
                       >
-                        + ë¶„ë°° ì¶”ê°€
+                        + ºĞ¹è Ãß°¡
                       </button>
                     </div>
                     
-                    {/* ë¹„ìš©ë¶„ë°° í†µí•© í…Œì´ë¸” */}
+                    {/* ºñ¿ëºĞ¹è ÅëÇÕ Å×ÀÌºí */}
                     {(() => {
                       const allocations = item.costAllocation?.allocations || [];
                       
@@ -3826,8 +3826,8 @@ const ProposalForm = () => {
                               padding: '2rem',
                               fontStyle: 'italic'
                             }}>
-                              ì´ í’ˆëª©ì— ëŒ€í•œ ë¹„ìš©ë¶„ë°°ê°€ ì„¤ì •ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.<br/>
-                              ìœ„ì˜ "ë¶„ë°° ì¶”ê°€" ë²„íŠ¼ì„ í´ë¦­í•˜ì—¬ ë¶€ì„œë³„ ë¶„ë°°ë¥¼ ì¶”ê°€í•˜ì„¸ìš”.
+                              ÀÌ Ç°¸ñ¿¡ ´ëÇÑ ºñ¿ëºĞ¹è°¡ ¼³Á¤µÇÁö ¾Ê¾Ò½À´Ï´Ù.<br/>
+                              À§ÀÇ "ºĞ¹è Ãß°¡" ¹öÆ°À» Å¬¸¯ÇÏ¿© ºÎ¼­º° ºĞ¹è¸¦ Ãß°¡ÇÏ¼¼¿ä.
                             </div>
                           </div>
                         );
@@ -3849,7 +3849,7 @@ const ProposalForm = () => {
                                   fontWeight: '600',
                                   fontSize: '0.9rem'
                                 }}>
-                                  ê·€ì†ë¶€ì„œ
+                                  ±Í¼ÓºÎ¼­
                                 </th>
                                 <th style={{ 
                                   padding: '0.75rem', 
@@ -3858,7 +3858,7 @@ const ProposalForm = () => {
                                   fontWeight: '600',
                                   fontSize: '0.9rem'
                                 }}>
-                                  ë¶„ë°°ë°©ì‹
+                                  ºĞ¹è¹æ½Ä
                                 </th>
                                 <th style={{ 
                                   padding: '0.75rem', 
@@ -3867,7 +3867,7 @@ const ProposalForm = () => {
                                   fontWeight: '600',
                                   fontSize: '0.9rem'
                                 }}>
-                                  ë¶„ë°°ê°’
+                                  ºĞ¹è°ª
                                 </th>
                                 <th style={{ 
                                   padding: '0.75rem', 
@@ -3876,7 +3876,7 @@ const ProposalForm = () => {
                                   fontWeight: '600',
                                   fontSize: '0.9rem'
                                 }}>
-                                  ë¶„ë°°ê¸ˆì•¡
+                                  ºĞ¹è±İ¾×
                                 </th>
                                 <th style={{ 
                                   padding: '0.75rem', 
@@ -3886,7 +3886,7 @@ const ProposalForm = () => {
                                   fontSize: '0.9rem',
                                   width: '80px'
                                 }}>
-                                  ì‘ì—…
+                                  ÀÛ¾÷
                                 </th>
                               </tr>
                             </thead>
@@ -3912,7 +3912,7 @@ const ProposalForm = () => {
                                         fontSize: '0.9rem'
                                       }}
                                     >
-                                      <option value="">ë¶€ì„œ ì„ íƒ</option>
+                                      <option value="">ºÎ¼­ ¼±ÅÃ</option>
                                       {departments && departments.length > 0 ? (
                                         departments.map(dept => (
                                           <option key={dept.id} value={dept.name}>
@@ -3920,7 +3920,7 @@ const ProposalForm = () => {
                                           </option>
                                         ))
                                       ) : (
-                                        <option value="" disabled>ë¶€ì„œ ë°ì´í„° ë¡œë”© ì¤‘...</option>
+                                        <option value="" disabled>ºÎ¼­ µ¥ÀÌÅÍ ·Îµù Áß...</option>
                                       )}
                                     </select>
                                   </td>
@@ -3941,8 +3941,8 @@ const ProposalForm = () => {
                                         fontSize: '0.9rem'
                                       }}
                                     >
-                                      <option value="percentage">ì •ë¥  (%)</option>
-                                      <option value="fixed">ì •ì•¡ (ì›)</option>
+                                      <option value="percentage">Á¤·ü (%)</option>
+                                      <option value="fixed">Á¤¾× (¿ø)</option>
                                     </select>
                                   </td>
                                   <td style={{ 
@@ -3954,7 +3954,7 @@ const ProposalForm = () => {
                                       type="number"
                                       value={allocation.value || 0}
                                       onChange={(e) => updateCostAllocation(index, allocIndex, 'value', Number(e.target.value))}
-                                      placeholder={allocation.type === 'percentage' ? '%' : 'ì›'}
+                                      placeholder={allocation.type === 'percentage' ? '%' : '¿ø'}
                                       required
                                       style={{ 
                                         width: '100%',
@@ -3977,7 +3977,7 @@ const ProposalForm = () => {
                                       allocation.type === 'percentage' 
                                         ? (item.amount * (allocation.value / 100))
                                         : allocation.value
-                                    )}ì›
+                                    )}¿ø
                                   </td>
                                   <td style={{ 
                                     padding: '0.75rem', 
@@ -3987,7 +3987,7 @@ const ProposalForm = () => {
                                     <button 
                                       type="button" 
                                       onClick={() => removeCostAllocation(index, allocIndex)}
-                                      title="ë¶„ë°° ì œê±°"
+                                      title="ºĞ¹è Á¦°Å"
                                       style={{
                                         background: '#dc3545',
                                         color: 'white',
@@ -3999,7 +3999,7 @@ const ProposalForm = () => {
                                         fontWeight: '600'
                                       }}
                                     >
-                                      ì‚­ì œ
+                                      »èÁ¦
                                     </button>
                                   </td>
                                 </tr>
@@ -4012,7 +4012,7 @@ const ProposalForm = () => {
                                   border: '1px solid #dee2e6',
                                   textAlign: 'right'
                                 }}>
-                                  í•©ê³„:
+                                  ÇÕ°è:
                                 </td>
                                 <td style={{ 
                                   padding: '0.75rem', 
@@ -4027,7 +4027,7 @@ const ProposalForm = () => {
                                         ? (item.amount * (allocation.value / 100))
                                         : allocation.value);
                                     }, 0);
-                                    return formatNumberWithComma(total) + 'ì›';
+                                    return formatNumberWithComma(total) + '¿ø';
                                   })()}
                                 </td>
                                 <td style={{ 
@@ -4051,7 +4051,7 @@ const ProposalForm = () => {
                                         color: isValid ? '#28a745' : '#ffc107',
                                         fontSize: '0.8rem'
                                       }}>
-                                        {isValid ? 'âœ“ ì™„ë£Œ' : 'âš  í™•ì¸í•„ìš”'}
+                                        {isValid ? '? ¿Ï·á' : '? È®ÀÎÇÊ¿ä'}
                                       </span>
                                     );
                                   })()}
@@ -4066,7 +4066,7 @@ const ProposalForm = () => {
                 ))}
               </div>
 
-              {/* ê³„ì •ê³¼ëª© ì„¹ì…˜ - í†µí•© í‘œì‹œ */}
+              {/* °èÁ¤°ú¸ñ ¼½¼Ç - ÅëÇÕ Ç¥½Ã */}
               {(() => {
                 const itemsWithAccount = (formData.purchaseItems || []).filter(item => {
                   const accountSubject = getAccountSubjectByCategory(item.item);
@@ -4081,7 +4081,7 @@ const ProposalForm = () => {
                   <div className="account-subjects-container">
                     <div className="account-subject-section">
                       <div className="account-header">
-                        <h4>ğŸ“Š ê³„ì •ê³¼ëª©</h4>
+                        <h4>?? °èÁ¤°ú¸ñ</h4>
                       </div>
                       
                       <div className="account-list">
@@ -4093,25 +4093,25 @@ const ProposalForm = () => {
                               <div className="item-name">{item.productName || item.item}</div>
                               <div className="account-path">
                                 <span className="path-item">
-                                  <span className="path-label">ê´€:</span>
-                                  <span className="path-value">{accountSubject.ê´€}</span>
+                                  <span className="path-label">°ü:</span>
+                                  <span className="path-value">{accountSubject.°ü}</span>
                                 </span>
                                 <span className="path-separator">&gt;</span>
                                 <span className="path-item">
-                                  <span className="path-label">í•­:</span>
-                                  <span className="path-value">{accountSubject.í•­}</span>
+                                  <span className="path-label">Ç×:</span>
+                                  <span className="path-value">{accountSubject.Ç×}</span>
                                 </span>
                                 <span className="path-separator">&gt;</span>
                                 <span className="path-item">
-                                  <span className="path-label">ëª©:</span>
-                                  <span className="path-value">{accountSubject.ëª©}</span>
+                                  <span className="path-label">¸ñ:</span>
+                                  <span className="path-value">{accountSubject.¸ñ}</span>
                                 </span>
-                                {accountSubject.ì ˆ && (
+                                {accountSubject.Àı && (
                                   <>
                                     <span className="path-separator">&gt;</span>
                                     <span className="path-item">
-                                      <span className="path-label">ì ˆ:</span>
-                                      <span className="path-value">{accountSubject.ì ˆ}</span>
+                                      <span className="path-label">Àı:</span>
+                                      <span className="path-value">{accountSubject.Àı}</span>
                                     </span>
                                   </>
                                 )}
@@ -4125,12 +4125,12 @@ const ProposalForm = () => {
                 );
               })()}
               
-              {/* ì´ ì‹ ê·œê¸ˆì•¡ */}
+              {/* ÃÑ ½Å±Ô±İ¾× */}
               <div className="total-amount-center">
-                <h4>ì´ ì‹ ê·œê¸ˆì•¡: {formatCurrency(calculateTotalAmount())}</h4>
+                <h4>ÃÑ ½Å±Ô±İ¾×: {formatCurrency(calculateTotalAmount())}</h4>
               </div>
 
-              {/* ìë™ í•©ì‚° ë‚´ì—­ ì„¹ì…˜ */}
+              {/* ÀÚµ¿ ÇÕ»ê ³»¿ª ¼½¼Ç */}
               {(() => {
                 const totalAllocation = calculateTotalCostAllocation();
                 const hasAllocations = Object.keys(totalAllocation).length > 0;
@@ -4138,13 +4138,13 @@ const ProposalForm = () => {
                 if (hasAllocations) {
                   return (
                     <div className="form-section auto-summary-section">
-                      <h3>ìë™ í•©ì‚° ë‚´ì—­</h3>
+                      <h3>ÀÚµ¿ ÇÕ»ê ³»¿ª</h3>
                       <div className="auto-summary-content">
                         <div className="summary-table">
                           <div className="summary-header">
-                            <div className="header-cell">ë¶€ì„œ</div>
-                            <div className="header-cell">ì´ ë¶„ë°° ê¸ˆì•¡</div>
-                            <div className="header-cell">ì „ì²´ ëŒ€ë¹„ ë¹„ìœ¨</div>
+                            <div className="header-cell">ºÎ¼­</div>
+                            <div className="header-cell">ÃÑ ºĞ¹è ±İ¾×</div>
+                            <div className="header-cell">ÀüÃ¼ ´ëºñ ºñÀ²</div>
                           </div>
                           {Object.entries(totalAllocation).map(([department, data]) => (
                             <div key={department} className="summary-row">
@@ -4158,16 +4158,16 @@ const ProposalForm = () => {
                         </div>
                         <div className="summary-footer">
                           <div className="summary-total">
-                            <span>ì´ ë¶„ë°° ê¸ˆì•¡: {formatCurrency(Object.values(totalAllocation).reduce((sum, data) => sum + data.amount, 0))}</span>
-                            <span>ì „ì²´ ëŒ€ë¹„: {calculateTotalAmount() > 0 ? ((Object.values(totalAllocation).reduce((sum, data) => sum + data.amount, 0) / calculateTotalAmount()) * 100).toFixed(1) : '0.0'}%</span>
+                            <span>ÃÑ ºĞ¹è ±İ¾×: {formatCurrency(Object.values(totalAllocation).reduce((sum, data) => sum + data.amount, 0))}</span>
+                            <span>ÀüÃ¼ ´ëºñ: {calculateTotalAmount() > 0 ? ((Object.values(totalAllocation).reduce((sum, data) => sum + data.amount, 0) / calculateTotalAmount()) * 100).toFixed(1) : '0.0'}%</span>
                           </div>
                           <div className="summary-status">
                             {(() => {
                               const totalDistributed = Object.values(totalAllocation).reduce((sum, data) => sum + data.amount, 0);
                               const totalAmount = calculateTotalAmount();
-                              const isComplete = Math.abs(totalDistributed - totalAmount) < 0.01; // 1ì› ì´í•˜ ì°¨ì´ëŠ” ì™„ë£Œë¡œ ê°„ì£¼
+                              const isComplete = Math.abs(totalDistributed - totalAmount) < 0.01; // 1¿ø ÀÌÇÏ Â÷ÀÌ´Â ¿Ï·á·Î °£ÁÖ
                               
-                              console.log('ğŸ” ë¶„ë°° ì™„ë£Œ ê²€ì¦:', {
+                              console.log('?? ºĞ¹è ¿Ï·á °ËÁõ:', {
                                 totalDistributed,
                                 totalAmount,
                                 difference: Math.abs(totalDistributed - totalAmount),
@@ -4176,7 +4176,7 @@ const ProposalForm = () => {
                               
                               return (
                                 <span className={isComplete ? 'valid' : 'invalid'}>
-                                  {isComplete ? 'âœ“ 100% ë¶„ë°° ì™„ë£Œ' : 'âœ— 100% ë¶„ë°° ë¯¸ì™„ë£Œ'}
+                                  {isComplete ? '? 100% ºĞ¹è ¿Ï·á' : '? 100% ºĞ¹è ¹Ì¿Ï·á'}
                                 </span>
                               );
                             })()}
@@ -4193,17 +4193,17 @@ const ProposalForm = () => {
 
           {contractType === 'service' && (
             <div className="form-section">
-              <h3>ìš©ì—­ë‚´ì—­</h3>
+              <h3>¿ë¿ª³»¿ª</h3>
               <button type="button" onClick={addServiceItem} className="add-btn">
-                + ìš©ì—­í•­ëª© ì¶”ê°€
+                + ¿ë¿ªÇ×¸ñ Ãß°¡
               </button>
               
               {(formData.serviceItems || []).map((item, index) => (
                 <div key={item.id} className="service-item">
-                  {/* ì²« ë²ˆì§¸ í–‰: í•­ëª©, ì¸ì›ìˆ˜, ê¸°ìˆ ë“±ê¸‰, ê¸°ê°„, ë‹¨ê°€, ê³„ì•½ê¸ˆì•¡ */}
+                  {/* Ã¹ ¹øÂ° Çà: Ç×¸ñ, ÀÎ¿ø¼ö, ±â¼úµî±Ş, ±â°£, ´Ü°¡, °è¾à±İ¾× */}
                   <div className="form-row service-main-row">
                     <div className="form-group">
-                      <label>í•­ëª©</label>
+                      <label>Ç×¸ñ</label>
                       <input
                         type="text"
                         value={item.item}
@@ -4217,12 +4217,12 @@ const ProposalForm = () => {
                             };
                           });
                         }}
-                        placeholder="ìš©ì—­í•­ëª©ì„ ì…ë ¥í•˜ì„¸ìš”"
+                        placeholder="¿ë¿ªÇ×¸ñÀ» ÀÔ·ÂÇÏ¼¼¿ä"
                         required
                       />
                     </div>
                     <div className="form-group">
-                      <label>ì„±ëª…</label>
+                      <label>¼º¸í</label>
                       <input
                         type="text"
                         value={item.name || ''}
@@ -4236,12 +4236,12 @@ const ProposalForm = () => {
                             };
                           });
                         }}
-                        placeholder="ì„±ëª…"
+                        placeholder="¼º¸í"
                         required
                       />
                     </div>
                     <div className="form-group">
-                      <label>ê¸°ìˆ ë“±ê¸‰</label>
+                      <label>±â¼úµî±Ş</label>
                       <select
                         value={item.skillLevel}
                         onChange={(e) => {
@@ -4251,15 +4251,15 @@ const ProposalForm = () => {
                         }}
                         required
                       >
-                        <option value="">ë“±ê¸‰ì„ íƒ</option>
-                        <option value="íŠ¹ê¸‰">íŠ¹ê¸‰</option>
-                        <option value="ê³ ê¸‰">ê³ ê¸‰</option>
-                        <option value="ì¤‘ê¸‰">ì¤‘ê¸‰</option>
-                        <option value="ì´ˆê¸‰">ì´ˆê¸‰</option>
+                        <option value="">µî±Ş¼±ÅÃ</option>
+                        <option value="Æ¯±Ş">Æ¯±Ş</option>
+                        <option value="°í±Ş">°í±Ş</option>
+                        <option value="Áß±Ş">Áß±Ş</option>
+                        <option value="ÃÊ±Ş">ÃÊ±Ş</option>
                       </select>
                     </div>
                     <div className="form-group narrow-input">
-                      <label>ê¸°ê°„ (ê°œì›”)</label>
+                      <label>±â°£ (°³¿ù)</label>
                       <input
                         type="number"
                         value={item.period}
@@ -4274,12 +4274,12 @@ const ProposalForm = () => {
                             };
                           });
                         }}
-                        placeholder="ê°œì›”ìˆ˜"
+                        placeholder="°³¿ù¼ö"
                         required
                       />
                     </div>
                     <div className="form-group">
-                      <label>ë‹¨ê°€ (ì›”)</label>
+                      <label>´Ü°¡ (¿ù)</label>
                       <input
                         type="text"
                         value={item.monthlyRate ? item.monthlyRate.toLocaleString() : ''}
@@ -4297,12 +4297,12 @@ const ProposalForm = () => {
                             });
                           }
                         }}
-                        placeholder="ì›” ë‹¨ê°€"
+                        placeholder="¿ù ´Ü°¡"
                         required
                       />
                     </div>
                     <div className="form-group">
-                      <label>ê³„ì•½ê¸ˆì•¡</label>
+                      <label>°è¾à±İ¾×</label>
                       <input
                         type="text"
                         value={item.contractAmount ? item.contractAmount.toLocaleString() : '0'}
@@ -4311,10 +4311,10 @@ const ProposalForm = () => {
                     </div>
                   </div>
                   
-                  {/* ë‘ ë²ˆì§¸ í–‰: ê³µê¸‰ì—…ì²´, ì‹ ìš©ë“±ê¸‰ */}
+                  {/* µÎ ¹øÂ° Çà: °ø±Ş¾÷Ã¼, ½Å¿ëµî±Ş */}
                   <div className="form-row service-sub-row">
                     <div className="form-group">
-                      <label>ê³µê¸‰ì—…ì²´</label>
+                      <label>°ø±Ş¾÷Ã¼</label>
                       <input
                         type="text"
                         value={item.supplier}
@@ -4328,12 +4328,12 @@ const ProposalForm = () => {
                             };
                           });
                         }}
-                        placeholder="ê³µê¸‰ì—…ì²´ë¥¼ ì…ë ¥í•˜ì„¸ìš”"
+                        placeholder="°ø±Ş¾÷Ã¼¸¦ ÀÔ·ÂÇÏ¼¼¿ä"
                         required
                       />
                     </div>
                     <div className="form-group">
-                      <label>ì‹ ìš©ë“±ê¸‰</label>
+                      <label>½Å¿ëµî±Ş</label>
                       <input
                         type="text"
                         value={item.creditRating}
@@ -4347,7 +4347,7 @@ const ProposalForm = () => {
                             };
                           });
                         }}
-                        placeholder="ì‹ ìš©ë“±ê¸‰ì„ ì…ë ¥í•˜ì„¸ìš” (ì˜ˆ: A, B+, BBB ë“±)"
+                        placeholder="½Å¿ëµî±ŞÀ» ÀÔ·ÂÇÏ¼¼¿ä (¿¹: A, B+, BBB µî)"
                         required
                       />
                     </div>
@@ -4361,9 +4361,9 @@ const ProposalForm = () => {
                             serviceItems: prevData.serviceItems.filter((_, i) => i !== index)
                           }));
                         }}
-                        title="ìš©ì—­í•­ëª© ì œê±°"
+                        title="¿ë¿ªÇ×¸ñ Á¦°Å"
                       >
-                        í•­ëª© ì‚­ì œ
+                        Ç×¸ñ »èÁ¦
                       </button>
                     </div>
                   </div>
@@ -4372,10 +4372,10 @@ const ProposalForm = () => {
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>ê³„ì•½ê¸°ê°„</label>
+                  <label>°è¾à±â°£</label>
                   <div className="contract-period-dates">
                     <div className="date-input-wrapper">
-                      <label className="date-sub-label">ì‹œì‘ì¼:</label>
+                      <label className="date-sub-label">½ÃÀÛÀÏ:</label>
                       <input
                         type="date"
                         value={formData.contractStartDate || ''}
@@ -4385,7 +4385,7 @@ const ProposalForm = () => {
                       />
                     </div>
                     <div className="date-input-wrapper">
-                      <label className="date-sub-label">ì¢…ë£Œì¼:</label>
+                      <label className="date-sub-label">Á¾·áÀÏ:</label>
                       <input
                         type="date"
                         value={formData.contractEndDate || ''}
@@ -4398,31 +4398,31 @@ const ProposalForm = () => {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label>ë¹„ìš©ì§€ê¸‰ë°©ì‹</label>
+                  <label>ºñ¿ëÁö±Ş¹æ½Ä</label>
                   <select
                     value={formData.paymentMethod}
                     onChange={(e) => setFormData(prevData => ({...prevData, paymentMethod: e.target.value}))}
                     required
                   >
-                    <option value="">ì§€ê¸‰ë°©ì‹ì„ ì„ íƒí•˜ì„¸ìš”</option>
-                    <option value="monthly">ì›”ë³„ ì§€ê¸‰</option>
-                    <option value="quarterly">ë¶„ê¸°ë³„ ì§€ê¸‰</option>
-                    <option value="lump">ì¼ì‹œ ì§€ê¸‰</option>
+                    <option value="">Áö±Ş¹æ½ÄÀ» ¼±ÅÃÇÏ¼¼¿ä</option>
+                    <option value="monthly">¿ùº° Áö±Ş</option>
+                    <option value="quarterly">ºĞ±âº° Áö±Ş</option>
+                    <option value="lump">ÀÏ½Ã Áö±Ş</option>
                   </select>
                 </div>
               </div>
               
               <div className="total-amount">
-                <h4 className="total-contract-amount">ì´ ê³„ì•½ê¸ˆì•¡: {formatCurrency(calculateTotalAmount())}</h4>
+                <h4 className="total-contract-amount">ÃÑ °è¾à±İ¾×: {formatCurrency(calculateTotalAmount())}</h4>
               </div>
             </div>
           )}
 
           {contractType === 'freeform' && (
             <div className="form-section">
-              <h3>ğŸ“ ììœ ì–‘ì‹ ë¬¸ì„œ ì‘ì„±</h3>
+              <h3>?? ÀÚÀ¯¾ç½Ä ¹®¼­ ÀÛ¼º</h3>
               
-              {/* í…œí”Œë¦¿ ì„ íƒ ì˜ì—­ */}
+              {/* ÅÛÇÃ¸´ ¼±ÅÃ ¿µ¿ª */}
               {showTemplates && (
                 <DocumentTemplates
                   onSelectTemplate={handleTemplateSelect}
@@ -4430,7 +4430,7 @@ const ProposalForm = () => {
                 />
               )}
               
-              {/* í…œí”Œë¦¿ ë‹¤ì‹œ ì„ íƒ ë²„íŠ¼ */}
+              {/* ÅÛÇÃ¸´ ´Ù½Ã ¼±ÅÃ ¹öÆ° */}
               {!showTemplates && (
                 <div style={{ marginBottom: '20px', textAlign: 'center' }}>
                   <button 
@@ -4446,29 +4446,29 @@ const ProposalForm = () => {
                       fontSize: '14px'
                     }}
                   >
-                    ğŸ“‹ í…œí”Œë¦¿ ë‹¤ì‹œ ì„ íƒ
+                    ?? ÅÛÇÃ¸´ ´Ù½Ã ¼±ÅÃ
                   </button>
                   {selectedTemplate && (
                     <span style={{ marginLeft: '10px', color: '#666', fontSize: '14px' }}>
-                      í˜„ì¬: {selectedTemplate === 'promotion' ? 'ì¶”ì§„í’ˆì˜' : 
-                             selectedTemplate === 'bidding' ? 'ì…ì°° ì‹¤í–‰ í’ˆì˜' : 
-                             selectedTemplate === 'biddingResult' ? 'ì…ì°° ê²°ê³¼ ë³´ê³  í’ˆì˜' : 'ì‚¬ìš©ì ì •ì˜'}
+                      ÇöÀç: {selectedTemplate === 'promotion' ? 'ÃßÁøÇ°ÀÇ' : 
+                             selectedTemplate === 'bidding' ? 'ÀÔÂû ½ÇÇà Ç°ÀÇ' : 
+                             selectedTemplate === 'biddingResult' ? 'ÀÔÂû °á°ú º¸°í Ç°ÀÇ' : '»ç¿ëÀÚ Á¤ÀÇ'}
                     </span>
                   )}
                 </div>
               )}
               
-              {/* ì—ë””í„° ì˜ì—­ */}
+              {/* ¿¡µğÅÍ ¿µ¿ª */}
               {!showTemplates && (
                 <>
                   <div className="freeform-description">
-                    <p>ğŸš€ ì»¤ìŠ¤í…€ CKEditor 5 - ì†ŒìŠ¤ ê¸°ë°˜ ì „ë¬¸ ë¬¸ì„œ í¸ì§‘ê¸°!</p>
-                    <p>âœ¨ í‘œ í¸ì§‘, ì„œì‹, ë§í¬, ëª©ë¡ ë“± ëª¨ë“  ê¸°ëŠ¥ì„ ì§€ì›í•©ë‹ˆë‹¤.</p>
+                    <p>?? Ä¿½ºÅÒ CKEditor 5 - ¼Ò½º ±â¹İ Àü¹® ¹®¼­ ÆíÁı±â!</p>
+                    <p>? Ç¥ ÆíÁı, ¼­½Ä, ¸µÅ©, ¸ñ·Ï µî ¸ğµç ±â´ÉÀ» Áö¿øÇÕ´Ï´Ù.</p>
                   </div>
                   <CKEditorComponent
                     value={formData.wysiwygContent || ''}
                     onChange={(content) => setFormData(prevData => ({...prevData, wysiwygContent: content}))}
-                    placeholder="ì»¤ìŠ¤í…€ CKEditor 5ë¡œ ì „ë¬¸ì ì¸ ë¬¸ì„œë¥¼ ì‘ì„±í•˜ì„¸ìš”. í‘œ í¸ì§‘, ì„œì‹, ë§í¬ ë“± ëª¨ë“  ê¸°ëŠ¥ì„ ì‚¬ìš©í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤."
+                    placeholder="Ä¿½ºÅÒ CKEditor 5·Î Àü¹®ÀûÀÎ ¹®¼­¸¦ ÀÛ¼ºÇÏ¼¼¿ä. Ç¥ ÆíÁı, ¼­½Ä, ¸µÅ© µî ¸ğµç ±â´ÉÀ» »ç¿ëÇÒ ¼ö ÀÖ½À´Ï´Ù."
                     height="500px"
                   />
                 </>
@@ -4478,17 +4478,17 @@ const ProposalForm = () => {
 
           {(contractType === 'change' || contractType === 'extension') && (
             <div className="form-section">
-              <h3>{contractType === 'change' ? 'ë³€ê²½ë‚´ì—­' : 'ì—°ì¥ë‚´ì—­'}</h3>
+              <h3>{contractType === 'change' ? 'º¯°æ³»¿ª' : '¿¬Àå³»¿ª'}</h3>
               
               <div className="form-group">
-                <label>{contractType === 'change' ? 'ë³€ê²½ ì‚¬ìœ ' : 'ì—°ì¥ ì‚¬ìœ '}</label>
+                <label>{contractType === 'change' ? 'º¯°æ »çÀ¯' : '¿¬Àå »çÀ¯'}</label>
                 <textarea
                   value={contractType === 'change' ? formData.changeReason : formData.extensionReason}
                   onChange={(e) => setFormData(prevData => ({
                     ...prevData, 
                     [contractType === 'change' ? 'changeReason' : 'extensionReason']: e.target.value
                   }))}
-                  placeholder={`${contractType === 'change' ? 'ë³€ê²½' : 'ì—°ì¥'} ì‚¬ìœ ë¥¼ ì…ë ¥í•˜ì„¸ìš”`}
+                  placeholder={`${contractType === 'change' ? 'º¯°æ' : '¿¬Àå'} »çÀ¯¸¦ ÀÔ·ÂÇÏ¼¼¿ä`}
                   required
                   rows={3}
                 />
@@ -4496,21 +4496,21 @@ const ProposalForm = () => {
               
               <div className="comparison-section">
                 <div className="before-section">
-                  <h4>ë³€ê²½ ì „</h4>
-                  {/* ë³€ê²½ ì „ ë‚´ì—­ ì…ë ¥ */}
+                  <h4>º¯°æ Àü</h4>
+                  {/* º¯°æ Àü ³»¿ª ÀÔ·Â */}
                 </div>
                 <div className="after-section">
-                  <h4>ë³€ê²½ í›„</h4>
-                  {/* ë³€ê²½ í›„ ë‚´ì—­ ì…ë ¥ */}
+                  <h4>º¯°æ ÈÄ</h4>
+                  {/* º¯°æ ÈÄ ³»¿ª ÀÔ·Â */}
                 </div>
               </div>
             </div>
           )}
 
-          {/* ê²°ì¬ë¼ì¸ ì¶”ì²œ - ììœ ì–‘ì‹ ì œì™¸ */}
+          {/* °áÀç¶óÀÎ ÃßÃµ - ÀÚÀ¯¾ç½Ä Á¦¿Ü */}
           {calculateTotalAmount() > 0 && contractType !== 'freeform' && (
             <div className="form-section">
-              <h3>ğŸ“‹ ê²°ì¬ë¼ì¸ ì¶”ì²œ</h3>
+              <h3>?? °áÀç¶óÀÎ ÃßÃµ</h3>
               <div className="approval-flow">
                 {getRecommendedApprovalLine().map((step, index) => (
                   <div key={index} className={`approval-step ${step.final ? 'final' : ''} ${step.conditional ? 'conditional' : ''}`}>
@@ -4520,11 +4520,11 @@ const ProposalForm = () => {
                       <div className="step-title">{step.title}</div>
                       <div className="step-description">{step.description}</div>
                       {step.conditional && (
-                        <div className="conditional-badge">ì¡°ê±´ë¶€</div>
+                        <div className="conditional-badge">Á¶°ÇºÎ</div>
                       )}
                     </div>
                     {index < getRecommendedApprovalLine().length - 1 && (
-                      <div className="step-arrow">â†’</div>
+                      <div className="step-arrow">¡æ</div>
                     )}
                   </div>
                 ))}
@@ -4534,43 +4534,43 @@ const ProposalForm = () => {
 
           <div className="form-actions">
             <button type="button" className="draft-btn" onClick={() => {
-              console.log('ì„ì‹œì €ì¥ ë²„íŠ¼ í´ë¦­ë¨');
-              handleProposalSave(true); // isDraft = true (ì„ì‹œì €ì¥)
+              console.log('ÀÓ½ÃÀúÀå ¹öÆ° Å¬¸¯µÊ');
+              handleProposalSave(true); // isDraft = true (ÀÓ½ÃÀúÀå)
             }}>
-              ì„ì‹œì €ì¥
+              ÀÓ½ÃÀúÀå
             </button>
             <button type="button" className="preview-btn" onClick={handlePreview}>
-              ë¯¸ë¦¬ë³´ê¸°
+              ¹Ì¸®º¸±â
             </button>
             <button type="submit" className="submit-btn" onClick={() => {
-              console.log('í’ˆì˜ì„œ ì‘ì„± ë²„íŠ¼ í´ë¦­ë¨');
-              console.log('í˜„ì¬ í¼ ë°ì´í„°:', formData);
-              console.log('ê³„ì•½ ìœ í˜•:', contractType);
+              console.log('Ç°ÀÇ¼­ ÀÛ¼º ¹öÆ° Å¬¸¯µÊ');
+              console.log('ÇöÀç Æû µ¥ÀÌÅÍ:', formData);
+              console.log('°è¾à À¯Çü:', contractType);
             }}>
-              ì‘ì„±ì™„ë£Œ
+              ÀÛ¼º¿Ï·á
             </button>
           </div>
         </form>
       )}
 
-      {/* ë¶€ì„œ ì„ íƒ ë“œë¡­ë‹¤ìš´ */}
+      {/* ºÎ¼­ ¼±ÅÃ µå·Ó´Ù¿î */}
       {showDepartmentDropdown && (
         <div className="popup-overlay" onClick={() => setShowDepartmentDropdown(false)}>
           <div className="department-popup" onClick={(e) => e.stopPropagation()}>
             <div className="popup-header">
-              <h3>ë¶€ì„œ ì„ íƒ</h3>
+              <h3>ºÎ¼­ ¼±ÅÃ</h3>
               <button 
                 className="popup-close"
                 onClick={() => setShowDepartmentDropdown(false)}
               >
-                âœ•
+                ?
               </button>
             </div>
             
             <div className="department-search">
               <input
                 type="text"
-                placeholder="ë¶€ì„œëª…ì„ ê²€ìƒ‰í•˜ì„¸ìš”..."
+                placeholder="ºÎ¼­¸íÀ» °Ë»öÇÏ¼¼¿ä..."
                 value={departmentSearchTerm}
                 onChange={(e) => setDepartmentSearchTerm(e.target.value)}
                 autoFocus
@@ -4593,7 +4593,7 @@ const ProposalForm = () => {
                 ))
               ) : (
                 <div className="no-results">
-                  <p>ê²€ìƒ‰ ê²°ê³¼ê°€ ì—†ìŠµë‹ˆë‹¤.</p>
+                  <p>°Ë»ö °á°ú°¡ ¾ø½À´Ï´Ù.</p>
                 </div>
               )}
             </div>
@@ -4603,41 +4603,41 @@ const ProposalForm = () => {
 
 
 
-      {/* ì‚¬ì—…ì˜ˆì‚° ì„ íƒ íŒì—… */}
+      {/* »ç¾÷¿¹»ê ¼±ÅÃ ÆË¾÷ */}
       {showBudgetPopup && (
         <div className="popup-overlay" onClick={() => setShowBudgetPopup(false)}>
           <div className="budget-popup" onClick={(e) => e.stopPropagation()}>
             <div className="popup-header">
-              <h3>ì‚¬ì—…ì˜ˆì‚° ì„ íƒ</h3>
+              <h3>»ç¾÷¿¹»ê ¼±ÅÃ</h3>
               <button 
                 className="popup-close"
                 onClick={() => setShowBudgetPopup(false)}
               >
-                âœ•
+                ?
               </button>
             </div>
             
             <div className="popup-filters">
               <div className="filter-group">
-                <label>ì—°ë„</label>
+                <label>¿¬µµ</label>
                 <select 
                   value={selectedYear} 
                   onChange={(e) => setSelectedYear(e.target.value)}
                 >
-                  <option value="">ì „ì²´ ì—°ë„</option>
+                  <option value="">ÀüÃ¼ ¿¬µµ</option>
                   {getYearList().map(year => (
-                    <option key={year} value={year}>{year}ë…„</option>
+                    <option key={year} value={year}>{year}³â</option>
                   ))}
                 </select>
               </div>
               
               <div className="filter-group">
-                <label>ì˜ˆì‚° ìœ í˜•</label>
+                <label>¿¹»ê À¯Çü</label>
                 <select 
                   value={selectedBudgetType} 
                   onChange={(e) => setSelectedBudgetType(e.target.value)}
                 >
-                  <option value="">ì „ì²´ ìœ í˜•</option>
+                  <option value="">ÀüÃ¼ À¯Çü</option>
                   {getBudgetTypeList().map(type => (
                     <option key={type} value={type}>{type}</option>
                   ))}
@@ -4657,12 +4657,12 @@ const ProposalForm = () => {
                     >
                       <div className="budget-header">
                         <h4>{budget.project_name}</h4>
-                        <span className="budget-year">{budget.budget_year}ë…„</span>
+                        <span className="budget-year">{budget.budget_year}³â</span>
                       </div>
                       <div className="budget-details">
                         <span className="budget-type">{budget.budget_type}</span>
-                        <span className="budget-amount">ì´ì•¡: {formatCurrency(budget.budget_amount || 0)}</span>
-                        <span className="budget-remaining">ì”ì—¬: {formatCurrency(remainingAmount)}</span>
+                        <span className="budget-amount">ÃÑ¾×: {formatCurrency(budget.budget_amount || 0)}</span>
+                        <span className="budget-remaining">ÀÜ¿©: {formatCurrency(remainingAmount)}</span>
                       </div>
                       <div className="budget-progress">
                         <div 
@@ -4677,7 +4677,7 @@ const ProposalForm = () => {
                 })
               ) : (
                 <div className="no-results">
-                  <p>ì¡°ê±´ì— ë§ëŠ” ì‚¬ì—…ì˜ˆì‚°ì´ ì—†ìŠµë‹ˆë‹¤.</p>
+                  <p>Á¶°Ç¿¡ ¸Â´Â »ç¾÷¿¹»êÀÌ ¾ø½À´Ï´Ù.</p>
                 </div>
               )}
             </div>
@@ -4685,28 +4685,28 @@ const ProposalForm = () => {
         </div>
       )}
 
-      {/* ì„ì‹œì €ì¥ í™•ì¸ íŒì—… */}
+      {/* ÀÓ½ÃÀúÀå È®ÀÎ ÆË¾÷ */}
       {showSaveConfirm && pendingNavigation && (
         <div className="popup-overlay" onClick={handleCancelNavigation}>
           <div className="save-confirm-popup" onClick={(e) => e.stopPropagation()} style={{backgroundColor: '#f8f9fa', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflowY: 'auto'}}>
-            {console.log('íŒì—… ë Œë”ë§:', showSaveConfirm, pendingNavigation)}
+            {console.log('ÆË¾÷ ·»´õ¸µ:', showSaveConfirm, pendingNavigation)}
             <div className="popup-header">
-              <h3>ğŸ“ ì„ì‹œì €ì¥ í™•ì¸</h3>
+              <h3>?? ÀÓ½ÃÀúÀå È®ÀÎ</h3>
               <button 
                 className="popup-close"
                 onClick={handleCancelNavigation}
               >
-                âœ•
+                ?
               </button>
             </div>
             
             <div className="save-confirm-content" style={{backgroundColor: '#f8f9fa'}}>
               <div className="confirm-message" style={{backgroundColor: '#ffffff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e1e5e9'}}>
-                <p style={{backgroundColor: '#ffffff', margin: '0.5rem 0', fontSize: '1.1rem', color: '#333'}}>ì‘ì„± ì¤‘ì¸ ë‚´ìš©ì´ ìˆìŠµë‹ˆë‹¤.</p>
-                <p style={{backgroundColor: '#ffffff', margin: '0.5rem 0', fontSize: '1.1rem', color: '#333'}}>ì„ì‹œì €ì¥í•˜ê³  ì´ë™í•˜ì‹œê² ìŠµë‹ˆê¹Œ?</p>
+                <p style={{backgroundColor: '#ffffff', margin: '0.5rem 0', fontSize: '1.1rem', color: '#333'}}>ÀÛ¼º ÁßÀÎ ³»¿ëÀÌ ÀÖ½À´Ï´Ù.</p>
+                <p style={{backgroundColor: '#ffffff', margin: '0.5rem 0', fontSize: '1.1rem', color: '#333'}}>ÀÓ½ÃÀúÀåÇÏ°í ÀÌµ¿ÇÏ½Ã°Ú½À´Ï±î?</p>
                 <p className="navigation-target" style={{backgroundColor: '#f8f9fa', fontSize: '0.9rem', color: '#666', fontStyle: 'italic', marginTop: '0.5rem', padding: '0.75rem', borderRadius: '6px', display: 'inline-block'}}>
-                  ì´ë™í•  í˜ì´ì§€: {pendingNavigation && ['purchase', 'change', 'extension', 'service', 'bidding'].includes(pendingNavigation) 
-                    ? `${pendingNavigation === 'purchase' ? 'ì‹ ê·œ' : pendingNavigation === 'change' ? 'ë³€ê²½' : pendingNavigation === 'extension' ? 'ì—°ì¥' : pendingNavigation === 'service' ? 'ìš©ì—­' : 'ì…ì°°'} ê³„ì•½` 
+                  ÀÌµ¿ÇÒ ÆäÀÌÁö: {pendingNavigation && ['purchase', 'change', 'extension', 'service', 'bidding'].includes(pendingNavigation) 
+                    ? `${pendingNavigation === 'purchase' ? '½Å±Ô' : pendingNavigation === 'change' ? 'º¯°æ' : pendingNavigation === 'extension' ? '¿¬Àå' : pendingNavigation === 'service' ? '¿ë¿ª' : 'ÀÔÂû'} °è¾à` 
                     : pendingNavigation}
                 </p>
               </div>
@@ -4716,19 +4716,19 @@ const ProposalForm = () => {
                   onClick={handleSaveAndNavigate}
                   className="btn btn-primary"
                 >
-                  ğŸ’¾ ì„ì‹œì €ì¥ í›„ ì´ë™
+                  ?? ÀÓ½ÃÀúÀå ÈÄ ÀÌµ¿
                 </button>
                 <button 
                   onClick={handleNavigateWithoutSave}
                   className="btn btn-secondary"
                 >
-                  ğŸš« ì €ì¥í•˜ì§€ ì•Šê³  ì´ë™
+                  ?? ÀúÀåÇÏÁö ¾Ê°í ÀÌµ¿
                 </button>
                 <button 
                   onClick={handleCancelNavigation}
                   className="btn btn-cancel"
                 >
-                  âŒ ì·¨ì†Œ
+                  ? Ãë¼Ò
                 </button>
               </div>
             </div>
@@ -4736,7 +4736,7 @@ const ProposalForm = () => {
         </div>
       )}
 
-      {/* ë¯¸ë¦¬ë³´ê¸° íŒì—… */}
+      {/* ¹Ì¸®º¸±â ÆË¾÷ */}
       {showPreview && (
         <div className="popup-overlay" onClick={handleClosePreview}>
           <div 
@@ -4751,43 +4751,43 @@ const ProposalForm = () => {
           >
             <div className="popup-header">
               <div className="header-left">
-                <h3>ğŸ“‹ í’ˆì˜ì„œ ë¯¸ë¦¬ë³´ê¸°</h3>
+                <h3>?? Ç°ÀÇ¼­ ¹Ì¸®º¸±â</h3>
                 <small style={{ color: '#666', fontSize: '0.8rem', marginLeft: '1rem' }}>
-                  í¬ê¸°ì¡°ì ˆ: ë“œë˜ê·¸ ë˜ëŠ” ë²„íŠ¼ í´ë¦­ | ë‹¨ì¶•í‚¤: 1(ì‘ê²Œ), 2(ë³´í†µ), 3(í¬ê²Œ), ESC(ë‹«ê¸°)
+                  Å©±âÁ¶Àı: µå·¡±× ¶Ç´Â ¹öÆ° Å¬¸¯ | ´ÜÃàÅ°: 1(ÀÛ°Ô), 2(º¸Åë), 3(Å©°Ô), ESC(´İ±â)
                 </small>
               </div>
               <div className="popup-controls">
                 <button 
                   className="size-control-btn"
                   onClick={() => setPopupSize({ width: 70, height: 80 })}
-                  title="ì‘ê²Œ"
+                  title="ÀÛ°Ô"
                 >
-                  ğŸ“±
+                  ??
                 </button>
                 <button 
                   className="size-control-btn"
                   onClick={() => setPopupSize({ width: 85, height: 90 })}
-                  title="ë³´í†µ"
+                  title="º¸Åë"
                 >
-                  ğŸ’»
+                  ??
                 </button>
                 <button 
                   className="size-control-btn"
                   onClick={() => setPopupSize({ width: 99, height: 97 })}
-                  title="í¬ê²Œ"
+                  title="Å©°Ô"
                 >
-                  ğŸ–¥ï¸
+                  ???
                 </button>
                 <button 
                   className="popup-close"
                   onClick={handleClosePreview}
                 >
-                  âœ•
+                  ?
                 </button>
               </div>
             </div>
             
-            {/* ë¦¬ì‚¬ì´ì¦ˆ í•¸ë“¤ */}
+            {/* ¸®»çÀÌÁî ÇÚµé */}
             <div className="resize-handles">
               <div 
                 className="resize-handle resize-handle-right"
@@ -4810,35 +4810,35 @@ const ProposalForm = () => {
               }}
             >
               <div className="formal-document">
-                {/* ë¬¸ì„œ í—¤ë” */}
+                {/* ¹®¼­ Çì´õ */}
                 <div className="document-header">
                   <div className="company-info">
-                    <h1 className="company-name">[íšŒì‚¬ëª…]</h1>
-                    <p className="company-address">[íšŒì‚¬ ì£¼ì†Œ]</p>
-                    <p className="company-contact">TEL: [ì „í™”ë²ˆí˜¸] | FAX: [íŒ©ìŠ¤ë²ˆí˜¸] | EMAIL: [ì´ë©”ì¼]</p>
+                    <h1 className="company-name">[È¸»ç¸í]</h1>
+                    <p className="company-address">[È¸»ç ÁÖ¼Ò]</p>
+                    <p className="company-contact">TEL: [ÀüÈ­¹øÈ£] | FAX: [ÆÑ½º¹øÈ£] | EMAIL: [ÀÌ¸ŞÀÏ]</p>
                   </div>
                   <div className="document-meta">
                     <div className="document-number">
-                      <span className="label">ë¬¸ì„œë²ˆí˜¸:</span>
-                      <span className="value">[ìë™ìƒì„±]</span>
+                      <span className="label">¹®¼­¹øÈ£:</span>
+                      <span className="value">[ÀÚµ¿»ı¼º]</span>
                     </div>
                     <div className="document-date">
-                      <span className="label">ì‘ì„±ì¼ì:</span>
+                      <span className="label">ÀÛ¼ºÀÏÀÚ:</span>
                       <span className="value">{new Date().toLocaleDateString('ko-KR')}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* ë¬¸ì„œ ì œëª© */}
+                {/* ¹®¼­ Á¦¸ñ */}
                 <div className="document-title">
-                  <h1 className="main-title">{formData.title || 'í’ˆ ì˜ ì„œ'}</h1>
+                  <h1 className="main-title">{formData.title || 'Ç° ÀÇ ¼­'}</h1>
                   <div className="title-underline"></div>
                 </div>
 
-                {/* ë¬¸ì„œ ë³¸ë¬¸ */}
+                {/* ¹®¼­ º»¹® */}
                 <div className="document-body">
                   
-                  {/* ììœ ì–‘ì‹ ë‚´ìš© */}
+                  {/* ÀÚÀ¯¾ç½Ä ³»¿ë */}
                   {contractType === 'freeform' && formData.wysiwygContent && (
                     <div className="freeform-content">
                       <div 
@@ -4859,48 +4859,48 @@ const ProposalForm = () => {
                     </div>
                   )}
                   
-                  {/* ììœ ì–‘ì‹ì¸ë° ë‚´ìš©ì´ ì—†ëŠ” ê²½ìš° */}
+                  {/* ÀÚÀ¯¾ç½ÄÀÎµ¥ ³»¿ëÀÌ ¾ø´Â °æ¿ì */}
                   {contractType === 'freeform' && !formData.wysiwygContent && (
                     <div className="no-data-box">
-                      <p>ììœ ì–‘ì‹ ë‚´ìš©ì´ ì…ë ¥ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.</p>
+                      <p>ÀÚÀ¯¾ç½Ä ³»¿ëÀÌ ÀÔ·ÂµÇÁö ¾Ê¾Ò½À´Ï´Ù.</p>
                     </div>
                   )}
 
-                  {/* ììœ ì–‘ì‹ì´ ì•„ë‹Œ ê²½ìš°ì—ë§Œ ê¸°ë³¸ ì •ë³´ í‘œì‹œ */}
+                  {/* ÀÚÀ¯¾ç½ÄÀÌ ¾Æ´Ñ °æ¿ì¿¡¸¸ ±âº» Á¤º¸ Ç¥½Ã */}
                   {contractType !== 'freeform' && (
                     <>
-                      {/* ê¸°ë³¸ ì •ë³´ í…Œì´ë¸” */}
+                      {/* ±âº» Á¤º¸ Å×ÀÌºí */}
                       <div className="info-section">
-                        <h2 className="section-title">1. ê³„ì•½ ê¸°ë³¸ ì •ë³´</h2>
+                        <h2 className="section-title">1. °è¾à ±âº» Á¤º¸</h2>
                     <table className="info-table">
                       <tbody>
                         {formData.title && (
                           <tr>
-                            <td className="label-cell">ì œëª©</td>
+                            <td className="label-cell">Á¦¸ñ</td>
                             <td className="value-cell" colSpan="3">{formData.title}</td>
                           </tr>
                         )}
                         <tr>
-                          <td className="label-cell">ê³„ì•½ ìœ í˜•</td>
+                          <td className="label-cell">°è¾à À¯Çü</td>
                           <td className="value-cell" colSpan="3">
-                            {contractType === 'purchase' ? 'êµ¬ë§¤ê³„ì•½' : 
-                             contractType === 'service' ? 'ìš©ì—­ê³„ì•½' : 
-                             contractType === 'change' ? 'ë³€ê²½ê³„ì•½' : 
-                             contractType === 'extension' ? 'ì—°ì¥ê³„ì•½' : contractType === 'freeform' ? 'ììœ ì–‘ì‹' : 'ê¸°íƒ€'}
+                            {contractType === 'purchase' ? '±¸¸Å°è¾à' : 
+                             contractType === 'service' ? '¿ë¿ª°è¾à' : 
+                             contractType === 'change' ? 'º¯°æ°è¾à' : 
+                             contractType === 'extension' ? '¿¬Àå°è¾à' : contractType === 'freeform' ? 'ÀÚÀ¯¾ç½Ä' : '±âÅ¸'}
                           </td>
                         </tr>
                         <tr>
-                          <td className="label-cell">ê³„ì•½ë°©ì‹</td>
+                          <td className="label-cell">°è¾à¹æ½Ä</td>
                           <td className="value-cell" colSpan="3">
                             {(() => {
-                              if (!formData.contractMethod) return 'ë¯¸ì…ë ¥';
+                              if (!formData.contractMethod) return '¹ÌÀÔ·Â';
                               
-                              // value í•„ë“œë¡œ ë§¤ì¹­ (í’ˆì˜ì„œ ì‘ì„±ì—ì„œ valueë¥¼ ì €ì¥í•˜ë¯€ë¡œ)
+                              // value ÇÊµå·Î ¸ÅÄª (Ç°ÀÇ¼­ ÀÛ¼º¿¡¼­ value¸¦ ÀúÀåÇÏ¹Ç·Î)
                               let method = contractMethods.find(m => 
                                 m.value === formData.contractMethod
                               );
                               
-                              // valueë¡œ ë§¤ì¹­ë˜ì§€ ì•Šìœ¼ë©´ ë‹¤ë¥¸ ë°©ì‹ ì‹œë„
+                              // value·Î ¸ÅÄªµÇÁö ¾ÊÀ¸¸é ´Ù¸¥ ¹æ½Ä ½Ãµµ
                               if (!method) {
                                 method = contractMethods.find(m => 
                                   m.id == formData.contractMethod || 
@@ -4910,37 +4910,37 @@ const ProposalForm = () => {
                                 );
                               }
                               
-                              // "lowest" ê°™ì€ íŠ¹ìˆ˜ ê°’ ì²˜ë¦¬
+                              // "lowest" °°Àº Æ¯¼ö °ª Ã³¸®
                               if (!method && formData.contractMethod === 'lowest') {
-                                return 'ìµœì €ê°€ê³„ì•½';
+                                return 'ÃÖÀú°¡°è¾à';
                               }
                               
-                              return method?.name || `ë¯¸ë“±ë¡ ê³„ì•½ë°©ì‹ (${formData.contractMethod})`;
+                              return method?.name || `¹Ìµî·Ï °è¾à¹æ½Ä (${formData.contractMethod})`;
                             })()}
                           </td>
                         </tr>
                         <tr>
-                          <td className="label-cell">ì‚¬ì—… ëª©ì </td>
-                          <td className="value-cell" colSpan="3">{formData.purpose || 'ë¯¸ì…ë ¥'}</td>
+                          <td className="label-cell">»ç¾÷ ¸ñÀû</td>
+                          <td className="value-cell" colSpan="3">{formData.purpose || '¹ÌÀÔ·Â'}</td>
                         </tr>
                         <tr>
-                          <td className="label-cell">ê³„ì•½ ê·¼ê±°</td>
-                          <td className="value-cell" colSpan="3">{formData.basis || 'ë¯¸ì…ë ¥'}</td>
+                          <td className="label-cell">°è¾à ±Ù°Å</td>
+                          <td className="value-cell" colSpan="3">{formData.basis || '¹ÌÀÔ·Â'}</td>
                         </tr>
                         <tr>
-                          <td className="label-cell">ì‚¬ì—… ì˜ˆì‚°</td>
+                          <td className="label-cell">»ç¾÷ ¿¹»ê</td>
                           <td className="value-cell" colSpan="3">
                             {(() => {
-                              if (!formData.budget) return 'ë¯¸ì…ë ¥';
+                              if (!formData.budget) return '¹ÌÀÔ·Â';
                               
-                              // ë‹¤ì–‘í•œ ë°©ì‹ìœ¼ë¡œ ë§¤ì¹­ ì‹œë„
+                              // ´Ù¾çÇÑ ¹æ½ÄÀ¸·Î ¸ÅÄª ½Ãµµ
                               let budget = businessBudgets.find(b => 
                                 b.id == formData.budget || 
                                 b.id === parseInt(formData.budget) || 
                                 String(b.id) === String(formData.budget)
                               );
                               
-                              // ë§¤ì¹­ë˜ì§€ ì•Šìœ¼ë©´ í”„ë¡œì íŠ¸ëª…ìœ¼ë¡œ ì§ì ‘ ì°¾ê¸°
+                              // ¸ÅÄªµÇÁö ¾ÊÀ¸¸é ÇÁ·ÎÁ§Æ®¸íÀ¸·Î Á÷Á¢ Ã£±â
                               if (!budget) {
                                 budget = businessBudgets.find(b => 
                                   b.project_name === formData.budget ||
@@ -4955,26 +4955,26 @@ const ProposalForm = () => {
                                 return `${projectName} (${formatCurrency(budgetAmount)})`;
                               }
                               
-                              return `ë¯¸ë“±ë¡ ì˜ˆì‚° (${formData.budget})`;
+                              return `¹Ìµî·Ï ¿¹»ê (${formData.budget})`;
                             })()}
                           </td>
                         </tr>
                         <tr>
-                          <td className="label-cell">ê¸°íƒ€</td>
-                          <td className="value-cell" colSpan="3">{formData.accountSubject || 'ë¯¸ì…ë ¥'}</td>
+                          <td className="label-cell">±âÅ¸</td>
+                          <td className="value-cell" colSpan="3">{formData.accountSubject || '¹ÌÀÔ·Â'}</td>
                         </tr>
                         <tr>
-                          <td className="label-cell">ìš”ì²­ë¶€ì„œ</td>
+                          <td className="label-cell">¿äÃ»ºÎ¼­</td>
                           <td className="value-cell" colSpan="3">
                             {formData.requestDepartments && formData.requestDepartments.length > 0 ? 
                               formData.requestDepartments.map(dept => 
-                                typeof dept === 'string' ? dept : dept.name || dept
-                              ).join(', ') : 'ë¯¸ì…ë ¥'}
+                                typeof dept === 'string' ? dept : dept.department || dept.name || dept
+                              ).join(', ') : '¹ÌÀÔ·Â'}
                           </td>
                         </tr>
                         {contractType === 'change' && formData.changeReason && (
                           <tr>
-                            <td className="label-cell">ë³€ê²½ ì‚¬ìœ </td>
+                            <td className="label-cell">º¯°æ »çÀ¯</td>
                             <td className="value-cell" colSpan="3" style={{ whiteSpace: 'pre-wrap' }}>
                               {formData.changeReason}
                             </td>
@@ -4982,7 +4982,7 @@ const ProposalForm = () => {
                         )}
                         {contractType === 'extension' && formData.extensionReason && (
                           <tr>
-                            <td className="label-cell">ì—°ì¥ ì‚¬ìœ </td>
+                            <td className="label-cell">¿¬Àå »çÀ¯</td>
                             <td className="value-cell" colSpan="3" style={{ whiteSpace: 'pre-wrap' }}>
                               {formData.extensionReason}
                             </td>
@@ -4994,24 +4994,24 @@ const ProposalForm = () => {
 
 
 
-                  {/* ê³„ì•½ ìƒì„¸ ë‚´ì—­ */}
+                  {/* °è¾à »ó¼¼ ³»¿ª */}
                   <div className="details-section">
-                    <h2 className="section-title">2. ê³„ì•½ ìƒì„¸ ë‚´ì—­</h2>
+                    <h2 className="section-title">2. °è¾à »ó¼¼ ³»¿ª</h2>
                   {['purchase', 'change', 'extension'].includes(contractType) && formData.purchaseItems && formData.purchaseItems.length > 0 ? (
                       <div>
-                        {/* êµ¬ë§¤ í’ˆëª© ìƒì„¸ í…Œì´ë¸” */}
+                        {/* ±¸¸Å Ç°¸ñ »ó¼¼ Å×ÀÌºí */}
                         <table className="details-table">
                           <thead>
                             <tr>
-                              <th style={{ width: '50px' }}>ë²ˆí˜¸</th>
-                              <th style={{ width: '120px' }}>êµ¬ë¶„</th>
-                              <th style={{ width: '200px' }}>í’ˆëª©ëª…/ê·œê²©</th>
-                              <th style={{ width: '80px' }}>ìˆ˜ëŸ‰</th>
-                              <th style={{ width: '120px' }}>ë‹¨ê°€</th>
-                              <th style={{ width: '120px' }}>ê¸ˆì•¡</th>
-                              <th style={{ width: '100px' }}>ë‚©ê¸°ì¼</th>
-                              <th style={{ width: '150px' }}>ê³µê¸‰ì—…ì²´</th>
-                              <th style={{ width: '100px' }}>ë¹„ê³ </th>
+                              <th style={{ width: '50px' }}>¹øÈ£</th>
+                              <th style={{ width: '120px' }}>±¸ºĞ</th>
+                              <th style={{ width: '200px' }}>Ç°¸ñ¸í/±Ô°İ</th>
+                              <th style={{ width: '80px' }}>¼ö·®</th>
+                              <th style={{ width: '120px' }}>´Ü°¡</th>
+                              <th style={{ width: '120px' }}>±İ¾×</th>
+                              <th style={{ width: '100px' }}>³³±âÀÏ</th>
+                              <th style={{ width: '150px' }}>°ø±Ş¾÷Ã¼</th>
+                              <th style={{ width: '100px' }}>ºñ°í</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -5029,13 +5029,13 @@ const ProposalForm = () => {
                                     </div>
                                   )}
                                 </td>
-                                <td className="text-center">{formatNumberWithComma(item.quantity || 0)}{item.unit || 'ê°œ'}</td>
+                                <td className="text-center">{formatNumberWithComma(item.quantity || 0)}{item.unit || '°³'}</td>
                                 <td className="text-right">{formatCurrency(item.unitPrice || 0)}</td>
                                 <td className="text-right amount-highlight">{formatCurrency(item.amount || 0)}</td>
                                 <td className="text-center">
                                   {item.deliveryDate ? 
                                     new Date(item.deliveryDate).toLocaleDateString('ko-KR') : 
-                                    'í˜‘ì˜ í›„ ê²°ì •'
+                                    'ÇùÀÇ ÈÄ °áÁ¤'
                                   }
                                 </td>
                                 <td className="text-center">
@@ -5055,19 +5055,19 @@ const ProposalForm = () => {
                           <tfoot>
                             <tr className="total-row">
                               <td colSpan="5" className="total-label text-right" style={{ fontWeight: '700' }}>
-                                ì´ ê³„ì•½ê¸ˆì•¡ í•©ê³„
+                                ÃÑ °è¾à±İ¾× ÇÕ°è
                               </td>
                               <td className="total-amount text-right" style={{ fontWeight: '700', fontSize: '1.1em' }}>
                                 {formatCurrency(formData.purchaseItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0))}
                               </td>
                               <td colSpan="3" className="text-center" style={{ fontSize: '0.9em', color: '#666' }}>
-                                (ë¶€ê°€ì„¸ ë³„ë„)
+                                (ºÎ°¡¼¼ º°µµ)
                               </td>
                             </tr>
                           </tfoot>
                         </table>
                         
-                        {/* ê³„ì•½ ì¡°ê±´ ë° íŠ¹ì´ì‚¬í•­ */}
+                        {/* °è¾à Á¶°Ç ¹× Æ¯ÀÌ»çÇ× */}
                         <div style={{ marginTop: '2rem' }}>
                           <h3 style={{ 
                             fontSize: '16px', 
@@ -5077,46 +5077,46 @@ const ProposalForm = () => {
                             borderBottom: '2px solid #e0e0e0',
                             paddingBottom: '0.5rem'
                           }}>
-                            ğŸ“‹ ê³„ì•½ ì¡°ê±´ ë° íŠ¹ì´ì‚¬í•­
+                            ?? °è¾à Á¶°Ç ¹× Æ¯ÀÌ»çÇ×
                           </h3>
                           <table className="info-table" style={{ marginTop: '1rem' }}>
                             <tbody>
                               <tr>
-                                <td className="label-cell" style={{ width: '150px' }}>ê³„ì•½ê¸°ê°„</td>
+                                <td className="label-cell" style={{ width: '150px' }}>°è¾à±â°£</td>
                                 <td className="value-cell">
                                   {formData.contractStartDate && formData.contractEndDate ? 
                                     `${new Date(formData.contractStartDate).toLocaleDateString('ko-KR')} ~ ${new Date(formData.contractEndDate).toLocaleDateString('ko-KR')}` :
-                                    'ê³„ì•½ ì²´ê²° í›„ í˜‘ì˜'
+                                    '°è¾à Ã¼°á ÈÄ ÇùÀÇ'
                                   }
                                 </td>
                               </tr>
                               <tr>
-                                <td className="label-cell">ì§€ê¸‰ì¡°ê±´</td>
+                                <td className="label-cell">Áö±ŞÁ¶°Ç</td>
                                 <td className="value-cell">
-                                  {formData.paymentMethod || 'ê²€ìˆ˜ ì™„ë£Œ í›„ 30ì¼ ì´ë‚´ ì§€ê¸‰'}
+                                  {formData.paymentMethod || '°Ë¼ö ¿Ï·á ÈÄ 30ÀÏ ÀÌ³» Áö±Ş'}
                                 </td>
                               </tr>
                               <tr>
-                                <td className="label-cell">ë‚©í’ˆì¡°ê±´</td>
+                                <td className="label-cell">³³Ç°Á¶°Ç</td>
                                 <td className="value-cell">
-                                  {formData.deliveryCondition || 'ì§€ì • ì¥ì†Œ ë‚©í’ˆ, ì„¤ì¹˜ ë° ì‹œí—˜ ì™„ë£Œ'}
+                                  {formData.deliveryCondition || 'ÁöÁ¤ Àå¼Ò ³³Ç°, ¼³Ä¡ ¹× ½ÃÇè ¿Ï·á'}
                                 </td>
                               </tr>
                               <tr>
-                                <td className="label-cell">í’ˆì§ˆë³´ì¦</td>
+                                <td className="label-cell">Ç°Áúº¸Áõ</td>
                                 <td className="value-cell">
-                                  {formData.warrantyPeriod ? `ë‚©í’ˆì¼ë¡œë¶€í„° ${formData.warrantyPeriod}ê°œì›”` : 'ì œì¡°ì‚¬ í‘œì¤€ ë³´ì¦ê¸°ê°„ ì ìš©'}
+                                  {formData.warrantyPeriod ? `³³Ç°ÀÏ·ÎºÎÅÍ ${formData.warrantyPeriod}°³¿ù` : 'Á¦Á¶»ç Ç¥ÁØ º¸Áõ±â°£ Àû¿ë'}
                                 </td>
                               </tr>
                               <tr>
-                                <td className="label-cell">ê³„ì•½í•´ì§€</td>
+                                <td className="label-cell">°è¾àÇØÁö</td>
                                 <td className="value-cell">
-                                  ê³„ì•½ ìœ„ë°˜ ì‹œ 7ì¼ ì „ ì„œë©´ í†µì§€ í›„ í•´ì§€ ê°€ëŠ¥
+                                  °è¾à À§¹İ ½Ã 7ÀÏ Àü ¼­¸é ÅëÁö ÈÄ ÇØÁö °¡´É
                                 </td>
                               </tr>
                               {formData.specialConditions && (
                                 <tr>
-                                  <td className="label-cell">íŠ¹ë³„ì¡°ê±´</td>
+                                  <td className="label-cell">Æ¯º°Á¶°Ç</td>
                                   <td className="value-cell">{formData.specialConditions}</td>
                                 </tr>
                               )}
@@ -5126,19 +5126,19 @@ const ProposalForm = () => {
                       </div>
                   ) : contractType === 'service' && formData.serviceItems && formData.serviceItems.length > 0 ? (
                       <div>
-                        {/* ìš©ì—­ ê³„ì•½ ìƒì„¸ í…Œì´ë¸” */}
+                        {/* ¿ë¿ª °è¾à »ó¼¼ Å×ÀÌºí */}
                         <table className="details-table">
                           <thead>
                             <tr>
-                              <th style={{ width: '50px' }}>ë²ˆí˜¸</th>
-                              <th style={{ width: '200px' }}>ìš©ì—­ëª…/ì—…ë¬´ë‚´ìš©</th>
-                              <th style={{ width: '100px' }}>ì„±ëª…</th>
-                              <th style={{ width: '100px' }}>ê¸°ìˆ ë“±ê¸‰</th>
-                              <th style={{ width: '80px' }}>ê¸°ê°„</th>
-                              <th style={{ width: '120px' }}>ì›”ë‹¨ê°€</th>
-                              <th style={{ width: '120px' }}>ê³„ì•½ê¸ˆì•¡</th>
-                              <th style={{ width: '100px' }}>ê·¼ë¬´í˜•íƒœ</th>
-                              <th style={{ width: '100px' }}>ë¹„ê³ </th>
+                              <th style={{ width: '50px' }}>¹øÈ£</th>
+                              <th style={{ width: '200px' }}>¿ë¿ª¸í/¾÷¹«³»¿ë</th>
+                              <th style={{ width: '100px' }}>¼º¸í</th>
+                              <th style={{ width: '100px' }}>±â¼úµî±Ş</th>
+                              <th style={{ width: '80px' }}>±â°£</th>
+                              <th style={{ width: '120px' }}>¿ù´Ü°¡</th>
+                              <th style={{ width: '120px' }}>°è¾à±İ¾×</th>
+                              <th style={{ width: '100px' }}>±Ù¹«ÇüÅÂ</th>
+                              <th style={{ width: '100px' }}>ºñ°í</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -5161,11 +5161,11 @@ const ProposalForm = () => {
                                 <td className="text-center">
                                   {item.skillLevel || item.techLevel || '-'}
                                 </td>
-                                <td className="text-center">{item.period || 0}ê°œì›”</td>
+                                <td className="text-center">{item.period || 0}°³¿ù</td>
                                 <td className="text-right">{formatCurrency(item.monthlyRate || 0)}</td>
                                 <td className="text-right amount-highlight">{formatCurrency(item.contractAmount || 0)}</td>
                                 <td className="text-center">
-                                  {item.workType || 'ìƒì£¼ê·¼ë¬´'}
+                                  {item.workType || '»óÁÖ±Ù¹«'}
                                 </td>
                                 <td className="text-center" style={{ fontSize: '0.9em' }}>
                                   {item.notes || '-'}
@@ -5176,19 +5176,19 @@ const ProposalForm = () => {
                           <tfoot>
                             <tr className="total-row">
                               <td colSpan="6" className="total-label text-right" style={{ fontWeight: '700' }}>
-                                ì´ ê³„ì•½ê¸ˆì•¡ í•©ê³„
+                                ÃÑ °è¾à±İ¾× ÇÕ°è
                               </td>
                               <td className="total-amount text-right" style={{ fontWeight: '700', fontSize: '1.1em' }}>
                                 {formatCurrency(formData.serviceItems.reduce((sum, item) => sum + (parseFloat(item.contractAmount) || 0), 0))}
                               </td>
                               <td colSpan="2" className="text-center" style={{ fontSize: '0.9em', color: '#666' }}>
-                                (ë¶€ê°€ì„¸ ë³„ë„)
+                                (ºÎ°¡¼¼ º°µµ)
                               </td>
                             </tr>
                           </tfoot>
                         </table>
                         
-                        {/* ìš©ì—­ ê³„ì•½ ì¡°ê±´ */}
+                        {/* ¿ë¿ª °è¾à Á¶°Ç */}
                         <div style={{ marginTop: '2rem' }}>
                           <h3 style={{ 
                             fontSize: '16px', 
@@ -5198,52 +5198,52 @@ const ProposalForm = () => {
                             borderBottom: '2px solid #e0e0e0',
                             paddingBottom: '0.5rem'
                           }}>
-                            ğŸ¤ ìš©ì—­ ê³„ì•½ ì¡°ê±´
+                            ?? ¿ë¿ª °è¾à Á¶°Ç
                           </h3>
                           <table className="info-table" style={{ marginTop: '1rem' }}>
                             <tbody>
                               <tr>
-                                <td className="label-cell" style={{ width: '150px' }}>ê³„ì•½ê¸°ê°„</td>
+                                <td className="label-cell" style={{ width: '150px' }}>°è¾à±â°£</td>
                                 <td className="value-cell">
                                   {formData.contractStartDate && formData.contractEndDate ? 
                                     `${new Date(formData.contractStartDate).toLocaleDateString('ko-KR')} ~ ${new Date(formData.contractEndDate).toLocaleDateString('ko-KR')}` :
-                                    formData.contractPeriod || 'ê³„ì•½ ì²´ê²° í›„ í˜‘ì˜'
+                                    formData.contractPeriod || '°è¾à Ã¼°á ÈÄ ÇùÀÇ'
                                   }
                                 </td>
                               </tr>
                               <tr>
-                                <td className="label-cell">ì§€ê¸‰ì¡°ê±´</td>
+                                <td className="label-cell">Áö±ŞÁ¶°Ç</td>
                                 <td className="value-cell">
-                                  {formData.paymentMethod || 'ë§¤ì›” ë§ì¼ ê¸°ì¤€ ìµì›” ë§ì¼ ì§€ê¸‰'}
+                                  {formData.paymentMethod || '¸Å¿ù ¸»ÀÏ ±âÁØ ÀÍ¿ù ¸»ÀÏ Áö±Ş'}
                                 </td>
                               </tr>
                               <tr>
-                                <td className="label-cell">ê·¼ë¬´ì¥ì†Œ</td>
+                                <td className="label-cell">±Ù¹«Àå¼Ò</td>
                                 <td className="value-cell">
-                                  {formData.workLocation || 'ë°œì£¼ì²˜ ì§€ì • ì¥ì†Œ'}
+                                  {formData.workLocation || '¹ßÁÖÃ³ ÁöÁ¤ Àå¼Ò'}
                                 </td>
                               </tr>
                               <tr>
-                                <td className="label-cell">ê·¼ë¬´ì‹œê°„</td>
+                                <td className="label-cell">±Ù¹«½Ã°£</td>
                                 <td className="value-cell">
-                                  {formData.workHours || 'í‰ì¼ 09:00~18:00 (ì£¼ 40ì‹œê°„)'}
+                                  {formData.workHours || 'ÆòÀÏ 09:00~18:00 (ÁÖ 40½Ã°£)'}
                                 </td>
                               </tr>
                               <tr>
-                                <td className="label-cell">ì—…ë¬´ê´€ë¦¬</td>
+                                <td className="label-cell">¾÷¹«°ü¸®</td>
                                 <td className="value-cell">
-                                  ë°œì£¼ì²˜ ë‹´ë‹¹ìì˜ ì§€ì‹œì— ë”°ë¼ ì—…ë¬´ ìˆ˜í–‰
+                                  ¹ßÁÖÃ³ ´ã´çÀÚÀÇ Áö½Ã¿¡ µû¶ó ¾÷¹« ¼öÇà
                                 </td>
                               </tr>
                               <tr>
-                                <td className="label-cell">ê³„ì•½í•´ì§€</td>
+                                <td className="label-cell">°è¾àÇØÁö</td>
                                 <td className="value-cell">
-                                  ê³„ì•½ ìœ„ë°˜ ì‹œ 30ì¼ ì „ ì„œë©´ í†µì§€ í›„ í•´ì§€ ê°€ëŠ¥
+                                  °è¾à À§¹İ ½Ã 30ÀÏ Àü ¼­¸é ÅëÁö ÈÄ ÇØÁö °¡´É
                                 </td>
                               </tr>
                               {formData.specialConditions && (
                                 <tr>
-                                  <td className="label-cell">íŠ¹ë³„ì¡°ê±´</td>
+                                  <td className="label-cell">Æ¯º°Á¶°Ç</td>
                                   <td className="value-cell">{formData.specialConditions}</td>
                                 </tr>
                               )}
@@ -5253,16 +5253,16 @@ const ProposalForm = () => {
                       </div>
                   ) : (
                       <div className="no-data-box">
-                        <p>ê³„ì•½ ìƒì„¸ ë‚´ì—­ì´ ì…ë ¥ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.</p>
+                        <p>°è¾à »ó¼¼ ³»¿ªÀÌ ÀÔ·ÂµÇÁö ¾Ê¾Ò½À´Ï´Ù.</p>
                 </div>
                   )}
                 </div>
 
-                  {/* ë¹„ìš©ê·€ì†ë‚´ìš© */}
+                  {/* ºñ¿ë±Í¼Ó³»¿ë */}
                   <div className="details-section">
-                    <h2 className="section-title">3. ë¹„ìš©ê·€ì†ë‚´ìš©</h2>
+                    <h2 className="section-title">3. ºñ¿ë±Í¼Ó³»¿ë</h2>
                     {(() => {
-                      // í’ˆëª©ë³„ ë¹„ìš©ê·€ì† ìƒì„¸ í‘œì‹œ
+                      // Ç°¸ñº° ºñ¿ë±Í¼Ó »ó¼¼ Ç¥½Ã
                       const hasAnyAllocations = formData.purchaseItems?.some(item => 
                         item.costAllocation?.allocations && item.costAllocation.allocations.length > 0
                       );
@@ -5270,14 +5270,14 @@ const ProposalForm = () => {
                       if (!hasAnyAllocations) {
                         return (
                           <div className="no-data-box">
-                            <p>ë¹„ìš©ê·€ì†ë¶€ì„œ ë°°ë¶„ ë‚´ì—­ì´ ì—†ìŠµë‹ˆë‹¤.</p>
+                            <p>ºñ¿ë±Í¼ÓºÎ¼­ ¹èºĞ ³»¿ªÀÌ ¾ø½À´Ï´Ù.</p>
                           </div>
                         );
                       }
                       
                       return (
                         <div>
-                          {/* í’ˆëª©ë³„ ìƒì„¸ ë‚´ì—­ */}
+                          {/* Ç°¸ñº° »ó¼¼ ³»¿ª */}
                           {formData.purchaseItems?.map((item, itemIndex) => {
                             const allocations = item.costAllocation?.allocations || [];
                             if (allocations.length === 0) return null;
@@ -5292,15 +5292,15 @@ const ProposalForm = () => {
                                   borderBottom: '2px solid #e0e0e0',
                                   paddingBottom: '0.5rem'
                                 }}>
-                                  ğŸ“¦ {item.productName} - ë¹„ìš©ê·€ì† ìƒì„¸
+                                  ?? {item.productName} - ºñ¿ë±Í¼Ó »ó¼¼
                                 </h3>
                                 <table className="details-table" style={{ marginBottom: '1rem' }}>
                                   <thead>
                                     <tr>
-                                      <th>ê·€ì†ë¶€ì„œ</th>
-                                      <th>ë¶„ë°°ë°©ì‹</th>
-                                      <th>ë¶„ë°°ê°’</th>
-                                      <th>ë¶„ë°°ê¸ˆì•¡</th>
+                                      <th>±Í¼ÓºÎ¼­</th>
+                                      <th>ºĞ¹è¹æ½Ä</th>
+                                      <th>ºĞ¹è°ª</th>
+                                      <th>ºĞ¹è±İ¾×</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -5308,7 +5308,7 @@ const ProposalForm = () => {
                                       <tr key={allocIndex}>
                                         <td className="text-center">{allocation.department}</td>
                                         <td className="text-center">
-                                          {allocation.type === 'percentage' ? 'ì •ë¥  (%)' : 'ì •ì•¡ (ì›)'}
+                                          {allocation.type === 'percentage' ? 'Á¤·ü (%)' : 'Á¤¾× (¿ø)'}
                                         </td>
                                         <td className="text-center">
                                           {allocation.type === 'percentage' 
@@ -5327,7 +5327,7 @@ const ProposalForm = () => {
                                   </tbody>
                                   <tfoot>
                                     <tr className="total-row">
-                                      <td colSpan="3" className="text-right total-label">ì†Œê³„</td>
+                                      <td colSpan="3" className="text-right total-label">¼Ò°è</td>
                                       <td className="text-right total-amount">
                                         {formatCurrency(
                                           allocations.reduce((sum, allocation) => {
@@ -5344,7 +5344,7 @@ const ProposalForm = () => {
                             );
                           })}
                           
-                          {/* ì „ì²´ ì§‘ê³„ */}
+                          {/* ÀüÃ¼ Áı°è */}
                           <div style={{ marginTop: '2rem' }}>
                             <h3 style={{ 
                               fontSize: '16px', 
@@ -5354,7 +5354,7 @@ const ProposalForm = () => {
                               borderBottom: '2px solid #e0e0e0',
                               paddingBottom: '0.5rem'
                             }}>
-                              ğŸ“Š ì „ì²´ ë¹„ìš©ê·€ì† ì§‘ê³„
+                              ?? ÀüÃ¼ ºñ¿ë±Í¼Ó Áı°è
                             </h3>
                             {(() => {
                               const totalAllocation = calculateTotalCostAllocation();
@@ -5362,9 +5362,9 @@ const ProposalForm = () => {
                                 <table className="details-table">
                                   <thead>
                                     <tr>
-                                      <th>ë¶€ì„œëª…</th>
-                                      <th>ë°°ë¶„ê¸ˆì•¡</th>
-                                      <th>ë°°ë¶„ë¹„ìœ¨</th>
+                                      <th>ºÎ¼­¸í</th>
+                                      <th>¹èºĞ±İ¾×</th>
+                                      <th>¹èºĞºñÀ²</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -5378,7 +5378,7 @@ const ProposalForm = () => {
                                   </tbody>
                                   <tfoot>
                                     <tr className="total-row">
-                                      <td className="text-center total-label">í•©ê³„</td>
+                                      <td className="text-center total-label">ÇÕ°è</td>
                                       <td className="text-center total-amount">
                                         {formatCurrency(Object.values(totalAllocation).reduce((sum, alloc) => sum + alloc.amount, 0))}
                                       </td>
@@ -5400,14 +5400,14 @@ const ProposalForm = () => {
 
                 </div>
 
-                {/* ë¬¸ì„œ í•˜ë‹¨ */}
+                {/* ¹®¼­ ÇÏ´Ü */}
                 <div className="document-footer">
                   <div className="footer-line"></div>
                   <div className="footer-info">
-                    <div className="creation-date">ì‘ì„±ì¼: {new Date().toLocaleDateString('ko-KR')}</div>
+                    <div className="creation-date">ÀÛ¼ºÀÏ: {new Date().toLocaleDateString('ko-KR')}</div>
                     <div className="department-signature">
-                      <span>ë‹´ë‹¹ë¶€ì„œ: ________________</span>
-                      <span>ë‹´ë‹¹ì: ________________ (ì¸)</span>
+                      <span>´ã´çºÎ¼­: ________________</span>
+                      <span>´ã´çÀÚ: ________________ (ÀÎ)</span>
                       </div>
                   </div>
                 </div>
@@ -5463,13 +5463,13 @@ const ProposalForm = () => {
           color: white !important;
         }
 
-        /* ììœ ì–‘ì‹ ë²„íŠ¼ ê°•ì œ ìŠ¤íƒ€ì¼ í†µì¼ - ìµœê³  ìš°ì„ ìˆœìœ„ */
+        /* ÀÚÀ¯¾ç½Ä ¹öÆ° °­Á¦ ½ºÅ¸ÀÏ ÅëÀÏ - ÃÖ°í ¿ì¼±¼øÀ§ */
         .type-buttons .type-btn:nth-child(5),
         .type-buttons button:nth-child(5),
         .contract-type-selection .type-buttons button:nth-child(5),
         .contract-type-selection .type-btn:nth-child(5),
         button[onclick*="freeform"],
-        button:contains("ììœ ì–‘ì‹") {
+        button:contains("ÀÚÀ¯¾ç½Ä") {
           border: 2px solid #e1e5e9 !important;
           border-top: 2px solid #e1e5e9 !important;
           border-right: 2px solid #e1e5e9 !important;
@@ -5488,7 +5488,7 @@ const ProposalForm = () => {
         .contract-type-selection .type-buttons button:nth-child(5):hover,
         .contract-type-selection .type-btn:nth-child(5):hover,
         button[onclick*="freeform"]:hover,
-        button:contains("ììœ ì–‘ì‹"):hover {
+        button:contains("ÀÚÀ¯¾ç½Ä"):hover {
           border: 2px solid #3b82f6 !important;
           border-top: 2px solid #3b82f6 !important;
           border-right: 2px solid #3b82f6 !important;
@@ -5506,7 +5506,7 @@ const ProposalForm = () => {
         .contract-type-selection .type-buttons button:nth-child(5).active,
         .contract-type-selection .type-btn:nth-child(5).active,
         button[onclick*="freeform"].active,
-        button:contains("ììœ ì–‘ì‹").active {
+        button:contains("ÀÚÀ¯¾ç½Ä").active {
           border: 2px solid #3b82f6 !important;
           border-top: 2px solid #3b82f6 !important;
           border-right: 2px solid #3b82f6 !important;
@@ -5672,7 +5672,7 @@ const ProposalForm = () => {
           background: rgba(255, 255, 255, 0.2);
         }
 
-        /* ë¶€ì„œ ì„ íƒ íŒì—… ìŠ¤íƒ€ì¼ */
+        /* ºÎ¼­ ¼±ÅÃ ÆË¾÷ ½ºÅ¸ÀÏ */
         .department-popup {
           background: white;
           border-radius: 12px;
@@ -5734,7 +5734,7 @@ const ProposalForm = () => {
           color: #666;
         }
 
-        /* ë¹„ìš©ë¶„ë°° ìŠ¤íƒ€ì¼ */
+        /* ºñ¿ëºĞ¹è ½ºÅ¸ÀÏ */
         .cost-allocation-section {
           margin-top: 1rem;
           padding: 1rem;
@@ -5827,7 +5827,7 @@ const ProposalForm = () => {
           margin-top: 0.5rem;
         }
 
-        /* ìë™ í•©ì‚° ë‚´ì—­ ìŠ¤íƒ€ì¼ */
+        /* ÀÚµ¿ ÇÕ»ê ³»¿ª ½ºÅ¸ÀÏ */
         .auto-summary-section {
           margin-top: 2rem;
           background: #f8f9fa;
@@ -5965,7 +5965,7 @@ const ProposalForm = () => {
           border-color: #667eea;
         }
 
-        /* íŒì—… ìŠ¤íƒ€ì¼ */
+        /* ÆË¾÷ ½ºÅ¸ÀÏ */
         .popup-overlay {
           position: fixed;
           top: 0;
@@ -6000,7 +6000,7 @@ const ProposalForm = () => {
           border: 1px solid #e0e0e0;
         }
 
-        /* ììœ ì–‘ì‹ ì„¤ëª… ìŠ¤íƒ€ì¼ */
+        /* ÀÚÀ¯¾ç½Ä ¼³¸í ½ºÅ¸ÀÏ */
         .freeform-description {
           background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
           padding: 20px;
@@ -6023,9 +6023,9 @@ const ProposalForm = () => {
           color: #0d47a1;
         }
 
-        /* í¬ë©€í•œ ì›Œë“œ ë¬¸ì„œ ìŠ¤íƒ€ì¼ */
+        /* Æ÷¸ÖÇÑ ¿öµå ¹®¼­ ½ºÅ¸ÀÏ */
         .formal-document {
-          font-family: 'Malgun Gothic', 'ë§‘ì€ ê³ ë”•', sans-serif;
+          font-family: 'Malgun Gothic', '¸¼Àº °íµñ', sans-serif;
           line-height: 1.8;
           color: #000 !important;
           background: white;
@@ -6037,7 +6037,7 @@ const ProposalForm = () => {
           page-break-inside: avoid;
         }
 
-        /* ë¯¸ë¦¬ë³´ê¸° ë‚´ë¶€ ëª¨ë“  í…ìŠ¤íŠ¸ë¥¼ ê²€ì€ìƒ‰ìœ¼ë¡œ ê°•ì œ */
+        /* ¹Ì¸®º¸±â ³»ºÎ ¸ğµç ÅØ½ºÆ®¸¦ °ËÀº»öÀ¸·Î °­Á¦ */
         .formal-document td,
         .formal-document th,
         .formal-document span,
@@ -6045,7 +6045,7 @@ const ProposalForm = () => {
           color: #000 !important;
         }
 
-        /* ë¯¸ë¦¬ë³´ê¸° ë‚´ë¶€ ëª¨ë“  ìƒ‰ìƒì„ ê²€ì€ìƒ‰ìœ¼ë¡œ ê°•ì œ */
+        /* ¹Ì¸®º¸±â ³»ºÎ ¸ğµç »ö»óÀ» °ËÀº»öÀ¸·Î °­Á¦ */
         .formal-document * {
           color: #000 !important;
         }
@@ -6476,7 +6476,7 @@ const ProposalForm = () => {
           background: #a0aec0;
         }
 
-        /* íŒì—… ì»¨íŠ¸ë¡¤ */
+        /* ÆË¾÷ ÄÁÆ®·Ñ */
         .popup-controls {
           display: flex;
           align-items: center;
@@ -6504,7 +6504,7 @@ const ProposalForm = () => {
           transform: scale(1.05);
         }
 
-        /* ë¦¬ì‚¬ì´ì¦ˆ í•¸ë“¤ */
+        /* ¸®»çÀÌÁî ÇÚµé */
         .resize-handles {
           position: absolute;
           top: 0;
@@ -6550,7 +6550,7 @@ const ProposalForm = () => {
           background: linear-gradient(-45deg, transparent 0%, transparent 40%, #666 40%, #666 60%, transparent 60%);
         }
 
-        /* ë¦¬ì‚¬ì´ì¦ˆ ì¤‘ì¼ ë•Œ */
+        /* ¸®»çÀÌÁî ÁßÀÏ ¶§ */
         .resizable-popup.resizing {
           user-select: none;
         }
@@ -6925,7 +6925,7 @@ const ProposalForm = () => {
           color: #495057;
         }
 
-        /* ì¢ì€ ì…ë ¥ í•„ë“œ (ì¸ì›ìˆ˜, ê¸°ê°„ ë“±) */
+        /* Á¼Àº ÀÔ·Â ÇÊµå (ÀÎ¿ø¼ö, ±â°£ µî) */
         .narrow-input {
           max-width: 120px;
           flex-shrink: 0;
@@ -6935,7 +6935,7 @@ const ProposalForm = () => {
           text-align: center;
         }
 
-        /* ê³„ì•½ê¸°ê°„ ë‚ ì§œ ì…ë ¥ ìŠ¤íƒ€ì¼ */
+        /* °è¾à±â°£ ³¯Â¥ ÀÔ·Â ½ºÅ¸ÀÏ */
         .contract-period-dates {
           display: flex;
           gap: 10px;
@@ -6972,7 +6972,7 @@ const ProposalForm = () => {
           box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        /* ì´ ê³„ì•½ê¸ˆì•¡ ì¤‘ì•™ì •ë ¬ */
+        /* ÃÑ °è¾à±İ¾× Áß¾ÓÁ¤·Ä */
         .total-contract-amount {
           text-align: center;
           font-size: 18px;
@@ -6985,7 +6985,7 @@ const ProposalForm = () => {
           border: 2px solid #e5e7eb;
         }
 
-        /* ìš©ì—­ë‚´ì—­ í•„ë“œ ê°€ë…ì„± ê°œì„  */
+        /* ¿ë¿ª³»¿ª ÇÊµå °¡µ¶¼º °³¼± */
         .service-item {
           background: #ffffff;
           border: 2px solid #e5e7eb;
@@ -6995,7 +6995,7 @@ const ProposalForm = () => {
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
 
-        /* ì²« ë²ˆì§¸ í–‰: í•­ëª©, ì¸ì›ìˆ˜, ê¸°ìˆ ë“±ê¸‰, ê¸°ê°„, ë‹¨ê°€, ê³„ì•½ê¸ˆì•¡ */
+        /* Ã¹ ¹øÂ° Çà: Ç×¸ñ, ÀÎ¿ø¼ö, ±â¼úµî±Ş, ±â°£, ´Ü°¡, °è¾à±İ¾× */
         .service-item .service-main-row {
           display: grid;
           grid-template-columns: 2fr 100px 120px 100px 150px 150px;
@@ -7004,7 +7004,7 @@ const ProposalForm = () => {
           align-items: end;
         }
 
-        /* ë‘ ë²ˆì§¸ í–‰: ê³µê¸‰ì—…ì²´, ì‹ ìš©ë“±ê¸‰, ì‚­ì œë²„íŠ¼ */
+        /* µÎ ¹øÂ° Çà: °ø±Ş¾÷Ã¼, ½Å¿ëµî±Ş, »èÁ¦¹öÆ° */
         .service-item .service-sub-row {
           display: grid;
           grid-template-columns: 2fr 1fr 120px;
@@ -7048,7 +7048,7 @@ const ProposalForm = () => {
           font-weight: 600;
         }
 
-        /* ìš©ì—­í•­ëª© ì‚­ì œ ë²„íŠ¼ */
+        /* ¿ë¿ªÇ×¸ñ »èÁ¦ ¹öÆ° */
         .remove-service-btn {
           background: #ef4444;
           color: white;
@@ -7073,7 +7073,7 @@ const ProposalForm = () => {
           box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
         }
 
-        /* ìš©ì—­ë‚´ì—­ ê³„ì•½ê¸°ê°„ ìŠ¤íƒ€ì¼ */
+        /* ¿ë¿ª³»¿ª °è¾à±â°£ ½ºÅ¸ÀÏ */
         .service-contract-period {
           display: flex;
           gap: 8px;
@@ -7110,7 +7110,7 @@ const ProposalForm = () => {
           box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
         }
 
-        /* ì‹ ê·œí’ˆëª© ë‚´ì—­ í•œ ì¤„ ë ˆì´ì•„ì›ƒ */
+        /* ½Å±ÔÇ°¸ñ ³»¿ª ÇÑ ÁÙ ·¹ÀÌ¾Æ¿ô */
         .purchase-item-single-line {
           grid-template-columns: 2fr 2fr 1fr 1.5fr 1.5fr 2fr 1.5fr;
           gap: 0.75rem;
@@ -7152,7 +7152,7 @@ const ProposalForm = () => {
           margin-top: 0.25rem;
         }
 
-        /* ë¹„ìš©ê·€ì†ë¶€ì„œ ë¶„ë°° ì„¹ì…˜ ë ˆì´ì•„ì›ƒ */
+        /* ºñ¿ë±Í¼ÓºÎ¼­ ºĞ¹è ¼½¼Ç ·¹ÀÌ¾Æ¿ô */
         .allocation-row {
           display: flex;
           gap: 0.75rem;
@@ -7213,7 +7213,7 @@ const ProposalForm = () => {
           margin: 0;
         }
 
-        /* ì¶”ì²œ ê¸°ëŠ¥ ìŠ¤íƒ€ì¼ */
+        /* ÃßÃµ ±â´É ½ºÅ¸ÀÏ */
         .input-with-suggestions {
           position: relative;
         }
@@ -7477,7 +7477,7 @@ const ProposalForm = () => {
         }
 
         .draft-btn::before {
-          content: 'ğŸ’¾' !important;
+          content: '??' !important;
           margin-right: 0.5rem !important;
           font-size: 1.1rem !important;
         }
@@ -7512,7 +7512,7 @@ const ProposalForm = () => {
         }
         
         .debug-btn::before {
-          content: 'ğŸ›' !important;
+          content: '??' !important;
           margin-right: 0.5rem !important;
           font-size: 1.1rem !important;
         }
@@ -7547,7 +7547,7 @@ const ProposalForm = () => {
         }
 
         .preview-btn::before {
-          content: 'ğŸ‘ï¸' !important;
+          content: '???' !important;
           margin-right: 0.5rem !important;
           font-size: 1.1rem !important;
         }
@@ -7815,7 +7815,7 @@ const ProposalForm = () => {
           margin-bottom: 0.5rem;
         }
 
-        /* í’ˆì˜ì„œ í—¤ë” ìŠ¤íƒ€ì¼ */
+        /* Ç°ÀÇ¼­ Çì´õ ½ºÅ¸ÀÏ */
         .proposal-header {
           display: flex;
           justify-content: space-between;
@@ -7859,7 +7859,7 @@ const ProposalForm = () => {
           text-align: center;
         }
 
-        /* ì„ì‹œì €ì¥ í™•ì¸ íŒì—… ìŠ¤íƒ€ì¼ */
+        /* ÀÓ½ÃÀúÀå È®ÀÎ ÆË¾÷ ½ºÅ¸ÀÏ */
         .save-confirm-popup {
           background: #f8f9fa !important;
           border-radius: 12px;
@@ -7993,7 +7993,7 @@ const ProposalForm = () => {
           }
         }
 
-        /* êµ¬ë§¤í’ˆëª©ë³„ ìš”ì²­ë¶€ì„œ ì„ íƒ ìŠ¤íƒ€ì¼ (ê°œì„ ëœ ë ˆì´ì•„ì›ƒ) */
+        /* ±¸¸ÅÇ°¸ñº° ¿äÃ»ºÎ¼­ ¼±ÅÃ ½ºÅ¸ÀÏ (°³¼±µÈ ·¹ÀÌ¾Æ¿ô) */
         .item-department-selector {
           position: relative;
         }
@@ -8078,7 +8078,7 @@ const ProposalForm = () => {
           color: #1565c0;
         }
 
-        /* ì‹ ê·œí’ˆëª© ì„¹ì…˜ ìŠ¤íƒ€ì¼ */
+        /* ½Å±ÔÇ°¸ñ ¼½¼Ç ½ºÅ¸ÀÏ */
         .purchase-items-section {
           background: white;
           border-radius: 16px;
@@ -8166,15 +8166,15 @@ const ProposalForm = () => {
           border-top-right-radius: 8px;
         }
 
-        /* ì»¬ëŸ¼ ë„ˆë¹„ ìµœì í™” - ë” íš¨ìœ¨ì ì¸ ê³µê°„ í™œìš© */
-        .purchase-items-table th:nth-child(1) { width: 14%; } /* êµ¬ë¶„ */
-        .purchase-items-table th:nth-child(2) { width: 22%; } /* ë‚´ì—­ */
-        .purchase-items-table th:nth-child(3) { width: 7%; }  /* ìˆ˜ëŸ‰ */
-        .purchase-items-table th:nth-child(4) { width: 13%; } /* ë‹¨ê°€ */
-        .purchase-items-table th:nth-child(5) { width: 13%; } /* ê¸ˆì•¡ */
-        .purchase-items-table th:nth-child(6) { width: 16%; } /* ê³µê¸‰ì—…ì²´ */
-        .purchase-items-table th:nth-child(7) { width: 12%; } /* ê³„ì•½ê¸°ê°„ */
-        .purchase-items-table th:nth-child(8) { width: 5%; }  /* ì‘ì—… */
+        /* ÄÃ·³ ³Êºñ ÃÖÀûÈ­ - ´õ È¿À²ÀûÀÎ °ø°£ È°¿ë */
+        .purchase-items-table th:nth-child(1) { width: 14%; } /* ±¸ºĞ */
+        .purchase-items-table th:nth-child(2) { width: 22%; } /* ³»¿ª */
+        .purchase-items-table th:nth-child(3) { width: 7%; }  /* ¼ö·® */
+        .purchase-items-table th:nth-child(4) { width: 13%; } /* ´Ü°¡ */
+        .purchase-items-table th:nth-child(5) { width: 13%; } /* ±İ¾× */
+        .purchase-items-table th:nth-child(6) { width: 16%; } /* °ø±Ş¾÷Ã¼ */
+        .purchase-items-table th:nth-child(7) { width: 12%; } /* °è¾à±â°£ */
+        .purchase-items-table th:nth-child(8) { width: 5%; }  /* ÀÛ¾÷ */
 
         .purchase-items-table td:nth-child(1) { width: 14%; }
         .purchase-items-table td:nth-child(2) { width: 22%; }
@@ -8237,7 +8237,7 @@ const ProposalForm = () => {
           padding: 6px 4px;
         }
 
-        /* ë‹¨ê°€, ê¸ˆì•¡ ì…ë ¥ í•„ë“œ ìµœì í™” */
+        /* ´Ü°¡, ±İ¾× ÀÔ·Â ÇÊµå ÃÖÀûÈ­ */
         .purchase-items-table td:nth-child(4) input,
         .purchase-items-table td:nth-child(5) input {
           width: 100%;
@@ -8347,7 +8347,7 @@ const ProposalForm = () => {
           font-weight: 600;
         }
 
-        /* ìš”ì²­ë¶€ì„œ í•„ë“œ ìŠ¤íƒ€ì¼ */
+        /* ¿äÃ»ºÎ¼­ ÇÊµå ½ºÅ¸ÀÏ */
         .purchase-items-table .department-field {
           position: relative;
         }
@@ -8445,7 +8445,7 @@ const ProposalForm = () => {
           box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        /* ê³„ì•½ê¸°ê°„ ì„ íƒê¸° ìŠ¤íƒ€ì¼ */
+        /* °è¾à±â°£ ¼±ÅÃ±â ½ºÅ¸ÀÏ */
         .contract-period-selector {
           display: flex;
           flex-direction: column;
@@ -8523,7 +8523,7 @@ const ProposalForm = () => {
           background: #e0f2fe;
         }
 
-        /* ë“œë¡­ë°•ìŠ¤ ì¶”ê°€ ì •ë³´ ìŠ¤íƒ€ì¼ */
+        /* µå·Ó¹Ú½º Ãß°¡ Á¤º¸ ½ºÅ¸ÀÏ */
         .suggestion-details .contract-type {
           color: #7c3aed;
           font-weight: 500;
@@ -8539,7 +8539,7 @@ const ProposalForm = () => {
           font-weight: 500;
         }
 
-        /* ë¹„ìš©ê·€ì†ë¶€ì„œ ë¶„ë°° ìŠ¤íƒ€ì¼ */
+        /* ºñ¿ë±Í¼ÓºÎ¼­ ºĞ¹è ½ºÅ¸ÀÏ */
         .cost-allocations-container {
           margin-top: 2rem;
         }
@@ -8636,7 +8636,7 @@ const ProposalForm = () => {
           box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
         }
 
-        /* ê³„ì •ê³¼ëª© ì„¹ì…˜ ìŠ¤íƒ€ì¼ */
+        /* °èÁ¤°ú¸ñ ¼½¼Ç ½ºÅ¸ÀÏ */
         .account-subjects-container {
           margin-top: 1.5rem;
         }
@@ -8721,7 +8721,7 @@ const ProposalForm = () => {
           margin: 0 0.1rem;
         }
 
-        /* ë¯¸ë¦¬ë³´ê¸° ëª¨ë‹¬ ìŠ¤íƒ€ì¼ */
+        /* ¹Ì¸®º¸±â ¸ğ´Ş ½ºÅ¸ÀÏ */
         .popup-actions {
           display: flex;
           gap: 1rem;
@@ -8872,7 +8872,7 @@ const ProposalForm = () => {
           color: #10b981;
         }
 
-        /* í‘œ ìŠ¤íƒ€ì¼ */
+        /* Ç¥ ½ºÅ¸ÀÏ */
         .report-table-container {
           overflow-x: auto;
           margin-top: 1rem;
@@ -8964,7 +8964,7 @@ const ProposalForm = () => {
           padding: 1rem 0.75rem;
         }
 
-        /* ììœ  ì–‘ì‹ ìŠ¤íƒ€ì¼ */
+        /* ÀÚÀ¯ ¾ç½Ä ½ºÅ¸ÀÏ */
         .editor-help {
           background: #f8f9fa;
           border: 1px solid #e9ecef;
@@ -8993,7 +8993,7 @@ const ProposalForm = () => {
           line-height: 1.5;
         }
 
-        /* ììœ  ì–‘ì‹ ê³„ì•½ ìœ í˜• ë²„íŠ¼ ìŠ¤íƒ€ì¼ */
+        /* ÀÚÀ¯ ¾ç½Ä °è¾à À¯Çü ¹öÆ° ½ºÅ¸ÀÏ */
         .type-buttons button:last-child {
           background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
           border-color: #17a2b8;
@@ -9016,3 +9016,4 @@ const ProposalForm = () => {
 };
 
 export default ProposalForm; 
+

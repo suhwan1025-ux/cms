@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { generatePreviewHTML, formatNumberWithComma, formatCurrency } from '../utils/previewGenerator';
 
 // API 베이스 URL 동적 설정
 const getApiBaseUrl = () => {
   if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `http://${window.location.hostname}:3001`;
+    return `http://${window.location.hostname}:3004`;
   }
-  return 'http://localhost:3001';
+  return 'http://localhost:4002';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -855,7 +855,12 @@ const DraftList = () => {
                 >
                   {draft.title}
                 </td>
-                <td>{draft.department}</td>
+                <td>
+                  {draft.requestDepartments && draft.requestDepartments.length > 0
+                    ? draft.requestDepartments.map(d => d.department).join(', ')
+                    : '-'
+                  }
+                </td>
                 <td>{draft.contractor || '-'}</td>
                 <td>{draft.author || '-'}</td>
                 <td>{draft.amount ? formatCurrency(draft.amount) : '-'}</td>
@@ -1266,3 +1271,4 @@ const DraftList = () => {
 };
 
 export default DraftList; 
+

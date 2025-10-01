@@ -1019,7 +1019,7 @@ app.get('/api/proposals', async (req, res) => {
       if (proposalData.budgetId) {
         try {
           const budgetResult = await sequelize.query(`
-            SELECT project_name, budget_type, budget_category, budget_amount
+            SELECT project_name, budget_type, budget_category, budget_amount, budget_year
             FROM business_budgets 
             WHERE id = ?
           `, { replacements: [proposalData.budgetId] });
@@ -1030,7 +1030,8 @@ app.get('/api/proposals', async (req, res) => {
               projectName: budget.project_name,
               budgetType: budget.budget_type,
               budgetCategory: budget.budget_category,
-              budgetAmount: budget.budget_amount
+              budgetAmount: budget.budget_amount,
+              budgetYear: budget.budget_year
             };
           }
         } catch (error) {
@@ -1115,6 +1116,30 @@ app.get('/api/proposals/:id', async (req, res) => {
 
     // 구매품목별 비용분배 정보 추가
     const proposalData = proposal.toJSON();
+    
+    // 예산 정보 가져오기
+    if (proposalData.budgetId) {
+      try {
+        const budgetResult = await sequelize.query(`
+          SELECT project_name, budget_type, budget_category, budget_amount, budget_year
+          FROM business_budgets 
+          WHERE id = ?
+        `, { replacements: [proposalData.budgetId] });
+        
+        if (budgetResult[0] && budgetResult[0].length > 0) {
+          const budget = budgetResult[0][0];
+          proposalData.budgetInfo = {
+            projectName: budget.project_name,
+            budgetType: budget.budget_type,
+            budgetCategory: budget.budget_category,
+            budgetAmount: budget.budget_amount,
+            budgetYear: budget.budget_year
+          };
+        }
+      } catch (error) {
+        console.error('예산 정보 조회 실패:', error);
+      }
+    }
     
     // 각 구매품목에 비용분배 정보와 요청부서 정보 추가
     if (proposalData.purchaseItems) {

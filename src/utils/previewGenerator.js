@@ -28,13 +28,44 @@ export const getContractTypeName = (contractType) => {
 
 // 계약방법 이름 반환
 export const getContractMethodName = (contractMethod) => {
+  // contractMethod가 없거나 빈 문자열이면 '-' 반환
+  if (!contractMethod || contractMethod.trim() === '') {
+    return '-';
+  }
+  
   const methodMap = {
+    // 기존 형식 (하위 호환성)
     'general': '일반경쟁',
     'limited': '제한경쟁',
     'designation': '지명경쟁',
     'negotiation': '수의계약',
-    'emergency': '긴급계약'
+    'emergency': '긴급계약',
+    
+    // 데이터베이스 실제 값 (contract_methods.value)
+    'lowest_price': '최저가 계약',
+    'general_competition': '경쟁계약(일반경쟁계약)',
+    'limited_competition': '경쟁계약(제한경쟁계약)',
+    'designated_competition': '경쟁계약(지명경쟁계약)',
+    'private_contract': '수의계약',
+    'private_contract_6_1_a': '수의계약(제6조 제1항의 가)',
+    'private_contract_6_1_b': '수의계약(제6조 제1항의 나)',
+    'private_contract_6_1_c': '수의계약(제6조 제1항의 다)',
+    'private_contract_6_1_d': '수의계약(제6조 제1항의 라)',
+    'private_contract_6_1_e': '수의계약(제6조 제1항의 마)',
+    
+    // 한글 이름으로 저장된 경우 (그대로 반환)
+    '최저가 계약': '최저가 계약',
+    '경쟁계약(일반경쟁계약)': '경쟁계약(일반경쟁계약)',
+    '경쟁계약(제한경쟁계약)': '경쟁계약(제한경쟁계약)',
+    '경쟁계약(지명경쟁계약)': '경쟁계약(지명경쟁계약)',
+    '수의계약': '수의계약',
+    '수의계약(제6조 제1항의 가)': '수의계약(제6조 제1항의 가)',
+    '수의계약(제6조 제1항의 나)': '수의계약(제6조 제1항의 나)',
+    '수의계약(제6조 제1항의 다)': '수의계약(제6조 제1항의 다)',
+    '수의계약(제6조 제1항의 라)': '수의계약(제6조 제1항의 라)',
+    '수의계약(제6조 제1항의 마)': '수의계약(제6조 제1항의 마)'
   };
+  
   return methodMap[contractMethod] || contractMethod;
 };
 
@@ -705,7 +736,29 @@ export const generatePreviewHTML = (data, options = {}) => {
             </tr>
             <tr>
               <th>사업 예산</th>
-              <td>${data.budget || data.budgetName || data.budget_name || '-'}</td>
+              <td>${(() => {
+                // 사업예산 이름 (budgetInfo 우선)
+                const budgetName = data.budgetInfo?.projectName || 
+                                  data.businessBudget?.project_name || 
+                                  data.budgetName || 
+                                  data.budget_name || 
+                                  (typeof data.budget === 'string' ? data.budget : '') || '';
+                
+                // 사업예산 연도 (budgetInfo 우선)
+                const budgetYear = data.budgetInfo?.budgetYear || 
+                                  data.businessBudget?.budget_year || 
+                                  data.budgetYear || 
+                                  data.budget_year || '';
+                
+                if (!budgetName && !budgetYear) return '-';
+                
+                // 연도가 있으면 함께 표시
+                if (budgetYear) {
+                  return `${budgetName} (${budgetYear}년)`;
+                }
+                
+                return budgetName;
+              })()}</td>
             </tr>
             <tr>
               <th>요청부서</th>

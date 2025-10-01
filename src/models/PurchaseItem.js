@@ -38,11 +38,13 @@ module.exports = (sequelize, DataTypes) => {
     item: {
       type: DataTypes.STRING,
       allowNull: false,
+      field: 'item',
       comment: '구매품목'
     },
     productName: {
       type: DataTypes.STRING,
       allowNull: false,
+      field: 'product_name',
       comment: '제품명'
     },
     quantity: {
@@ -66,6 +68,7 @@ module.exports = (sequelize, DataTypes) => {
     supplierId: {
       type: DataTypes.INTEGER,
       allowNull: true,
+      field: 'supplier_id',
       references: {
         model: 'suppliers',
         key: 'id'
@@ -75,7 +78,14 @@ module.exports = (sequelize, DataTypes) => {
     supplier: {
       type: DataTypes.STRING,
       allowNull: false,
+      field: 'supplier',
       comment: '공급업체명'
+    },
+    requestDepartment: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'request_department',
+      comment: '요청부서'
     },
     contractPeriodType: {
       type: DataTypes.STRING,

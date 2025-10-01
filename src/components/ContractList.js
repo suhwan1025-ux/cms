@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { generatePreviewHTML } from '../utils/previewGenerator';
 
 // API 베이스 URL 동적 설정
 const getApiBaseUrl = () => {
   if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `http://${window.location.hostname}:3001`;
+    return `http://${window.location.hostname}:3004`;
   }
-  return 'http://localhost:3001';
+  return 'http://localhost:4002';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -648,8 +648,11 @@ const ContractList = () => {
           purpose: enhancedContract.purpose,
           basis: enhancedContract.basis,
           budget: enhancedContract.budget,
+          budgetInfo: enhancedContract.budgetInfo, // 서버에서 가져온 예산 정보 추가
           contractMethod: enhancedContract.contractMethod,
-          requestDepartments: enhancedContract.department ? [enhancedContract.department] : [],
+          requestDepartments: enhancedContract.requestDepartments && enhancedContract.requestDepartments.length > 0
+            ? enhancedContract.requestDepartments.map(d => d.department || d.name || d)
+            : (enhancedContract.department ? [enhancedContract.department] : []),
           totalAmount: enhancedContract.amount,
           other: enhancedContract.other,
           purchaseItems: enhancedContract.purchaseItems || [],
@@ -742,6 +745,7 @@ const ContractList = () => {
           purpose: contract.purpose,
           basis: contract.basis,
           budget: contract.budget,
+          budgetInfo: contract.budgetInfo, // 예산 정보 추가 (있는 경우)
           contractMethod: contract.contractMethod,
           requestDepartments: contract.department ? [contract.department] : [],
           totalAmount: contract.amount,
@@ -883,7 +887,7 @@ const ContractList = () => {
         
         // 요청부서 처리 (기존 수정 기능과 동일한 방식)
         requestDepartments: (originalData.requestDepartments || []).map(dept => 
-          typeof dept === 'string' ? dept : dept.name || dept
+          typeof dept === 'string' ? dept : dept.department || dept.name || dept
         ),
         
         // 구매품목의 비용분배 정보 포함 (기존 수정 기능과 동일한 방식)
@@ -1378,7 +1382,12 @@ const ContractList = () => {
                 onClick={() => handleRowClick(contract)}
               >
                 <td>{contract.title}</td>
-                <td>{contract.department}</td>
+                <td>
+                  {contract.requestDepartments && contract.requestDepartments.length > 0
+                    ? contract.requestDepartments.map(d => d.department).join(', ')
+                    : (contract.department || '-')
+                  }
+                </td>
                 <td>{contract.contractor}</td>
                 <td>{contract.author || '-'}</td>
                 <td>{formatCurrency(contract.amount)}</td>
@@ -2446,3 +2455,4 @@ const ContractList = () => {
 };
 
 export default ContractList; 
+

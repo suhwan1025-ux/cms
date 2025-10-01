@@ -5,10 +5,11 @@ module.exports = (sequelize, DataTypes) => {
   class ContractMethod extends Model {
     static associate(models) {
       // 계약방식과 품의서의 관계
-      ContractMethod.hasMany(models.Proposal, {
-        foreignKey: 'contractMethodId',
-        as: 'proposals'
-      });
+      // ⚠️ proposals.contract_method는 외래키가 아닌 문자열 필드이므로 관계 설정하지 않음
+      // ContractMethod.hasMany(models.Proposal, {
+      //   foreignKey: 'contractMethodId',
+      //   as: 'proposals'
+      // });
     }
   }
   

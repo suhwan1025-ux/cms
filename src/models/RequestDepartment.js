@@ -21,6 +21,7 @@ module.exports = (sequelize, DataTypes) => {
     proposalId: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      field: 'proposal_id',
       references: {
         model: 'proposals',
         key: 'id'
@@ -29,27 +30,21 @@ module.exports = (sequelize, DataTypes) => {
       onDelete: 'CASCADE',
       comment: '품의서 ID'
     },
-    name: {
+    departmentId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'department_id',
+      references: {
+        model: 'departments',
+        key: 'id'
+      },
+      comment: '부서 ID'
+    },
+    department: {
       type: DataTypes.STRING,
       allowNull: false,
-      comment: '부서명',
-      validate: {
-        notEmpty: {
-          msg: '부서명은 비어있을 수 없습니다.'
-        },
-        notNull: {
-          msg: '부서명은 필수입니다.'
-        },
-        len: {
-          args: [1, 100],
-          msg: '부서명은 1자 이상 100자 이하여야 합니다.'
-        }
-      }
-    },
-    code: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      comment: '부서 코드'
+      field: 'department',
+      comment: '부서명'
     },
     createdAt: {
       type: DataTypes.DATE,
