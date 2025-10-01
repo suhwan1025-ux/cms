@@ -626,6 +626,8 @@ export const generatePreviewHTML = (data, options = {}) => {
           border: 1px solid #ddd;
           padding: 12px;
           text-align: left;
+          white-space: pre-wrap; /* 줄바꿈 보존 */
+          word-wrap: break-word; /* 긴 단어 자동 줄바꿈 */
         }
         .info-table th {
           background-color: #f8f9fa;
@@ -641,6 +643,8 @@ export const generatePreviewHTML = (data, options = {}) => {
           border: 1px solid #ddd;
           padding: 8px;
           text-align: center;
+          white-space: pre-wrap; /* 줄바꿈 보존 */
+          word-wrap: break-word; /* 긴 단어 자동 줄바꿈 */
         }
         .items-table th {
           background-color: #f8f9fa;

@@ -938,24 +938,32 @@ app.post('/api/proposals', async (req, res) => {
 
     // 요청부서 생성
     if (proposalData.requestDepartments && proposalData.requestDepartments.length > 0) {
-      console.log('🔥 요청부서 저장:', proposalData.requestDepartments);
+      console.log('🔥🔥🔥 요청부서 원본 데이터:', JSON.stringify(proposalData.requestDepartments, null, 2));
       
       // 유효한 요청부서만 필터링
       const validRequestDepartments = proposalData.requestDepartments
-        .filter(dept => {
-          const deptName = typeof dept === 'string' ? dept : dept.department || dept.name || '';
-          return deptName && deptName.trim() !== '';
+        .map((dept, index) => {
+          console.log(`  [${index}] 타입: ${typeof dept}, 값:`, dept);
+          const deptName = typeof dept === 'string' ? dept : (dept.department || dept.name || '');
+          console.log(`  [${index}] 추출된 부서명: "${deptName}"`);
+          return { original: dept, deptName };
         })
-        .map(dept => {
-          const deptName = typeof dept === 'string' ? dept : dept.department || dept.name || '';
-          return {
+        .filter(({ deptName }) => {
+          const isValid = deptName && deptName.trim() !== '';
+          console.log(`  필터링: "${deptName}" => ${isValid ? 'VALID ✅' : 'INVALID ❌'}`);
+          return isValid;
+        })
+        .map(({ original, deptName }) => {
+          const result = {
             proposalId: proposal.id,
-            name: deptName.trim(), // 필드명을 name으로 수정하고 trim() 적용
-            code: typeof dept === 'object' ? (dept.code || null) : null
+            department: deptName.trim(),
+            departmentId: typeof original === 'object' ? (original.departmentId || original.id || null) : null
           };
+          console.log('  생성할 데이터:', result);
+          return result;
         });
       
-      console.log('🔥 필터링된 요청부서 데이터:', validRequestDepartments);
+      console.log('🔥 필터링 후 최종 데이터:', JSON.stringify(validRequestDepartments, null, 2));
       
       if (validRequestDepartments.length > 0) {
         await models.RequestDepartment.bulkCreate(validRequestDepartments);
@@ -963,6 +971,8 @@ app.post('/api/proposals', async (req, res) => {
       } else {
         console.log('⚠️ 유효한 요청부서가 없어 저장하지 않음');
       }
+    } else {
+      console.log('⚠️ requestDepartments가 없거나 빈 배열입니다');
     }
 
     res.status(201).json({
@@ -1394,33 +1404,43 @@ app.put('/api/proposals/:id', async (req, res) => {
         console.log('✅ 구매품목별 비용분배 정보 저장 완료 (PUT)');
       }
 
-      // 요청부서 생성
+      // 요청부서 생성 (PUT)
       if (proposalData.requestDepartments && proposalData.requestDepartments.length > 0) {
-        console.log('🔥 요청부서 저장:', proposalData.requestDepartments);
+        console.log('🔥🔥🔥 [PUT] 요청부서 원본 데이터:', JSON.stringify(proposalData.requestDepartments, null, 2));
         
         // 유효한 요청부서만 필터링
         const validRequestDepartments = proposalData.requestDepartments
-          .filter(dept => {
-            const deptName = typeof dept === 'string' ? dept : dept.department || dept.name || '';
-            return deptName && deptName.trim() !== '';
+          .map((dept, index) => {
+            console.log(`  [PUT][${index}] 타입: ${typeof dept}, 값:`, dept);
+            const deptName = typeof dept === 'string' ? dept : (dept.department || dept.name || '');
+            console.log(`  [PUT][${index}] 추출된 부서명: "${deptName}"`);
+            return { original: dept, deptName };
           })
-          .map(dept => {
-            const deptName = typeof dept === 'string' ? dept : dept.department || dept.name || '';
-            return {
+          .filter(({ deptName }) => {
+            const isValid = deptName && deptName.trim() !== '';
+            console.log(`  [PUT] 필터링: "${deptName}" => ${isValid ? 'VALID ✅' : 'INVALID ❌'}`);
+            return isValid;
+          })
+          .map(({ original, deptName }) => {
+            const result = {
               proposalId: proposal.id,
-              name: deptName.trim(),
-              code: typeof dept === 'object' ? (dept.code || null) : null
+              department: deptName.trim(),
+              departmentId: typeof original === 'object' ? (original.departmentId || original.id || null) : null
             };
+            console.log('  [PUT] 생성할 데이터:', result);
+            return result;
           });
         
-        console.log('🔥 필터링된 요청부서 데이터:', validRequestDepartments);
+        console.log('🔥 [PUT] 필터링 후 최종 데이터:', JSON.stringify(validRequestDepartments, null, 2));
         
         if (validRequestDepartments.length > 0) {
           await models.RequestDepartment.bulkCreate(validRequestDepartments, { transaction });
-          console.log('✅ 요청부서 저장 완료:', validRequestDepartments.length, '개');
+          console.log('✅ [PUT] 요청부서 저장 완료:', validRequestDepartments.length, '개');
         } else {
-          console.log('⚠️ 유효한 요청부서가 없어 저장하지 않음');
+          console.log('⚠️ [PUT] 유효한 요청부서가 없어 저장하지 않음');
         }
+      } else {
+        console.log('⚠️ [PUT] requestDepartments가 없거나 빈 배열입니다');
       }
 
       // 트랜잭션 커밋
@@ -1851,28 +1871,28 @@ app.post('/api/proposals/draft', async (req, res) => {
       }
     }
 
-    // 요청부서 생성
-    console.log('=== 요청부서 데이터 처리 ===');
+    // 요청부서 생성 (임시저장)
+    console.log('=== 요청부서 데이터 처리 (임시저장) ===');
     console.log('받은 requestDepartments:', proposalData.requestDepartments);
     
     if (proposalData.requestDepartments && proposalData.requestDepartments.length > 0) {
       const requestDepartments = proposalData.requestDepartments
         .filter(dept => {
           // null이나 undefined가 아닌 유효한 데이터만 필터링
-          const deptName = typeof dept === 'string' ? dept : dept.name || dept;
+          const deptName = typeof dept === 'string' ? dept : (dept.department || dept.name || '');
           return deptName && deptName.trim() !== '';
         })
         .map(dept => {
-          const deptName = typeof dept === 'string' ? dept : dept.name || dept;
+          const deptName = typeof dept === 'string' ? dept : (dept.department || dept.name || '');
           return {
             proposalId: proposal.id,
-            name: deptName.trim(),
-            code: typeof dept === 'string' ? null : (dept.code || null)
+            department: deptName.trim(), // ✅ department 필드로 변경
+            departmentId: typeof dept === 'object' ? (dept.departmentId || dept.id || null) : null
           };
         })
         .filter(dept => {
-          // 최종 검증: name이 유효한지 확인
-          return dept.name && dept.name.trim() !== '';
+          // 최종 검증: department가 유효한지 확인
+          return dept.department && dept.department.trim() !== '';
         });
       
       if (requestDepartments.length > 0) {

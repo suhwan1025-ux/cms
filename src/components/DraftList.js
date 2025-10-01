@@ -48,7 +48,7 @@ const DraftList = () => {
       // API 데이터를 화면에 맞는 형태로 변환
       const formattedDrafts = draftProposals.map(proposal => ({
         id: proposal.id,
-        title: proposal.purpose || '품의서',
+        title: proposal.title || proposal.purpose || '품의서', // title 우선, 없으면 purpose, 둘 다 없으면 '품의서'
         department: proposal.requestDepartments?.[0] ? 
           (typeof proposal.requestDepartments[0] === 'string' ? 
             proposal.requestDepartments[0] : 
