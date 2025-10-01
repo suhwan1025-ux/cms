@@ -77,11 +77,21 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       comment: '공급업체명'
     },
+    requestDepartment: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: '요청부서'
+    },
     contractPeriodType: {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'permanent',
       comment: '계약기간 타입 (permanent: 영구, 1year: 1년, custom: 직접입력)'
+    },
+    customContractPeriod: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: '사용자 정의 계약기간'
     },
     contractStartDate: {
       type: DataTypes.DATEONLY,
