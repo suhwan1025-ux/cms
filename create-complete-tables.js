@@ -19,11 +19,45 @@ async function createCompleteTables() {
     await sequelize.authenticate();
     console.log('✅ 데이터베이스 연결 성공!');
     
+    console.log('\n⚠️  경고: 기존 테이블을 모두 삭제하고 재생성합니다!');
+    console.log('⚠️  모든 데이터가 삭제됩니다!\n');
+    
+    // 외래키 제약조건 순서대로 테이블 삭제
+    console.log('🗑️  기존 테이블 삭제 중...');
+    const tables = [
+      'proposal_histories',
+      'approval_rules',
+      'approval_references',
+      'approval_conditions',
+      'approval_approvers',
+      'approval_lines',
+      'contracts',
+      'service_items',
+      'purchase_item_cost_allocations',
+      'purchase_items',
+      'request_departments',
+      'cost_departments',
+      'proposals',
+      'business_budget_approvals',
+      'business_budget_details',
+      'business_budgets',
+      'contract_methods',
+      'budgets',
+      'suppliers',
+      'departments'
+    ];
+    
+    for (const table of tables) {
+      await sequelize.query(`DROP TABLE IF EXISTS ${table} CASCADE;`);
+      console.log(`   ✓ ${table} 삭제됨`);
+    }
+    
+    console.log('✅ 모든 테이블 삭제 완료\n');
     console.log('🔄 Sequelize 모델과 일치하는 모든 테이블 생성 시작...');
     
     // 1. 부서 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS departments (
+      CREATE TABLE departments (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL UNIQUE,
         code VARCHAR(50) UNIQUE,
@@ -39,7 +73,7 @@ async function createCompleteTables() {
     
     // 2. 공급업체 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS suppliers (
+      CREATE TABLE suppliers (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         business_number VARCHAR(50) UNIQUE,
@@ -60,7 +94,7 @@ async function createCompleteTables() {
     
     // 3. 예산 테이블 (type 컬럼 추가!)
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS budgets (
+      CREATE TABLE budgets (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         year INTEGER NOT NULL,
@@ -79,7 +113,7 @@ async function createCompleteTables() {
     
     // 4. 사업예산 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS business_budgets (
+      CREATE TABLE business_budgets (
         id SERIAL PRIMARY KEY,
         project_name VARCHAR(255) NOT NULL,
         initiator_department VARCHAR(100) NOT NULL,
@@ -103,7 +137,7 @@ async function createCompleteTables() {
     
     // 5. 사업예산 상세 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS business_budget_details (
+      CREATE TABLE business_budget_details (
         id SERIAL PRIMARY KEY,
         budget_id INTEGER REFERENCES business_budgets(id) ON DELETE CASCADE,
         item_name VARCHAR(255) NOT NULL,
@@ -120,7 +154,7 @@ async function createCompleteTables() {
     
     // 6. 사업예산 승인 이력 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS business_budget_approvals (
+      CREATE TABLE business_budget_approvals (
         id SERIAL PRIMARY KEY,
         budget_id INTEGER REFERENCES business_budgets(id) ON DELETE CASCADE,
         approver_name VARCHAR(100) NOT NULL,
@@ -134,7 +168,7 @@ async function createCompleteTables() {
     
     // 7. 계약방식 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS contract_methods (
+      CREATE TABLE contract_methods (
         id SERIAL PRIMARY KEY,
         code VARCHAR(50) NOT NULL UNIQUE,
         name VARCHAR(255) NOT NULL,
@@ -149,7 +183,7 @@ async function createCompleteTables() {
     
     // 8. 품의서 테이블 (전체 컬럼!)
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS proposals (
+      CREATE TABLE proposals (
         id SERIAL PRIMARY KEY,
         contract_type VARCHAR(50) NOT NULL,
         title VARCHAR(500),
@@ -180,7 +214,7 @@ async function createCompleteTables() {
     
     // 6. 요청부서 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS request_departments (
+      CREATE TABLE request_departments (
         id SERIAL PRIMARY KEY,
         proposal_id INTEGER NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
         department_id INTEGER REFERENCES departments(id),
@@ -193,7 +227,7 @@ async function createCompleteTables() {
     
     // 7. 구매품목 테이블 (계약기간 컬럼 추가!)
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS purchase_items (
+      CREATE TABLE purchase_items (
         id SERIAL PRIMARY KEY,
         proposal_id INTEGER NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
         supplier_id INTEGER REFERENCES suppliers(id),
@@ -216,7 +250,7 @@ async function createCompleteTables() {
     
     // 8. 용역항목 테이블 (name 컬럼 추가!)
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS service_items (
+      CREATE TABLE service_items (
         id SERIAL PRIMARY KEY,
         proposal_id INTEGER NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
         supplier_id INTEGER REFERENCES suppliers(id),
@@ -237,7 +271,7 @@ async function createCompleteTables() {
     
     // 9. 비용귀속부서 테이블 (구매품목별 배분 컬럼 추가!)
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS cost_departments (
+      CREATE TABLE cost_departments (
         id SERIAL PRIMARY KEY,
         proposal_id INTEGER NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
         department_id INTEGER REFERENCES departments(id),
@@ -254,7 +288,7 @@ async function createCompleteTables() {
     
     // 10. 구매품목 비용배분 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS purchase_item_cost_allocations (
+      CREATE TABLE purchase_item_cost_allocations (
         id SERIAL PRIMARY KEY,
         purchase_item_id INTEGER NOT NULL REFERENCES purchase_items(id) ON DELETE CASCADE,
         department_id INTEGER REFERENCES departments(id),
@@ -269,7 +303,7 @@ async function createCompleteTables() {
     
     // 11. 결재라인 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS approval_lines (
+      CREATE TABLE approval_lines (
         id SERIAL PRIMARY KEY,
         proposal_id INTEGER NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
         step INTEGER NOT NULL,
@@ -290,7 +324,7 @@ async function createCompleteTables() {
     
     // 12. 계약 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS contracts (
+      CREATE TABLE contracts (
         id SERIAL PRIMARY KEY,
         proposal_id INTEGER NOT NULL REFERENCES proposals(id),
         contract_number VARCHAR(255) NOT NULL UNIQUE,
@@ -311,7 +345,7 @@ async function createCompleteTables() {
     
     // 13. 품의서 변경이력 테이블
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS proposal_histories (
+      CREATE TABLE proposal_histories (
         id SERIAL PRIMARY KEY,
         proposal_id INTEGER NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
         changed_by VARCHAR(255) NOT NULL,
@@ -329,7 +363,7 @@ async function createCompleteTables() {
     
     // 14-17. 결재 참조 테이블들
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS approval_approvers (
+      CREATE TABLE approval_approvers (
         id SERIAL PRIMARY KEY,
         code VARCHAR(50) NOT NULL UNIQUE,
         name VARCHAR(255) NOT NULL,
@@ -345,7 +379,7 @@ async function createCompleteTables() {
     console.log('✅ approval_approvers 테이블 생성 완료');
     
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS approval_conditions (
+      CREATE TABLE approval_conditions (
         id SERIAL PRIMARY KEY,
         approver_id INTEGER NOT NULL REFERENCES approval_approvers(id) ON DELETE CASCADE,
         condition_type VARCHAR(50) NOT NULL,
@@ -358,7 +392,7 @@ async function createCompleteTables() {
     console.log('✅ approval_conditions 테이블 생성 완료');
     
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS approval_rules (
+      CREATE TABLE approval_rules (
         id SERIAL PRIMARY KEY,
         rule_type VARCHAR(50) NOT NULL,
         rule_name VARCHAR(255) NOT NULL,
@@ -372,7 +406,7 @@ async function createCompleteTables() {
     console.log('✅ approval_rules 테이블 생성 완료');
     
     await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS approval_references (
+      CREATE TABLE approval_references (
         id SERIAL PRIMARY KEY,
         amount_range VARCHAR(255) NOT NULL,
         min_amount DECIMAL(15,2),
