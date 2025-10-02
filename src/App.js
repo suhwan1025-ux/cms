@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 import Dashboard from './components/Dashboard';
 import BudgetRegistration from './components/BudgetRegistrationAPI';
+import BudgetHistory from './components/BudgetHistory';
 import ContractList from './components/ContractList';
 import DraftList from './components/DraftList';
 import ApprovalLine from './components/ApprovalLine';
@@ -15,6 +16,7 @@ import EditorTest from './components/EditorTest';
 
 function App() {
   const [proposalMenuOpen, setProposalMenuOpen] = useState(false);
+  const [budgetMenuOpen, setBudgetMenuOpen] = useState(false);
 
   return (
     <Router>
@@ -67,11 +69,27 @@ function App() {
               
 
               
-              {/* 사업예산 메뉴 */}
-              <Link to="/budget" className="nav-link">
-                <span className="nav-icon">💰</span>
-                사업예산
-              </Link>
+              {/* 사업예산 드롭다운 메뉴 */}
+              <div className="nav-dropdown">
+                <button 
+                  className="nav-link dropdown-toggle"
+                  onClick={() => setBudgetMenuOpen(!budgetMenuOpen)}
+                >
+                  <span className="nav-icon">💰</span>
+                  사업예산
+                  <span className="dropdown-arrow">{budgetMenuOpen ? '▼' : '▶'}</span>
+                </button>
+                {budgetMenuOpen && (
+                  <div className="dropdown-menu">
+                    <Link to="/budget" className="dropdown-item">
+                      사업예산관리(자본예산)
+                    </Link>
+                    <Link to="/budget-history" className="dropdown-item">
+                      사업예산관리 변경이력
+                    </Link>
+                  </div>
+                )}
+              </div>
               
               <Link to="/team" className="nav-link">
                 <span className="nav-icon">👥</span>
@@ -90,6 +108,7 @@ function App() {
                        <Routes>
              <Route path="/" element={<Dashboard />} />
              <Route path="/budget" element={<BudgetRegistration />} />
+             <Route path="/budget-history" element={<BudgetHistory />} />
              <Route path="/contract-list" element={<ContractList />} />
              <Route path="/draft-list" element={<DraftList />} />
              <Route path="/proposal" element={<ProposalForm />} />

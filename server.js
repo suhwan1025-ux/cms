@@ -403,6 +403,16 @@ app.post('/api/business-budgets', async (req, res) => {
       }
     }
     
+    // 변경이력 저장 (신규 등록)
+    await saveBusinessBudgetHistory(
+      budgetId, 
+      'CREATE', 
+      null, 
+      null, 
+      '사업예산 신규 등록', 
+      budgetData.createdBy || 'system'
+    );
+    
     res.status(201).json({
       message: '사업예산이 성공적으로 생성되었습니다.',
       budgetId: budgetId
@@ -417,6 +427,37 @@ app.put('/api/business-budgets/:id', async (req, res) => {
   try {
     const budgetId = req.params.id;
     const budgetData = req.body;
+    
+    // 기존 데이터 조회 (변경이력 기록용)
+    const [oldData] = await sequelize.query(`
+      SELECT * FROM business_budgets WHERE id = ?
+    `, { replacements: [budgetId], type: Sequelize.QueryTypes.SELECT });
+    
+    if (!oldData) {
+      return res.status(404).json({ error: '사업예산을 찾을 수 없습니다.' });
+    }
+    
+    // 변경된 필드 감지 및 이력 저장
+    const fieldMapping = {
+      projectName: 'project_name',
+      initiatorDepartment: 'initiator_department',
+      executorDepartment: 'executor_department',
+      budgetCategory: 'budget_category',
+      budgetAmount: 'budget_amount',
+      startDate: 'start_date',
+      endDate: 'end_date',
+      isEssential: 'is_essential',
+      projectPurpose: 'project_purpose',
+      status: 'status',
+      executedAmount: 'executed_amount',
+      pendingAmount: 'pending_amount',
+      confirmedExecutionAmount: 'confirmed_execution_amount',
+      unexecutedAmount: 'unexecuted_amount',
+      additionalBudget: 'additional_budget',
+      holdCancelReason: 'hold_cancel_reason',
+      notes: 'notes',
+      itPlanReported: 'it_plan_reported'
+    };
     
     // 사업예산 수정 (id, budget_year, created_at, created_by 제외)
     await sequelize.query(`
@@ -464,6 +505,29 @@ app.put('/api/business-budgets/:id', async (req, res) => {
         budgetId
       ]
     });
+    
+    // 변경된 필드 이력 저장
+    for (const [frontKey, dbKey] of Object.entries(fieldMapping)) {
+      const oldValue = oldData[dbKey];
+      const newValue = budgetData[frontKey] !== undefined ? budgetData[frontKey] : (
+        dbKey === 'status' ? '대기' :
+        ['executed_amount', 'pending_amount', 'confirmed_execution_amount', 'unexecuted_amount', 'additional_budget'].includes(dbKey) ? 0 :
+        dbKey === 'it_plan_reported' ? false :
+        null
+      );
+      
+      // 값이 변경된 경우에만 이력 저장
+      if (String(oldValue) !== String(newValue)) {
+        await saveBusinessBudgetHistory(
+          budgetId,
+          'UPDATE',
+          frontKey,
+          oldValue,
+          newValue,
+          budgetData.changedBy || 'system'
+        );
+      }
+    }
     
     // 기존 상세 내역 삭제
     await sequelize.query(`
@@ -2663,6 +2727,244 @@ app.get('/api/ai/item-analysis', async (req, res) => {
       accountAnalysis: [],
       supplierAnalysis: []
     });
+  }
+});
+
+// ========================================
+// 5. 사업목적 관리 API
+// ========================================
+
+// 5-1. 사업목적 목록 조회 (연도별)
+app.get('/api/project-purposes', async (req, res) => {
+  try {
+    const { year } = req.query;
+    
+    let query = 'SELECT * FROM project_purposes';
+    const replacements = [];
+    
+    if (year) {
+      query += ' WHERE year = ?';
+      replacements.push(parseInt(year));
+    }
+    
+    query += ' ORDER BY code ASC';
+    
+    const purposes = await sequelize.query(query, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT
+    });
+    
+    res.json(purposes);
+  } catch (error) {
+    console.error('사업목적 조회 실패:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5-2. 사업목적 추가
+app.post('/api/project-purposes', async (req, res) => {
+  try {
+    const { code, description, year } = req.body;
+    
+    if (!code || !description || !year) {
+      return res.status(400).json({ error: '코드, 설명, 연도는 필수입니다.' });
+    }
+    
+    // 중복 체크
+    const existing = await sequelize.query(
+      'SELECT * FROM project_purposes WHERE code = ? AND year = ?',
+      {
+        replacements: [code, year],
+        type: Sequelize.QueryTypes.SELECT
+      }
+    );
+    
+    if (existing.length > 0) {
+      return res.status(400).json({ error: '이미 존재하는 코드입니다.' });
+    }
+    
+    await sequelize.query(
+      'INSERT INTO project_purposes (code, description, year, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
+      {
+        replacements: [code, description, year]
+      }
+    );
+    
+    res.json({ message: '사업목적이 추가되었습니다.' });
+  } catch (error) {
+    console.error('사업목적 추가 실패:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5-3. 사업목적 수정
+app.put('/api/project-purposes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { code, description, year } = req.body;
+    
+    // 고정 항목 체크
+    const [existing] = await sequelize.query(
+      'SELECT is_fixed FROM project_purposes WHERE id = ?',
+      {
+        replacements: [id],
+        type: Sequelize.QueryTypes.SELECT
+      }
+    );
+    
+    if (existing && existing.is_fixed) {
+      return res.status(403).json({ error: '정기구입(S)과 정보보호(Z) 코드는 수정할 수 없습니다.' });
+    }
+    
+    await sequelize.query(
+      'UPDATE project_purposes SET code = ?, description = ?, year = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      {
+        replacements: [code, description, year, id]
+      }
+    );
+    
+    res.json({ message: '사업목적이 수정되었습니다.' });
+  } catch (error) {
+    console.error('사업목적 수정 실패:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5-4. 사업목적 삭제
+app.delete('/api/project-purposes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 고정 항목 체크
+    const [existing] = await sequelize.query(
+      'SELECT is_fixed FROM project_purposes WHERE id = ?',
+      {
+        replacements: [id],
+        type: Sequelize.QueryTypes.SELECT
+      }
+    );
+    
+    if (existing && existing.is_fixed) {
+      return res.status(403).json({ error: '정기구입(S)과 정보보호(Z) 코드는 삭제할 수 없습니다.' });
+    }
+    
+    await sequelize.query(
+      'DELETE FROM project_purposes WHERE id = ?',
+      {
+        replacements: [id]
+      }
+    );
+    
+    res.json({ message: '사업목적이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('사업목적 삭제 실패:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========================================
+// 6. 사업예산 변경이력 API
+// ========================================
+
+// 변경이력 저장 함수
+async function saveBusinessBudgetHistory(budgetId, changeType, changedField, oldValue, newValue, changedBy) {
+  try {
+    // 사업예산 정보 조회 (사업명, 사업연도)
+    const [budget] = await sequelize.query(
+      'SELECT project_name, budget_year FROM business_budgets WHERE id = ?',
+      {
+        replacements: [budgetId],
+        type: Sequelize.QueryTypes.SELECT
+      }
+    );
+
+    if (!budget) {
+      console.error('사업예산 정보를 찾을 수 없습니다:', budgetId);
+      return;
+    }
+
+    await sequelize.query(
+      `INSERT INTO business_budget_history 
+        (budget_id, change_type, changed_field, old_value, new_value, changed_at, changed_by) 
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+      {
+        replacements: [
+          budgetId,
+          changeType,
+          changedField || null,
+          oldValue !== undefined && oldValue !== null ? String(oldValue) : null,
+          newValue !== undefined && newValue !== null ? String(newValue) : null,
+          changedBy || 'system'
+        ]
+      }
+    );
+  } catch (error) {
+    console.error('변경이력 저장 실패:', error);
+  }
+}
+
+// 6-1. 변경이력 조회
+app.get('/api/budget-history', async (req, res) => {
+  try {
+    const { budgetId, budgetYear, limit, offset } = req.query;
+    
+    let query = `
+      SELECT 
+        h.*,
+        b.project_name as "projectName",
+        b.budget_year as "budgetYear"
+      FROM business_budget_history h
+      LEFT JOIN business_budgets b ON h.budget_id = b.id
+      WHERE 1=1
+    `;
+    const replacements = [];
+    
+    if (budgetId) {
+      query += ' AND h.budget_id = ?';
+      replacements.push(parseInt(budgetId));
+    }
+    
+    if (budgetYear) {
+      query += ' AND b.budget_year = ?';
+      replacements.push(parseInt(budgetYear));
+    }
+    
+    query += ' ORDER BY h.changed_at DESC';
+    
+    if (limit) {
+      query += ' LIMIT ?';
+      replacements.push(parseInt(limit));
+    }
+    
+    if (offset) {
+      query += ' OFFSET ?';
+      replacements.push(parseInt(offset));
+    }
+    
+    const histories = await sequelize.query(query, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT
+    });
+    
+    // 필드명을 camelCase로 변환
+    const formattedHistories = histories.map(h => ({
+      id: h.id,
+      budgetId: h.budget_id,
+      projectName: h.projectName,
+      budgetYear: h.budgetYear,
+      changeType: h.change_type,
+      changedField: h.changed_field,
+      oldValue: h.old_value,
+      newValue: h.new_value,
+      changedAt: h.changed_at,
+      changedBy: h.changed_by,
+      changeDescription: h.change_description
+    }));
+    
+    res.json(formattedHistories);
+  } catch (error) {
+    console.error('변경이력 조회 실패:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

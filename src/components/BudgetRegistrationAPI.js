@@ -61,6 +61,7 @@ const BudgetRegistrationAPI = () => {
     initiatorDepartment: '',
     executorDepartment: '',
     isEssential: '',
+    projectPurpose: '',
     itPlanReported: ''
   });
 
@@ -81,23 +82,18 @@ const BudgetRegistrationAPI = () => {
   const [showEditInitiatorDropdown, setShowEditInitiatorDropdown] = useState(false);
   const [showEditExecutorDropdown, setShowEditExecutorDropdown] = useState(false);
   
-
+  // 사업목적 팝업 상태
+  const [showPurposeModal, setShowPurposeModal] = useState(false);
+  const [projectPurposes, setProjectPurposes] = useState([]);
+  const [modalYear, setModalYear] = useState(selectedYear); // 팝업 내에서 사용하는 연도
+  const [newPurpose, setNewPurpose] = useState({ code: '', description: '', year: selectedYear });
+  const [editingPurpose, setEditingPurpose] = useState(null);
 
   // 예산 분류 옵션 (자본예산 고정)
   const budgetCategories = ['이연예산', '계획예산', '추가예산'];
 
   // 부서 목록 (API에서 가져올 예정)
   const [departments, setDepartments] = useState([]);
-
-  // 사업목적 옵션
-  const projectPurposes = [
-    { value: 'A', label: 'A: 동결 및 감소' },
-    { value: 'B', label: 'B: 유상전환' },
-    { value: 'C', label: 'C: 전략과제' },
-    { value: 'D', label: 'D: 물가상승인상' },
-    { value: 'E', label: 'E: 사용량증가' },
-    { value: 'F', label: 'F: 해지' }
-  ];
 
   // 검색된 부서 목록 반환
   const getFilteredDepartments = (searchTerm) => {
@@ -121,17 +117,14 @@ const BudgetRegistrationAPI = () => {
       setLoading(true);
       setError(null);
       try {
-        // 사업예산 데이터 가져오기
+        // 사업예산 데이터 가져오기 (모든 연도)
         const budgetResponse = await fetch(`${API_BASE_URL}/api/budget-statistics`);
         if (budgetResponse.ok) {
           const data = await budgetResponse.json();
           // budgetData 필드에서 실제 예산 목록 가져오기
           const budgets = data.budgetData || [];
-          // 선택된 연도에 따라 필터링
-          const filteredData = budgets.filter(budget => 
-            budget.budgetYear === selectedYear
-          );
-          setBudgets(filteredData);
+          // 모든 데이터를 로드 (필터링은 나중에)
+          setBudgets(budgets);
         } else {
           setError('사업예산 데이터 로드 실패: ' + budgetResponse.statusText);
         }
@@ -147,6 +140,8 @@ const BudgetRegistrationAPI = () => {
             console.error('부서 데이터 로드 실패:', departmentResponse.statusText);
           }
         }
+
+        // 사업목적은 팝업을 열 때 로드됨
       } catch (error) {
         setError('API 호출 오류: ' + error.message);
         console.error('API 호출 오류:', error);
@@ -156,7 +151,7 @@ const BudgetRegistrationAPI = () => {
     };
 
     fetchData();
-  }, [selectedYear]); // selectedYear가 변경될 때마다 데이터 다시 로드
+  }, []); // 최초 1회만 로드
 
   // 연도 변경 시 기본 날짜 설정
   useEffect(() => {
@@ -203,9 +198,17 @@ const BudgetRegistrationAPI = () => {
           return false;
         }
       }
-      // IT 보고여부 필터
-      if (searchFilters.itPlanReported !== '' && budget.itPlanReported !== (searchFilters.itPlanReported === 'true')) {
+      // 사업목적 필터
+      if (searchFilters.projectPurpose && budget.projectPurpose !== searchFilters.projectPurpose) {
         return false;
+      }
+      // IT 보고여부 필터
+      if (searchFilters.itPlanReported !== '') {
+        const expectedValue = searchFilters.itPlanReported === 'true';
+        const actualValue = budget.itPlanReported === true || budget.itPlanReported === 'true';
+        if (actualValue !== expectedValue) {
+          return false;
+        }
       }
       return true;
     });
@@ -222,6 +225,7 @@ const BudgetRegistrationAPI = () => {
       initiatorDepartment: '',
       executorDepartment: '',
       isEssential: '',
+      projectPurpose: '',
       itPlanReported: ''
     });
   };
@@ -436,6 +440,129 @@ const BudgetRegistrationAPI = () => {
     
     // 폼이 있는 위치로 스크롤
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // 사업목적 팝업 열기
+  const handleOpenPurposeModal = async () => {
+    setModalYear(selectedYear);
+    setShowPurposeModal(true);
+    // 현재 선택된 연도의 사업목적 로드
+    await loadProjectPurposes(selectedYear);
+  };
+
+  // 사업목적 팝업 닫기
+  const handleClosePurposeModal = () => {
+    setShowPurposeModal(false);
+    setEditingPurpose(null);
+    setModalYear(selectedYear);
+    setNewPurpose({ code: '', description: '', year: selectedYear });
+  };
+
+  // 사업목적 로드 함수
+  const loadProjectPurposes = async (year) => {
+    try {
+      const purposeResponse = await fetch(`${API_BASE_URL}/api/project-purposes?year=${year}`);
+      if (purposeResponse.ok) {
+        const purposeData = await purposeResponse.json();
+        // DB의 is_fixed를 isFixed로 변환
+        const convertedData = purposeData.map(p => ({
+          ...p,
+          isFixed: p.is_fixed
+        }));
+        setProjectPurposes(convertedData);
+      } else {
+        console.error('사업목적 데이터 로드 실패:', purposeResponse.statusText);
+      }
+    } catch (error) {
+      console.error('사업목적 로드 중 오류:', error);
+    }
+  };
+
+  // 팝업 내 연도 변경 처리
+  const handleModalYearChange = async (year) => {
+    setModalYear(year);
+    setNewPurpose({ code: '', description: '', year: year });
+    await loadProjectPurposes(year);
+  };
+
+  // 사업목적 선택
+  const handleSelectPurpose = (purpose) => {
+    setFormData(prev => ({ ...prev, projectPurpose: purpose.code }));
+    handleClosePurposeModal();
+  };
+
+  // 새 사업목적 추가
+  const handleAddPurpose = async () => {
+    if (!newPurpose.code || !newPurpose.description) {
+      alert('코드와 설명을 모두 입력해주세요.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/project-purposes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPurpose)
+      });
+
+      if (response.ok) {
+        // 사업목적 목록 다시 로드 (현재 팝업의 연도 기준)
+        await loadProjectPurposes(modalYear);
+        setNewPurpose({ code: '', description: '', year: modalYear });
+        alert('사업목적이 추가되었습니다.');
+      } else {
+        alert('사업목적 추가 실패');
+      }
+    } catch (error) {
+      alert('사업목적 추가 중 오류 발생: ' + error.message);
+    }
+  };
+
+  // 사업목적 수정
+  const handleUpdatePurpose = async () => {
+    if (!editingPurpose) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/project-purposes/${editingPurpose.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingPurpose)
+      });
+
+      if (response.ok) {
+        // 사업목적 목록 다시 로드 (현재 팝업의 연도 기준)
+        await loadProjectPurposes(modalYear);
+        setEditingPurpose(null);
+        alert('사업목적이 수정되었습니다.');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || '사업목적 수정 실패');
+      }
+    } catch (error) {
+      alert('사업목적 수정 중 오류 발생: ' + error.message);
+    }
+  };
+
+  // 사업목적 삭제
+  const handleDeletePurpose = async (id) => {
+    if (!window.confirm('이 사업목적을 삭제하시겠습니까?')) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/project-purposes/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // 사업목적 목록 다시 로드 (현재 팝업의 연도 기준)
+        await loadProjectPurposes(modalYear);
+        alert('사업목적이 삭제되었습니다.');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || '사업목적 삭제 실패');
+      }
+    } catch (error) {
+      alert('사업목적 삭제 중 오류 발생: ' + error.message);
+    }
   };
 
   // 정렬 처리
@@ -978,14 +1105,16 @@ const BudgetRegistrationAPI = () => {
                   
                   <div className="form-group">
                     <label>사업 목적 <span className="required">*</span></label>
-                    <select name="projectPurpose" value={formData.projectPurpose} onChange={handleChange} required>
-                      <option value="">선택</option>
-                      {projectPurposes.map(purpose => (
-                        <option key={purpose.value} value={purpose.value}>
-                          {purpose.label}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      name="projectPurpose"
+                      value={formData.projectPurpose}
+                      onClick={handleOpenPurposeModal}
+                      placeholder="클릭하여 사업목적 선택"
+                      readOnly
+                      required
+                      style={{ cursor: 'pointer' }}
+                    />
                   </div>
                   
                   <div className="form-group">
@@ -1118,40 +1247,53 @@ const BudgetRegistrationAPI = () => {
         }}>
           <div className="filter-grid" style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: '0.8rem',
             marginBottom: '1rem'
           }}>
             {/* 사업연도 */}
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>사업연도</label>
-              <input
-                type="number"
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem' }}>사업연도</label>
+              <select
                 value={searchFilters.budgetYear}
-                onChange={(e) => setSearchFilters({...searchFilters, budgetYear: e.target.value})}
-                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
-              />
+                onChange={(e) => setSearchFilters({...searchFilters, budgetYear: parseInt(e.target.value)})}
+                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.85rem' }}
+              >
+                <option value="">전체</option>
+                {(() => {
+                  const currentYear = new Date().getFullYear();
+                  const startYear = currentYear - 5;
+                  const endYear = currentYear + 5;
+                  const years = [];
+                  for (let year = startYear; year <= endYear; year++) {
+                    years.push(year);
+                  }
+                  return years.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ));
+                })()}
+              </select>
             </div>
 
             {/* 사업명 */}
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>사업명</label>
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem' }}>사업명</label>
               <input
                 type="text"
                 value={searchFilters.projectName}
                 onChange={(e) => setSearchFilters({...searchFilters, projectName: e.target.value})}
                 placeholder="사업명 검색"
-                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.85rem' }}
               />
             </div>
 
             {/* 예산 구분 */}
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>예산 구분</label>
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem' }}>예산 구분</label>
               <select
                 value={searchFilters.budgetCategory}
                 onChange={(e) => setSearchFilters({...searchFilters, budgetCategory: e.target.value})}
-                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.85rem' }}
               >
                 <option value="">전체</option>
                 {budgetCategories.map(category => (
@@ -1162,11 +1304,11 @@ const BudgetRegistrationAPI = () => {
 
             {/* 상태 */}
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>상태</label>
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem' }}>상태</label>
               <select
                 value={searchFilters.status}
                 onChange={(e) => setSearchFilters({...searchFilters, status: e.target.value})}
-                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.85rem' }}
               >
                 <option value="">전체</option>
                 <option value="대기">대기</option>
@@ -1178,11 +1320,11 @@ const BudgetRegistrationAPI = () => {
 
             {/* 발의부서 */}
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>발의부서</label>
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem' }}>발의부서</label>
               <select
                 value={searchFilters.initiatorDepartment}
                 onChange={(e) => setSearchFilters({...searchFilters, initiatorDepartment: e.target.value})}
-                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.85rem' }}
               >
                 <option value="">전체</option>
                 {departments.map(dept => (
@@ -1193,11 +1335,11 @@ const BudgetRegistrationAPI = () => {
 
             {/* 추진부서 */}
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>추진부서</label>
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem' }}>추진부서</label>
               <select
                 value={searchFilters.executorDepartment}
                 onChange={(e) => setSearchFilters({...searchFilters, executorDepartment: e.target.value})}
-                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.85rem' }}
               >
                 <option value="">전체</option>
                 {departments.map(dept => (
@@ -1208,11 +1350,11 @@ const BudgetRegistrationAPI = () => {
 
             {/* 필수사업여부 */}
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>필수사업여부</label>
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem' }}>필수사업</label>
               <select
                 value={searchFilters.isEssential}
                 onChange={(e) => setSearchFilters({...searchFilters, isEssential: e.target.value})}
-                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.85rem' }}
               >
                 <option value="">전체</option>
                 <option value="필수">필수</option>
@@ -1220,13 +1362,32 @@ const BudgetRegistrationAPI = () => {
               </select>
             </div>
 
+            {/* 사업목적 */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem' }}>사업목적</label>
+              <select
+                value={searchFilters.projectPurpose}
+                onChange={(e) => setSearchFilters({...searchFilters, projectPurpose: e.target.value})}
+                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.85rem' }}
+              >
+                <option value="">전체</option>
+                {(() => {
+                  // budgets 데이터에서 사용중인 projectPurpose 값들을 추출
+                  const purposes = [...new Set(budgets.map(b => b.projectPurpose).filter(p => p))];
+                  return purposes.sort().map(purpose => (
+                    <option key={purpose} value={purpose}>{purpose}</option>
+                  ));
+                })()}
+              </select>
+            </div>
+
             {/* IT 보고여부 */}
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>IT계획서 보고</label>
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem' }}>IT계획서</label>
               <select
                 value={searchFilters.itPlanReported}
                 onChange={(e) => setSearchFilters({...searchFilters, itPlanReported: e.target.value})}
-                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.85rem' }}
               >
                 <option value="">전체</option>
                 <option value="true">보고완료</option>
@@ -1239,12 +1400,13 @@ const BudgetRegistrationAPI = () => {
             <button
               onClick={handleResetFilters}
               style={{
-                padding: '0.5rem 1.5rem',
+                padding: '0.4rem 1rem',
                 background: '#6c757d',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontSize: '0.85rem'
               }}
             >
               필터 초기화
@@ -1342,6 +1504,296 @@ const BudgetRegistrationAPI = () => {
           </table>
         </div>
       </div>
+
+      {/* 사업목적 관리 팝업 */}
+      {showPurposeModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '2rem',
+            maxWidth: '800px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            {/* 헤더: 제목과 연도 선택 */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1.5rem',
+              paddingBottom: '1rem',
+              borderBottom: '2px solid #e9ecef'
+            }}>
+              <h2 style={{ margin: 0 }}>사업목적 관리</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label style={{ fontWeight: 'bold', color: '#495057' }}>조회 연도:</label>
+                <select 
+                  value={modalYear} 
+                  onChange={(e) => handleModalYearChange(parseInt(e.target.value))}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px',
+                    fontSize: '1rem',
+                    fontWeight: 'bold',
+                    color: '#495057',
+                    cursor: 'pointer',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  {(() => {
+                    const currentYear = new Date().getFullYear();
+                    const startYear = currentYear - 5; // 과거 5년
+                    const endYear = currentYear + 5; // 미래 5년
+                    const years = [];
+                    for (let year = startYear; year <= endYear; year++) {
+                      years.push(year);
+                    }
+                    return years.map(year => (
+                      <option key={year} value={year}>{year}년</option>
+                    ));
+                  })()}
+                </select>
+              </div>
+            </div>
+            
+            {/* 새 사업목적 추가 */}
+            <div style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+              <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>새 사업목적 추가</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 100px', gap: '0.5rem', alignItems: 'end' }}>
+                <input
+                  type="text"
+                  placeholder="코드 (예: A)"
+                  value={newPurpose.code}
+                  onChange={(e) => setNewPurpose({...newPurpose, code: e.target.value})}
+                  style={{ padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+                <input
+                  type="text"
+                  placeholder="설명 (예: 동결 및 감소)"
+                  value={newPurpose.description}
+                  onChange={(e) => setNewPurpose({...newPurpose, description: e.target.value})}
+                  style={{ padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+                <button
+                  onClick={handleAddPurpose}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  추가
+                </button>
+              </div>
+            </div>
+
+            {/* 사업목적 목록 */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ marginBottom: '1rem', fontSize: '1rem' }}>사업목적 목록</h3>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f8f9fa' }}>
+                    <th style={{ padding: '0.75rem', border: '1px solid #dee2e6', textAlign: 'left' }}>코드</th>
+                    <th style={{ padding: '0.75rem', border: '1px solid #dee2e6', textAlign: 'left' }}>설명</th>
+                    <th style={{ padding: '0.75rem', border: '1px solid #dee2e6', textAlign: 'left' }}>연도</th>
+                    <th style={{ padding: '0.75rem', border: '1px solid #dee2e6', textAlign: 'center' }}>작업</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectPurposes.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" style={{ padding: '1rem', textAlign: 'center', color: '#6c757d' }}>
+                        등록된 사업목적이 없습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    projectPurposes.map(purpose => (
+                      <tr key={purpose.id} style={{ cursor: 'pointer' }}>
+                        <td 
+                          style={{ padding: '0.75rem', border: '1px solid #dee2e6' }}
+                          onClick={() => handleSelectPurpose(purpose)}
+                        >
+                          {editingPurpose && editingPurpose.id === purpose.id ? (
+                            <input
+                              type="text"
+                              value={editingPurpose.code}
+                              onChange={(e) => setEditingPurpose({...editingPurpose, code: e.target.value})}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ width: '100%', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                            />
+                          ) : (
+                            purpose.code
+                          )}
+                        </td>
+                        <td 
+                          style={{ padding: '0.75rem', border: '1px solid #dee2e6' }}
+                          onClick={() => handleSelectPurpose(purpose)}
+                        >
+                          {editingPurpose && editingPurpose.id === purpose.id ? (
+                            <input
+                              type="text"
+                              value={editingPurpose.description}
+                              onChange={(e) => setEditingPurpose({...editingPurpose, description: e.target.value})}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ width: '100%', padding: '0.25rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                            />
+                          ) : (
+                            purpose.description
+                          )}
+                        </td>
+                        <td 
+                          style={{ padding: '0.75rem', border: '1px solid #dee2e6' }}
+                          onClick={() => handleSelectPurpose(purpose)}
+                        >
+                          {purpose.year}
+                        </td>
+                        <td style={{ padding: '0.75rem', border: '1px solid #dee2e6', textAlign: 'center' }}>
+                          {purpose.isFixed ? (
+                            // 고정 코드 (S: 정기구입, Z: 정보보호)는 선택만 가능
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleSelectPurpose(purpose); }}
+                                style={{
+                                  padding: '0.25rem 0.5rem',
+                                  marginRight: '0.25rem',
+                                  backgroundColor: '#007bff',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                선택
+                              </button>
+                              <span style={{ fontSize: '0.75rem', color: '#6c757d' }}>
+                                (수정불가)
+                              </span>
+                            </>
+                          ) : editingPurpose && editingPurpose.id === purpose.id ? (
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleUpdatePurpose(); }}
+                                style={{
+                                  padding: '0.25rem 0.5rem',
+                                  marginRight: '0.25rem',
+                                  backgroundColor: '#28a745',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                저장
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setEditingPurpose(null); }}
+                                style={{
+                                  padding: '0.25rem 0.5rem',
+                                  backgroundColor: '#6c757d',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                취소
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleSelectPurpose(purpose); }}
+                                style={{
+                                  padding: '0.25rem 0.5rem',
+                                  marginRight: '0.25rem',
+                                  backgroundColor: '#007bff',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                선택
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setEditingPurpose({...purpose}); }}
+                                style={{
+                                  padding: '0.25rem 0.5rem',
+                                  marginRight: '0.25rem',
+                                  backgroundColor: '#ffc107',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                수정
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeletePurpose(purpose.id); }}
+                                style={{
+                                  padding: '0.25rem 0.5rem',
+                                  backgroundColor: '#dc3545',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                삭제
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 닫기 버튼 */}
+            <div style={{ textAlign: 'right' }}>
+              <button
+                onClick={handleClosePurposeModal}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
