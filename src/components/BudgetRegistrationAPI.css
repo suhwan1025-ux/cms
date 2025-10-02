@@ -1,0 +1,208 @@
+/* 사업예산 관리 폼 스타일 */
+
+/* 섹션들을 5열로 배치하는 그리드 컨테이너 */
+.form-sections-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+/* 전체 너비를 차지하는 섹션 (추가 정보) */
+.form-section.full-width-section {
+  grid-column: 1 / -1;
+}
+
+.form-section {
+  background: #ffffff;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  padding: 0.6rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.form-section:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 0.5rem 0;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid #f0f3f5;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.required {
+  color: #e74c3c;
+  font-weight: bold;
+  margin-left: 2px;
+}
+
+/* 폼 그리드 - 단일 컬럼 */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+/* 섹션별 색상 구분 */
+.form-sections-grid .form-section:nth-child(1) .section-title {
+  border-bottom-color: #3498db;
+}
+
+.form-sections-grid .form-section:nth-child(2) .section-title {
+  border-bottom-color: #2ecc71;
+}
+
+.form-sections-grid .form-section:nth-child(3) .section-title {
+  border-bottom-color: #9b59b6;
+}
+
+.form-sections-grid .form-section:nth-child(4) .section-title {
+  border-bottom-color: #f39c12;
+}
+
+.form-section.full-width-section .section-title {
+  border-bottom-color: #1abc9c;
+}
+
+/* 폼 그룹 레이블 간격 조정 */
+.form-group label {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #495057;
+}
+
+/* 입력 필드 스타일 개선 */
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 3px;
+  font-size: 0.9rem;
+  color: #495057;
+  background-color: #fff;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  outline: none;
+}
+
+.form-group textarea {
+  min-height: 50px;
+}
+
+/* 비활성화된 필드 스타일 */
+.form-group input:disabled {
+  background-color: #e9ecef !important;
+  cursor: not-allowed !important;
+  opacity: 0.7;
+}
+
+/* 버튼 섹션 */
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+  padding: 1.25rem 0 0.5rem;
+  border-top: 2px solid #f0f3f5;
+}
+
+.form-actions .btn {
+  min-width: 130px;
+  padding: 0.625rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-actions .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.form-actions .btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.form-actions .btn-primary:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.form-actions .btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+}
+
+.form-actions .btn-secondary:hover {
+  background: #5a6268;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 1600px) {
+  .form-sections-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1200px) {
+  .form-sections-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 800px) {
+  .form-sections-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-section {
+    padding: 0.5rem;
+  }
+  
+  .section-title {
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .form-grid {
+    gap: 0.4rem;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    padding: 0.8rem 0 0.4rem;
+  }
+  
+  .form-actions .btn {
+    width: 100%;
+  }
+}

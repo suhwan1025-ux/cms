@@ -143,7 +143,6 @@ app.get('/api/budget-statistics', async (req, res) => {
         bb.project_name as "projectName",
         bb.initiator_department as "initiatorDepartment",
         bb.executor_department as "executorDepartment",
-        bb.budget_type as "budgetType",
         bb.budget_category as "budgetCategory",
         bb.budget_amount as "budgetAmount"
       FROM proposals p
@@ -158,7 +157,6 @@ app.get('/api/budget-statistics', async (req, res) => {
         project_name as "projectName",
         initiator_department as "initiatorDepartment",
         executor_department as "executorDepartment",
-        budget_type as "budgetType",
         budget_category as "budgetCategory",
         budget_amount as "budgetAmount",
         start_date as "startDate",
@@ -208,18 +206,6 @@ app.get('/api/budget-statistics', async (req, res) => {
     const totalExecutedAmount = Object.values(budgetExecutions).reduce((sum, amount) => sum + amount, 0);
     const totalRemainingAmount = totalBudgetAmount - totalExecutedAmount;
 
-    // 예산 유형별 통계 (실제 집행금액 반영)
-    const budgetByType = {};
-    budgetsWithExecution.forEach(budget => {
-      const type = budget.budgetType;
-      if (!budgetByType[type]) {
-        budgetByType[type] = { type, totalAmount: 0, executedAmount: 0, count: 0 };
-      }
-      budgetByType[type].totalAmount += parseFloat(budget.budgetAmount || 0);
-      budgetByType[type].executedAmount += budget.executedAmount;
-      budgetByType[type].count += 1;
-    });
-
     // 부서별 통계 (실제 집행금액 반영)
     const budgetByDepartment = {};
     budgetsWithExecution.forEach(budget => {
@@ -252,7 +238,6 @@ app.get('/api/budget-statistics', async (req, res) => {
       totalBudgetAmount,
       executedBudgetAmount: totalExecutedAmount,
       remainingBudgetAmount: totalRemainingAmount,
-      budgetByType: Object.values(budgetByType),
       budgetByDepartment: Object.values(budgetByDepartment),
       budgetByYear: Object.values(budgetByYear),
       budgetData: budgetsWithExecution,
@@ -270,7 +255,7 @@ app.get('/api/budget-statistics', async (req, res) => {
 // 3-2. 사업예산 목록 조회
 app.get('/api/business-budgets', async (req, res) => {
   try {
-    const { year, status, department, type } = req.query;
+    const { year, status, department } = req.query;
     
     let whereClause = 'WHERE 1=1';
     const replacements = [];
@@ -288,11 +273,6 @@ app.get('/api/business-budgets', async (req, res) => {
     if (department) {
       whereClause += ' AND (bb.initiator_department = ? OR bb.executor_department = ?)';
       replacements.push(department, department);
-    }
-    
-    if (type) {
-      whereClause += ' AND bb.budget_type = ?';
-      replacements.push(type);
     }
     
     // 사업예산과 실제 품의서 집행금액을 함께 조회
@@ -379,16 +359,15 @@ app.post('/api/business-budgets', async (req, res) => {
     const budgetResult = await sequelize.query(`
       INSERT INTO business_budgets (
         project_name, initiator_department, executor_department,
-        budget_type, budget_category, budget_amount, executed_amount,
+        budget_category, budget_amount, executed_amount,
         start_date, end_date, is_essential, project_purpose, budget_year, status, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING id
     `, {
       replacements: [
         budgetData.projectName,
         budgetData.initiatorDepartment,
         budgetData.executorDepartment,
-        budgetData.budgetType,
         budgetData.budgetCategory,
         budgetData.budgetAmount,
         budgetData.executedAmount || 0,
@@ -397,7 +376,7 @@ app.post('/api/business-budgets', async (req, res) => {
         budgetData.isEssential,
         budgetData.projectPurpose,
         budgetData.budgetYear,
-        budgetData.status || '승인대기',
+        budgetData.status || '대기',
         budgetData.createdBy || '작성자'
       ]
     });
@@ -433,28 +412,33 @@ app.post('/api/business-budgets', async (req, res) => {
   }
 });
 
-// 3-5. 사업예산 수정
+// 3-5. 사업예산 수정 (번호, 사업연도, 등록일, 등록자 제외한 모든 항목 수정 가능)
 app.put('/api/business-budgets/:id', async (req, res) => {
   try {
     const budgetId = req.params.id;
     const budgetData = req.body;
     
-    // 사업예산 수정
+    // 사업예산 수정 (id, budget_year, created_at, created_by 제외)
     await sequelize.query(`
       UPDATE business_budgets SET
         project_name = ?,
         initiator_department = ?,
         executor_department = ?,
-        budget_type = ?,
         budget_category = ?,
         budget_amount = ?,
-        executed_amount = ?,
         start_date = ?,
         end_date = ?,
         is_essential = ?,
         project_purpose = ?,
-        budget_year = ?,
         status = ?,
+        executed_amount = ?,
+        pending_amount = ?,
+        confirmed_execution_amount = ?,
+        unexecuted_amount = ?,
+        additional_budget = ?,
+        hold_cancel_reason = ?,
+        notes = ?,
+        it_plan_reported = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, {
@@ -462,16 +446,21 @@ app.put('/api/business-budgets/:id', async (req, res) => {
         budgetData.projectName,
         budgetData.initiatorDepartment,
         budgetData.executorDepartment,
-        budgetData.budgetType,
         budgetData.budgetCategory,
         budgetData.budgetAmount,
-        budgetData.executedAmount,
         budgetData.startDate,
         budgetData.endDate,
         budgetData.isEssential,
         budgetData.projectPurpose,
-        budgetData.budgetYear,
-        budgetData.status,
+        budgetData.status || '대기',
+        budgetData.executedAmount || 0,
+        budgetData.pendingAmount || 0,
+        budgetData.confirmedExecutionAmount || 0,
+        budgetData.unexecutedAmount || 0,
+        budgetData.additionalBudget || 0,
+        budgetData.holdCancelReason || null,
+        budgetData.notes || null,
+        budgetData.itPlanReported !== undefined ? budgetData.itPlanReported : false,
         budgetId
       ]
     });

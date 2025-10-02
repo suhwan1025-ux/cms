@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '../config/api';
+import './BudgetRegistrationAPI.css';
 
 // API 베이스 URL 설정
 const API_BASE_URL = getApiUrl();
@@ -9,14 +10,23 @@ const BudgetRegistrationAPI = () => {
     projectName: '',
     initiatorDepartment: '', // 발의부서
     executorDepartment: '', // 추진부서
-    budgetType: '', // 자본예산 또는 전산운용비
-    budgetCategory: '', // 세부 분류
+    budgetType: '자본예산', // 자본예산 고정
+    budgetCategory: '', // 세부 분류 (이연예산, 계획예산, 추가예산)
     budgetAmount: '',
     startDate: '',
     endDate: '',
-    isEssential: false, // 필수사업여부
+    isEssential: '', // 필수사업여부 (필수/선택)
     projectPurpose: '', // 사업목적
-    budgetYear: new Date().getFullYear() // 예산년도
+    budgetYear: new Date().getFullYear(), // 예산년도
+    status: '대기', // 상태
+    executedAmount: '', // 기 집행
+    pendingAmount: '', // 집행대기
+    confirmedExecutionAmount: '', // 확정집행액
+    unexecutedAmount: '', // 미집행액
+    additionalBudget: '', // 추가예산
+    holdCancelReason: '', // 보류/취소 사유
+    notes: '', // 비고
+    itPlanReported: false // IT계획서 보고여부
   });
 
   const [budgets, setBudgets] = useState([]);
@@ -27,18 +37,34 @@ const BudgetRegistrationAPI = () => {
     projectName: '',
     initiatorDepartment: '',
     executorDepartment: '',
-    budgetType: '',
+    budgetType: '자본예산',
     budgetCategory: '',
     budgetAmount: '',
     startDate: '',
     endDate: '',
-    isEssential: false,
+    isEssential: '',
     projectPurpose: '',
     budgetYear: new Date().getFullYear()
   });
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear()); // 현재 연도
   const [showRegistrationForm, setShowRegistrationForm] = useState(false); // 등록 폼 표시 상태
+  const [isEditMode, setIsEditMode] = useState(false); // 수정 모드 여부
+  const [editingBudgetId, setEditingBudgetId] = useState(null); // 수정 중인 예산 ID
+
+  // 조회 필터 상태
+  const [searchFilters, setSearchFilters] = useState({
+    budgetYear: new Date().getFullYear(),
+    projectName: '',
+    budgetCategory: '',
+    status: '',
+    initiatorDepartment: '',
+    executorDepartment: '',
+    isEssential: '',
+    itPlanReported: ''
+  });
+
+  const [filteredBudgets, setFilteredBudgets] = useState([]);
 
   // 다중 정렬 상태 관리
   const [sortConfigs, setSortConfigs] = useState([]);
@@ -57,11 +83,8 @@ const BudgetRegistrationAPI = () => {
   
 
 
-  // 예산 분류 옵션
-  const budgetTypes = {
-    '자본예산': ['일반사업', '보안사업', '정기성사업'],
-    '전산운용비': ['증권전산운용비', '전산수선비', '전산임차료', '전산용역비', '전산회선료', '기타']
-  };
+  // 예산 분류 옵션 (자본예산 고정)
+  const budgetCategories = ['이연예산', '계획예산', '추가예산'];
 
   // 부서 목록 (API에서 가져올 예정)
   const [departments, setDepartments] = useState([]);
@@ -146,36 +169,111 @@ const BudgetRegistrationAPI = () => {
     }));
   }, [selectedYear]);
 
-  // 새 예산 등록
+  // 필터 적용
+  useEffect(() => {
+    let filtered = budgets.filter(budget => {
+      // 사업연도 필터
+      if (searchFilters.budgetYear && budget.budgetYear !== parseInt(searchFilters.budgetYear)) {
+        return false;
+      }
+      // 사업명 검색
+      if (searchFilters.projectName && !budget.projectName.toLowerCase().includes(searchFilters.projectName.toLowerCase())) {
+        return false;
+      }
+      // 예산 구분 필터
+      if (searchFilters.budgetCategory && budget.budgetCategory !== searchFilters.budgetCategory) {
+        return false;
+      }
+      // 상태 필터
+      if (searchFilters.status && budget.status !== searchFilters.status) {
+        return false;
+      }
+      // 발의부서 필터
+      if (searchFilters.initiatorDepartment && budget.initiatorDepartment !== searchFilters.initiatorDepartment) {
+        return false;
+      }
+      // 추진부서 필터
+      if (searchFilters.executorDepartment && budget.executorDepartment !== searchFilters.executorDepartment) {
+        return false;
+      }
+      // 필수사업여부 필터
+      if (searchFilters.isEssential !== '') {
+        const budgetEssentialStr = budget.isEssential === true || budget.isEssential === '필수' ? '필수' : '선택';
+        if (budgetEssentialStr !== searchFilters.isEssential) {
+          return false;
+        }
+      }
+      // IT 보고여부 필터
+      if (searchFilters.itPlanReported !== '' && budget.itPlanReported !== (searchFilters.itPlanReported === 'true')) {
+        return false;
+      }
+      return true;
+    });
+    setFilteredBudgets(filtered);
+  }, [budgets, searchFilters]);
+
+  // 필터 초기화
+  const handleResetFilters = () => {
+    setSearchFilters({
+      budgetYear: new Date().getFullYear(),
+      projectName: '',
+      budgetCategory: '',
+      status: '',
+      initiatorDepartment: '',
+      executorDepartment: '',
+      isEssential: '',
+      itPlanReported: ''
+    });
+  };
+
+  // 예산 등록 또는 수정
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     // 필수 필드 검증
     if (!formData.projectName || !formData.initiatorDepartment || !formData.executorDepartment || 
-        !formData.budgetType || !formData.budgetCategory || !formData.budgetAmount || 
+        !formData.budgetCategory || !formData.budgetAmount || 
         !formData.startDate || !formData.endDate || formData.isEssential === '') {
       alert('모든 필수 필드를 입력해주세요.');
       return;
     }
 
     try {
-      // 예산 금액에서 콤마 제거하고 숫자로 변환
+      // 모든 금액 필드에서 콤마 제거하고 숫자로 변환, isEssential을 boolean으로 변환
       const submitData = {
         ...formData,
         budgetAmount: formData.budgetAmount ? parseInt(formData.budgetAmount.replace(/[^\d]/g, '')) : 0,
-        budgetYear: selectedYear,
-        status: '승인대기'
+        executedAmount: formData.executedAmount ? parseInt(formData.executedAmount.replace(/[^\d]/g, '')) : 0,
+        pendingAmount: formData.pendingAmount ? parseInt(formData.pendingAmount.replace(/[^\d]/g, '')) : 0,
+        confirmedExecutionAmount: formData.confirmedExecutionAmount ? parseInt(formData.confirmedExecutionAmount.replace(/[^\d]/g, '')) : 0,
+        unexecutedAmount: formData.unexecutedAmount ? parseInt(formData.unexecutedAmount.replace(/[^\d]/g, '')) : 0,
+        additionalBudget: formData.additionalBudget ? parseInt(formData.additionalBudget.replace(/[^\d]/g, '')) : 0,
+        isEssential: formData.isEssential === '필수' ? true : false
       };
 
-
-
-      const response = await fetch(`${API_BASE_URL}/api/business-budgets`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
+      let response;
+      if (isEditMode && editingBudgetId) {
+        // 수정 모드: budgetYear 제외 (수정 불가)
+        delete submitData.budgetYear;
+        response = await fetch(`${API_BASE_URL}/api/business-budgets/${editingBudgetId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(submitData),
+        });
+      } else {
+        // 등록 모드
+        submitData.budgetYear = selectedYear;
+        submitData.status = '대기';
+        response = await fetch(`${API_BASE_URL}/api/business-budgets`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(submitData),
+        });
+      }
 
       if (response.ok) {
         // 폼 초기화
@@ -192,15 +290,15 @@ const BudgetRegistrationAPI = () => {
           setBudgets(filteredData);
         }
         
-        alert('예산이 성공적으로 등록되었습니다.');
+        alert(isEditMode ? '예산이 성공적으로 수정되었습니다.' : '예산이 성공적으로 등록되었습니다.');
       } else {
         const errorData = await response.text();
         console.error('Server error response:', errorData);
-        alert('예산 등록 실패: ' + response.statusText + '\n' + errorData);
+        alert((isEditMode ? '예산 수정 실패: ' : '예산 등록 실패: ') + response.statusText + '\n' + errorData);
       }
     } catch (error) {
-      console.error('Registration error:', error);
-      alert('예산 등록 중 오류가 발생했습니다: ' + error.message);
+      console.error('Submit error:', error);
+      alert((isEditMode ? '예산 수정 중 ' : '예산 등록 중 ') + '오류가 발생했습니다: ' + error.message);
     }
   };
 
@@ -210,8 +308,9 @@ const BudgetRegistrationAPI = () => {
     
     let processedValue = value;
     
-    // 예산 금액에 콤마 추가
-    if (name === 'budgetAmount') {
+    // 금액 관련 필드에 콤마 추가
+    const amountFields = ['budgetAmount', 'executedAmount', 'pendingAmount', 'confirmedExecutionAmount', 'unexecutedAmount', 'additionalBudget'];
+    if (amountFields.includes(name)) {
       // 숫자와 콤마만 허용
       const numericValue = value.replace(/[^\d]/g, '');
       if (numericValue) {
@@ -223,8 +322,7 @@ const BudgetRegistrationAPI = () => {
     
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : 
-              name === 'isEssential' ? value === 'true' : processedValue
+      [name]: type === 'checkbox' ? checked : processedValue
     }));
   };
 
@@ -279,19 +377,65 @@ const BudgetRegistrationAPI = () => {
       projectName: '',
       initiatorDepartment: '',
       executorDepartment: '',
-      budgetType: '',
+      budgetType: '자본예산',
       budgetCategory: '',
       budgetAmount: '',
       startDate: defaultDates.startDate,
       endDate: defaultDates.endDate,
-      isEssential: false,
+      isEssential: '',
       projectPurpose: '',
-      budgetYear: selectedYear
+      budgetYear: selectedYear,
+      status: '대기',
+      executedAmount: '',
+      pendingAmount: '',
+      confirmedExecutionAmount: '',
+      unexecutedAmount: '',
+      additionalBudget: '',
+      holdCancelReason: '',
+      notes: '',
+      itPlanReported: false
     });
     setInitiatorSearch('');
     setExecutorSearch('');
     setShowInitiatorDropdown(false);
     setShowExecutorDropdown(false);
+    setIsEditMode(false);
+    setEditingBudgetId(null);
+  };
+
+  // 테이블 행 클릭 시 데이터 로드 (수정 모드로 전환)
+  const handleRowClick = (budget) => {
+    setFormData({
+      projectName: budget.projectName,
+      initiatorDepartment: budget.initiatorDepartment,
+      executorDepartment: budget.executorDepartment,
+      budgetType: '자본예산',
+      budgetCategory: budget.budgetCategory,
+      budgetAmount: budget.budgetAmount ? budget.budgetAmount.toLocaleString() : '',
+      startDate: budget.startDate,
+      endDate: budget.endDate,
+      isEssential: budget.isEssential === true || budget.isEssential === '필수' ? '필수' : '선택',
+      projectPurpose: budget.projectPurpose,
+      budgetYear: budget.budgetYear, // 표시용으로만 사용 (수정 불가)
+      status: budget.status || '대기',
+      executedAmount: budget.executedAmount ? budget.executedAmount.toLocaleString() : '',
+      pendingAmount: budget.pendingAmount ? budget.pendingAmount.toLocaleString() : '',
+      confirmedExecutionAmount: budget.confirmedExecutionAmount ? budget.confirmedExecutionAmount.toLocaleString() : '',
+      unexecutedAmount: budget.unexecutedAmount ? budget.unexecutedAmount.toLocaleString() : '',
+      additionalBudget: budget.additionalBudget ? budget.additionalBudget.toLocaleString() : '',
+      holdCancelReason: budget.holdCancelReason || '',
+      notes: budget.notes || '',
+      itPlanReported: budget.itPlanReported || false
+    });
+    
+    setInitiatorSearch(budget.initiatorDepartment);
+    setExecutorSearch(budget.executorDepartment);
+    setIsEditMode(true);
+    setEditingBudgetId(budget.id);
+    setShowRegistrationForm(true);
+    
+    // 폼이 있는 위치로 스크롤
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // 정렬 처리
@@ -634,195 +778,326 @@ const BudgetRegistrationAPI = () => {
     <div className="budget-registration">
       <h1>사업예산 관리</h1>
       
-      {/* 연도 선택 */}
-      <div className="year-selector">
-        <h2>관리 연도 선택</h2>
-        <div className="year-buttons">
-          <button
-            className={`year-button ${selectedYear === new Date().getFullYear() ? 'active' : ''}`}
-            onClick={() => setSelectedYear(new Date().getFullYear())}
-          >
-            {new Date().getFullYear()}년 (당해연도)
-          </button>
-          <button
-            className={`year-button ${selectedYear === new Date().getFullYear() + 1 ? 'active' : ''}`}
-            onClick={() => setSelectedYear(new Date().getFullYear() + 1)}
-          >
-            {new Date().getFullYear() + 1}년 (차년도)
-          </button>
-        </div>
-      </div>
-      
       {/* 새 예산 등록 섹션 */}
       <div className="new-budget-section">
         <div className="section-header">
-          <h2>새 예산 등록</h2>
-          <button 
-            type="button" 
-            className="toggle-btn"
-            onClick={() => setShowRegistrationForm(!showRegistrationForm)}
-          >
-            {showRegistrationForm ? '접기' : '펼치기'}
-          </button>
+          <h2>{isEditMode ? '예산 수정' : '새 예산 등록'}</h2>
+          <div>
+            {isEditMode && (
+              <button 
+                type="button" 
+                className="btn btn-secondary"
+                onClick={resetForm}
+                style={{ marginRight: '10px' }}
+              >
+                수정 취소
+              </button>
+            )}
+            <button 
+              type="button" 
+              className="toggle-btn"
+              onClick={() => setShowRegistrationForm(!showRegistrationForm)}
+            >
+              {showRegistrationForm ? '접기' : '펼치기'}
+            </button>
+          </div>
         </div>
         
         {showRegistrationForm && (
           <div className="registration-form">
             <form onSubmit={handleSubmit}>
-              <div className="form-grid">
-                <div className="form-group full-width">
-                  <label>사업명</label>
-                  <input
-                    type="text"
-                    name="projectName"
-                    value={formData.projectName}
-                    onChange={handleChange}
-                    placeholder="사업명을 입력하세요"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>발의부서</label>
-                  <div className="searchable-dropdown">
+              {/* 섹션 2열 그리드 */}
+              <div className="form-sections-grid">
+                {/* 기본 정보 섹션 */}
+                <div className="form-section">
+                  <h3 className="section-title">📋 기본 정보</h3>
+                <div className="form-grid">
+                  <div className="form-group full-width">
+                    <label>사업명 <span className="required">*</span></label>
                     <input
                       type="text"
-                      value={initiatorSearch}
-                      onChange={handleInitiatorSearch}
-                      onFocus={handleInitiatorFocus}
-                      onBlur={handleInitiatorBlur}
-                      placeholder="부서명 검색 또는 선택"
+                      name="projectName"
+                      value={formData.projectName}
+                      onChange={handleChange}
+                      placeholder="사업명을 입력하세요"
                       required
                     />
-                    {showInitiatorDropdown && (
-                      <div className="dropdown-list">
-                        {getFilteredDepartments(initiatorSearch).map((dept, index) => (
-                          <div
-                            key={index}
-                            className="dropdown-item"
-                            onClick={() => handleInitiatorSelect(dept)}
-                          >
-                            {dept}
-                          </div>
-                        ))}
-                        {getFilteredDepartments(initiatorSearch).length === 0 && (
-                          <div className="dropdown-item no-results">검색 결과가 없습니다</div>
-                        )}
-                      </div>
-                    )}
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>발의부서 <span className="required">*</span></label>
+                    <div className="searchable-dropdown">
+                      <input
+                        type="text"
+                        value={initiatorSearch}
+                        onChange={handleInitiatorSearch}
+                        onFocus={handleInitiatorFocus}
+                        onBlur={handleInitiatorBlur}
+                        placeholder="부서명 검색 또는 선택"
+                        required
+                      />
+                      {showInitiatorDropdown && (
+                        <div className="dropdown-list">
+                          {getFilteredDepartments(initiatorSearch).map((dept, index) => (
+                            <div
+                              key={index}
+                              className="dropdown-item"
+                              onClick={() => handleInitiatorSelect(dept)}
+                            >
+                              {dept}
+                            </div>
+                          ))}
+                          {getFilteredDepartments(initiatorSearch).length === 0 && (
+                            <div className="dropdown-item no-results">검색 결과가 없습니다</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>추진부서 <span className="required">*</span></label>
+                    <div className="searchable-dropdown">
+                      <input
+                        type="text"
+                        value={executorSearch}
+                        onChange={handleExecutorSearch}
+                        onFocus={handleExecutorFocus}
+                        onBlur={handleExecutorBlur}
+                        placeholder="부서명 검색 또는 선택"
+                        required
+                      />
+                      {showExecutorDropdown && (
+                        <div className="dropdown-list">
+                          {getFilteredDepartments(executorSearch).map((dept, index) => (
+                            <div
+                              key={index}
+                              className="dropdown-item"
+                              onClick={() => handleExecutorSelect(dept)}
+                            >
+                              {dept}
+                            </div>
+                          ))}
+                          {getFilteredDepartments(executorSearch).length === 0 && (
+                            <div className="dropdown-item no-results">검색 결과가 없습니다</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>사업연도 {isEditMode && '(수정 불가)'}</label>
+                    <input
+                      type="number"
+                      name="budgetYear"
+                      value={formData.budgetYear}
+                      onChange={handleChange}
+                      disabled={isEditMode}
+                      style={{ backgroundColor: isEditMode ? '#e9ecef' : 'white', cursor: isEditMode ? 'not-allowed' : 'text' }}
+                      required
+                    />
                   </div>
                 </div>
-                
-                <div className="form-group">
-                  <label>추진부서</label>
-                  <div className="searchable-dropdown">
+                </div>
+
+                {/* 예산 정보 섹션 */}
+                <div className="form-section">
+                  <h3 className="section-title">💰 예산 정보</h3>
+                <input type="hidden" name="budgetType" value="자본예산" />
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>예산 구분 <span className="required">*</span></label>
+                    <select name="budgetCategory" value={formData.budgetCategory} onChange={handleChange} required>
+                      <option value="">선택</option>
+                      {budgetCategories.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>예산 금액 <span className="required">*</span></label>
                     <input
                       type="text"
-                      value={executorSearch}
-                      onChange={handleExecutorSearch}
-                      onFocus={handleExecutorFocus}
-                      onBlur={handleExecutorBlur}
-                      placeholder="부서명 검색 또는 선택"
+                      name="budgetAmount"
+                      value={formData.budgetAmount}
+                      onChange={handleChange}
+                      placeholder="예: 1,000,000"
                       required
                     />
-                    {showExecutorDropdown && (
-                      <div className="dropdown-list">
-                        {getFilteredDepartments(executorSearch).map((dept, index) => (
-                          <div
-                            key={index}
-                            className="dropdown-item"
-                            onClick={() => handleExecutorSelect(dept)}
-                          >
-                            {dept}
-                          </div>
-                        ))}
-                        {getFilteredDepartments(executorSearch).length === 0 && (
-                          <div className="dropdown-item no-results">검색 결과가 없습니다</div>
-                        )}
-                      </div>
-                    )}
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>추가예산</label>
+                    <input
+                      type="text"
+                      name="additionalBudget"
+                      value={formData.additionalBudget}
+                      onChange={handleChange}
+                      placeholder="예: 1,000,000"
+                    />
                   </div>
                 </div>
-                
-                <div className="form-group">
-                  <label>예산 유형</label>
-                  <select name="budgetType" value={formData.budgetType} onChange={handleChange} required>
-                    <option value="">선택</option>
-                    <option value="자본예산">자본예산</option>
-                    <option value="전산운용비">전산운용비</option>
-                  </select>
                 </div>
-                
-                <div className="form-group">
-                  <label>세부 분류</label>
-                  <select name="budgetCategory" value={formData.budgetCategory} onChange={handleChange} required>
-                    <option value="">선택</option>
-                    {formData.budgetType && budgetTypes[formData.budgetType]?.map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
+
+                {/* 사업 기간 및 분류 섹션 */}
+                <div className="form-section">
+                  <h3 className="section-title">📅 사업 기간 및 분류</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>시작일 <span className="required">*</span></label>
+                    <input
+                      type="month"
+                      name="startDate"
+                      value={formData.startDate}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>종료일 <span className="required">*</span></label>
+                    <input
+                      type="month"
+                      name="endDate"
+                      value={formData.endDate}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>필수사업 여부 <span className="required">*</span></label>
+                    <select name="isEssential" value={formData.isEssential} onChange={handleChange} required>
+                      <option value="">선택</option>
+                      <option value="필수">필수</option>
+                      <option value="선택">선택</option>
+                    </select>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>사업 목적 <span className="required">*</span></label>
+                    <select name="projectPurpose" value={formData.projectPurpose} onChange={handleChange} required>
+                      <option value="">선택</option>
+                      {projectPurposes.map(purpose => (
+                        <option key={purpose.value} value={purpose.value}>
+                          {purpose.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>상태 <span className="required">*</span></label>
+                    <select name="status" value={formData.status} onChange={handleChange} required>
+                      <option value="대기">대기</option>
+                      <option value="완료(지연)">완료(지연)</option>
+                      <option value="완료(적기)">완료(적기)</option>
+                      <option value="진행중">진행중</option>
+                    </select>
+                  </div>
                 </div>
-                
-                <div className="form-group">
-                  <label>예산 금액</label>
-                  <input
-                    type="text"
-                    name="budgetAmount"
-                    value={formData.budgetAmount}
-                    onChange={handleChange}
-                    placeholder="예: 1,000,000"
-                    required
-                  />
                 </div>
-                
-                <div className="form-group">
-                  <label>필수사업 여부</label>
-                  <select name="isEssential" value={formData.isEssential} onChange={handleChange} required>
-                    <option value="">선택</option>
-                    <option value={true}>필수사업</option>
-                    <option value={false}>일반사업</option>
-                  </select>
+
+                {/* 집행 현황 섹션 */}
+                <div className="form-section">
+                  <h3 className="section-title">📊 집행 현황</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>기 집행</label>
+                    <input
+                      type="text"
+                      name="executedAmount"
+                      value={formData.executedAmount}
+                      onChange={handleChange}
+                      placeholder="예: 1,000,000"
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>집행대기</label>
+                    <input
+                      type="text"
+                      name="pendingAmount"
+                      value={formData.pendingAmount}
+                      onChange={handleChange}
+                      placeholder="예: 1,000,000"
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>확정집행액</label>
+                    <input
+                      type="text"
+                      name="confirmedExecutionAmount"
+                      value={formData.confirmedExecutionAmount}
+                      onChange={handleChange}
+                      placeholder="예: 1,000,000"
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>미집행액</label>
+                    <input
+                      type="text"
+                      name="unexecutedAmount"
+                      value={formData.unexecutedAmount}
+                      onChange={handleChange}
+                      placeholder="예: 1,000,000"
+                    />
+                  </div>
                 </div>
-                
-                <div className="form-group">
-                  <label>시작일</label>
-                  <input
-                    type="month"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleChange}
-                    required
-                  />
                 </div>
-                
-                <div className="form-group">
-                  <label>종료일</label>
-                  <input
-                    type="month"
-                    name="endDate"
-                    value={formData.endDate}
-                    onChange={handleChange}
-                    required
-                  />
+
+                {/* 추가 정보 섹션 */}
+                <div className="form-section">
+                <h3 className="section-title">📝 추가 정보</h3>
+                <div className="form-grid">
+                  <div className="form-group full-width">
+                    <label>보류/취소 사유</label>
+                    <textarea
+                      name="holdCancelReason"
+                      value={formData.holdCancelReason}
+                      onChange={handleChange}
+                      rows="3"
+                      placeholder="보류 또는 취소 사유를 입력하세요"
+                    />
+                  </div>
+                  
+                  <div className="form-group full-width">
+                    <label>비고</label>
+                    <textarea
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleChange}
+                      rows="3"
+                      placeholder="추가 메모나 비고사항을 입력하세요"
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label style={{ display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type="checkbox"
+                        name="itPlanReported"
+                        checked={formData.itPlanReported}
+                        onChange={handleChange}
+                        style={{ width: 'auto', marginRight: '10px' }}
+                      />
+                      정보기술부문계획서 보고 완료
+                    </label>
+                  </div>
                 </div>
-                
-                <div className="form-group">
-                  <label>사업 목적</label>
-                  <select name="projectPurpose" value={formData.projectPurpose} onChange={handleChange} required>
-                    <option value="">선택</option>
-                    {projectPurposes.map(purpose => (
-                      <option key={purpose.value} value={purpose.value}>
-                        {purpose.label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
               
               <div className="form-actions">
-                <button type="submit" className="btn btn-primary">예산 등록</button>
+                <button type="submit" className="btn btn-primary">
+                  {isEditMode ? '예산 수정' : '예산 등록'}
+                </button>
                 <button type="button" className="btn btn-secondary" onClick={resetForm}>
-                  초기화
+                  {isEditMode ? '취소' : '초기화'}
                 </button>
               </div>
             </form>
@@ -830,50 +1105,166 @@ const BudgetRegistrationAPI = () => {
         )}
       </div>
 
-      {/* 예산 현황 요약 */}
-      <div className="summary-section">
-        <h2>예산 현황 요약</h2>
-        <div className="summary-cards">
-          <div className="summary-card">
-            <h3>총 예산</h3>
-            <div className="amount">{formatCurrency(budgetSummary.total)}</div>
-            <div className="count">총 {budgets.length}개 사업</div>
-          </div>
-          <div className="summary-card">
-            <h3>자본예산</h3>
-            <div className="amount">{formatCurrency(budgetSummary.capitalBudget.total)}</div>
-            <div className="breakdown">
-              {Object.entries(budgetSummary.capitalBudget.categories).map(([category, amount]) => (
-                <div key={category} className="category">
-                  <span>{category}:</span>
-                  <span>{formatCurrency(amount)}</span>
-                </div>
-              ))}
+      {/* 사업예산 조회 */}
+      <div className="budget-search-section" style={{ marginTop: '3rem' }}>
+        <h2>사업예산 조회</h2>
+        
+        {/* 필터 섹션 */}
+        <div className="filter-section" style={{ 
+          background: '#f8f9fa', 
+          padding: '1.5rem', 
+          borderRadius: '8px', 
+          marginBottom: '2rem' 
+        }}>
+          <div className="filter-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem',
+            marginBottom: '1rem'
+          }}>
+            {/* 사업연도 */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>사업연도</label>
+              <input
+                type="number"
+                value={searchFilters.budgetYear}
+                onChange={(e) => setSearchFilters({...searchFilters, budgetYear: e.target.value})}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              />
+            </div>
+
+            {/* 사업명 */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>사업명</label>
+              <input
+                type="text"
+                value={searchFilters.projectName}
+                onChange={(e) => setSearchFilters({...searchFilters, projectName: e.target.value})}
+                placeholder="사업명 검색"
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              />
+            </div>
+
+            {/* 예산 구분 */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>예산 구분</label>
+              <select
+                value={searchFilters.budgetCategory}
+                onChange={(e) => setSearchFilters({...searchFilters, budgetCategory: e.target.value})}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">전체</option>
+                {budgetCategories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 상태 */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>상태</label>
+              <select
+                value={searchFilters.status}
+                onChange={(e) => setSearchFilters({...searchFilters, status: e.target.value})}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">전체</option>
+                <option value="대기">대기</option>
+                <option value="완료(지연)">완료(지연)</option>
+                <option value="완료(적기)">완료(적기)</option>
+                <option value="진행중">진행중</option>
+              </select>
+            </div>
+
+            {/* 발의부서 */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>발의부서</label>
+              <select
+                value={searchFilters.initiatorDepartment}
+                onChange={(e) => setSearchFilters({...searchFilters, initiatorDepartment: e.target.value})}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">전체</option>
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 추진부서 */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>추진부서</label>
+              <select
+                value={searchFilters.executorDepartment}
+                onChange={(e) => setSearchFilters({...searchFilters, executorDepartment: e.target.value})}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">전체</option>
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 필수사업여부 */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>필수사업여부</label>
+              <select
+                value={searchFilters.isEssential}
+                onChange={(e) => setSearchFilters({...searchFilters, isEssential: e.target.value})}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">전체</option>
+                <option value="필수">필수</option>
+                <option value="선택">선택</option>
+              </select>
+            </div>
+
+            {/* IT 보고여부 */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>IT계획서 보고</label>
+              <select
+                value={searchFilters.itPlanReported}
+                onChange={(e) => setSearchFilters({...searchFilters, itPlanReported: e.target.value})}
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              >
+                <option value="">전체</option>
+                <option value="true">보고완료</option>
+                <option value="false">미보고</option>
+              </select>
             </div>
           </div>
-          <div className="summary-card">
-            <h3>전산운용비</h3>
-            <div className="amount">{formatCurrency(budgetSummary.operationBudget.total)}</div>
-            <div className="breakdown">
-              {Object.entries(budgetSummary.operationBudget.categories).map(([category, amount]) => (
-                <div key={category} className="category">
-                  <span>{category}:</span>
-                  <span>{formatCurrency(amount)}</span>
-                </div>
-              ))}
-            </div>
+
+          <div style={{ textAlign: 'right' }}>
+            <button
+              onClick={handleResetFilters}
+              style={{
+                padding: '0.5rem 1.5rem',
+                background: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              필터 초기화
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* 예산 목록 */}
-      <div className="budget-list-section">
-        <h2>등록된 예산 목록</h2>
-        
+        {/* 조회 결과 */}
+        <div style={{ marginBottom: '1rem' }}>
+          <strong>조회 결과: {filteredBudgets.length}건</strong>
+        </div>
+
         <div className="table-responsive">
           <table className="table">
             <thead>
               <tr>
+                <th>번호</th>
+                <th className="sortable" onClick={() => handleSort('budgetYear')}>
+                  사업연도 {getSortIcon('budgetYear')}
+                </th>
                 <th className="sortable" onClick={() => handleSort('projectName')}>
                   사업명 {getSortIcon('projectName')}
                 </th>
@@ -883,246 +1274,68 @@ const BudgetRegistrationAPI = () => {
                 <th className="sortable" onClick={() => handleSort('executorDepartment')}>
                   추진부서 {getSortIcon('executorDepartment')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('budgetType')}>
-                  예산유형 {getSortIcon('budgetType')}
-                </th>
                 <th className="sortable" onClick={() => handleSort('budgetCategory')}>
-                  세부분류 {getSortIcon('budgetCategory')}
+                  예산 구분 {getSortIcon('budgetCategory')}
                 </th>
+                <th>사업 시작월</th>
+                <th>사업 종료월</th>
                 <th className="sortable" onClick={() => handleSort('budgetAmount')}>
-                  예산금액 {getSortIcon('budgetAmount')}
+                  예산 {getSortIcon('budgetAmount')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('isEssential')}>
-                  필수사업 {getSortIcon('isEssential')}
-                </th>
-                <th className="sortable" onClick={() => handleSort('projectPurpose')}>
-                  사업목적 {getSortIcon('projectPurpose')}
-                </th>
-                <th className="sortable" onClick={() => handleSort('startDate')}>
-                  사업기간 {getSortIcon('startDate')}
-                </th>
+                <th>기 집행</th>
+                <th>집행대기</th>
+                <th>확정집행액</th>
+                <th>집행률</th>
+                <th>미집행액</th>
+                <th>추가예산</th>
                 <th className="sortable" onClick={() => handleSort('status')}>
                   상태 {getSortIcon('status')}
                 </th>
+                <th>필수사업</th>
+                <th>사업목적</th>
+                <th>IT계획서</th>
                 <th className="sortable" onClick={() => handleSort('createdAt')}>
                   등록일 {getSortIcon('createdAt')}
                 </th>
-                <th>작업</th>
+                <th>등록자</th>
               </tr>
             </thead>
             <tbody>
-              {sortedBudgets.map(budget => (
-                <tr key={budget.id}>
+              {sortedBudgets.filter(budget => filteredBudgets.find(f => f.id === budget.id)).map((budget, index) => (
+                <tr 
+                  key={budget.id}
+                  onClick={() => handleRowClick(budget)}
+                  style={{ 
+                    cursor: 'pointer',
+                    backgroundColor: editingBudgetId === budget.id ? '#fff3cd' : 'transparent'
+                  }}
+                  className="budget-row"
+                >
+                  <td>{index + 1}</td>
+                  <td>{budget.budgetYear}</td>
+                  <td>{budget.projectName}</td>
+                  <td>{budget.initiatorDepartment}</td>
+                  <td>{budget.executorDepartment}</td>
+                  <td>{budget.budgetCategory}</td>
+                  <td>{budget.startDate}</td>
+                  <td>{budget.endDate}</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(budget.budgetAmount)}</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(budget.executedAmount || 0)}</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(budget.pendingAmount || 0)}</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(budget.confirmedExecutionAmount || 0)}</td>
+                  <td style={{ textAlign: 'right' }}>{budget.executionRate || 0}%</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(budget.unexecutedAmount || 0)}</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(budget.additionalBudget || 0)}</td>
                   <td>
-                    {editingBudget === budget.id ? (
-                      <input
-                        type="text"
-                        value={editForm.projectName}
-                        onChange={(e) => setEditForm({...editForm, projectName: e.target.value})}
-                      />
-                    ) : (
-                      budget.projectName
-                    )}
-                  </td>
-                  <td>
-                    {editingBudget === budget.id ? (
-                      <div className="searchable-dropdown">
-                        <input
-                          type="text"
-                          value={editInitiatorSearch}
-                          onChange={handleEditInitiatorSearch}
-                          onFocus={handleEditInitiatorFocus}
-                          onBlur={handleEditInitiatorBlur}
-                          placeholder="부서명 검색"
-                        />
-                        {showEditInitiatorDropdown && (
-                          <div className="dropdown-list">
-                            {getFilteredDepartments(editInitiatorSearch).map((dept, index) => (
-                              <div
-                                key={index}
-                                className="dropdown-item"
-                                onClick={() => handleEditInitiatorSelect(dept)}
-                              >
-                                {dept}
-                              </div>
-                            ))}
-                            {getFilteredDepartments(editInitiatorSearch).length === 0 && (
-                              <div className="dropdown-item no-results">검색 결과가 없습니다</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      budget.initiatorDepartment
-                    )}
-                  </td>
-                  <td>
-                    {editingBudget === budget.id ? (
-                      <div className="searchable-dropdown">
-                        <input
-                          type="text"
-                          value={editExecutorSearch}
-                          onChange={handleEditExecutorSearch}
-                          onFocus={handleEditExecutorFocus}
-                          onBlur={handleEditExecutorBlur}
-                          placeholder="부서명 검색"
-                        />
-                        {showEditExecutorDropdown && (
-                          <div className="dropdown-list">
-                            {getFilteredDepartments(editExecutorSearch).map((dept, index) => (
-                              <div
-                                key={index}
-                                className="dropdown-item"
-                                onClick={() => handleEditExecutorSelect(dept)}
-                              >
-                                {dept}
-                              </div>
-                            ))}
-                            {getFilteredDepartments(editExecutorSearch).length === 0 && (
-                              <div className="dropdown-item no-results">검색 결과가 없습니다</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      budget.executorDepartment
-                    )}
-                  </td>
-                  <td>
-                    {editingBudget === budget.id ? (
-                      <select
-                        value={editForm.budgetType}
-                        onChange={(e) => setEditForm({...editForm, budgetType: e.target.value})}
-                      >
-                        <option value="">선택</option>
-                        <option value="자본예산">자본예산</option>
-                        <option value="전산운용비">전산운용비</option>
-                      </select>
-                    ) : (
-                      <span style={{color: getBudgetTypeColor(budget.budgetType)}}>
-                        {budget.budgetType}
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    {editingBudget === budget.id ? (
-                      <select
-                        value={editForm.budgetCategory}
-                        onChange={(e) => setEditForm({...editForm, budgetCategory: e.target.value})}
-                      >
-                        <option value="">선택</option>
-                        {editForm.budgetType && budgetTypes[editForm.budgetType]?.map(category => (
-                          <option key={category} value={category}>{category}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      budget.budgetCategory
-                    )}
-                  </td>
-                  <td>
-                    {editingBudget === budget.id ? (
-                      <input
-                        type="text"
-                        name="budgetAmount"
-                        value={editForm.budgetAmount}
-                        onChange={handleEditChange}
-                        placeholder="예산 금액"
-                      />
-                    ) : (
-                      formatCurrency(budget.budgetAmount)
-                    )}
-                  </td>
-                  <td>
-                    {editingBudget === budget.id ? (
-                      <select
-                        value={editForm.isEssential}
-                        onChange={(e) => setEditForm({...editForm, isEssential: e.target.value === 'true'})}
-                      >
-                        <option value="">선택</option>
-                        <option value={true}>필수사업</option>
-                        <option value={false}>일반사업</option>
-                      </select>
-                    ) : (
-                      budget.isEssential ? '필수사업' : '일반사업'
-                    )}
-                  </td>
-                  <td>
-                    {editingBudget === budget.id ? (
-                      <select
-                        value={editForm.projectPurpose}
-                        onChange={(e) => setEditForm({...editForm, projectPurpose: e.target.value})}
-                      >
-                        <option value="">선택</option>
-                        {projectPurposes.map(purpose => (
-                          <option key={purpose.value} value={purpose.value}>
-                            {purpose.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      projectPurposes.find(p => p.value === budget.projectPurpose)?.label || budget.projectPurpose
-                    )}
-                  </td>
-                  <td>
-                    {editingBudget === budget.id ? (
-                      <div className="date-inputs">
-                        <input
-                          type="month"
-                          value={editForm.startDate}
-                          onChange={(e) => setEditForm({...editForm, startDate: e.target.value})}
-                        />
-                        <span>~</span>
-                        <input
-                          type="month"
-                          value={editForm.endDate}
-                          onChange={(e) => setEditForm({...editForm, endDate: e.target.value})}
-                        />
-                      </div>
-                    ) : (
-                      `${budget.startDate} ~ ${budget.endDate}`
-                    )}
-                  </td>
-                  <td>
-                    <span style={{color: getStatusColor(budget.status)}}>
+                    <span style={{ color: getStatusColor(budget.status) }}>
                       {budget.status}
                     </span>
                   </td>
-                  <td>{budget.createdAt}</td>
-                  <td>
-                    {editingBudget === budget.id ? (
-                      <div className="action-buttons">
-                        <button
-                          onClick={() => handleSaveEdit(budget.id)}
-                          className="btn btn-success"
-                          style={{ marginRight: '0.5rem' }}
-                        >
-                          저장
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="btn btn-secondary"
-                        >
-                          취소
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="action-buttons">
-                        <button
-                          onClick={() => handleEdit(budget)}
-                          className="btn btn-secondary"
-                          style={{ marginRight: '0.5rem' }}
-                        >
-                          수정
-                        </button>
-                        <button
-                          onClick={() => handleDelete(budget.id)}
-                          className="btn btn-danger"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    )}
-                  </td>
+                  <td>{budget.isEssential === true || budget.isEssential === '필수' ? '필수' : budget.isEssential === false || budget.isEssential === '선택' ? '선택' : '-'}</td>
+                  <td>{budget.projectPurpose || '-'}</td>
+                  <td>{budget.itPlanReported ? '보고완료' : '미보고'}</td>
+                  <td>{budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace(/\./g, '-').replace(/\s/g, '') : '-'}</td>
+                  <td>{budget.createdBy || '-'}</td>
                 </tr>
               ))}
             </tbody>
