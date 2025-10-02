@@ -1,24 +1,27 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { generatePreviewHTML } from '../utils/previewGenerator';
+import { getApiUrl } from '../config/api';
 
-// API 베이스 URL 동적 설정
-const getApiBaseUrl = () => {
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `http://${window.location.hostname}:3004`;
-  }
-  return 'http://localhost:4002';
-};
-
-const API_BASE_URL = getApiBaseUrl();
+// API 베이스 URL 설정
+const API_BASE_URL = getApiUrl();
 
 const ContractList = () => {
   const location = useLocation();
   const [contracts, setContracts] = useState([]);
   const [filteredContracts, setFilteredContracts] = useState([]);
+  const [displayedContracts, setDisplayedContracts] = useState([]); // 화면에 표시할 계약 목록
   const [selectedContract, setSelectedContract] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // 무한 스크롤 관련 상태
+  const [page, setPage] = useState(0);
+  const [displayPage, setDisplayPage] = useState(0); // 표시 페이지 (필터링 시 사용)
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);  // 전체 품의서 개수
+  const ITEMS_PER_PAGE = 20;
   
   // 상태 업데이트 관련 상태
   const [showStatusUpdate, setShowStatusUpdate] = useState(false);
@@ -233,20 +236,45 @@ const ContractList = () => {
     '반려'
   ];
 
-  // 품의서 목록 조회 함수
-  const fetchProposals = async () => {
+  // 품의서 목록 조회 함수 (초기 로드용)
+  const fetchProposals = async (reset = false, loadAll = false) => {
+    const currentPage = reset ? 0 : page;
+    const offset = currentPage * ITEMS_PER_PAGE;
+    
     try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/proposals`);
+      if (reset) {
+        setLoading(true);
+        setPage(0);
+      } else {
+        setLoadingMore(true);
+      }
+      
+      // 필터가 활성화되어 있거나 loadAll이 true면 모든 데이터 로드, 아니면 페이지네이션
+      let apiUrl;
+      if (loadAll || hasActiveFilters()) {
+        apiUrl = `${API_BASE_URL}/api/proposals?isDraft=false&status=approved`;
+      } else {
+        apiUrl = `${API_BASE_URL}/api/proposals?isDraft=false&status=approved&limit=${ITEMS_PER_PAGE}&offset=${offset}`;
+      }
+      
+      const response = await fetch(apiUrl);
       
       if (!response.ok) {
         throw new Error('API 호출 실패');
       }
       
-      const proposals = await response.json();
+      const data = await response.json();
+      const proposals = data.proposals || data; // 페이지네이션 응답 또는 기존 응답 모두 지원
+      const hasMoreData = data.hasMore !== undefined ? data.hasMore : false;
+      const total = data.total || proposals.length; // 전체 개수
       
-      // 작성중인 품의서는 제외하고 필터링 (isDraft가 false인 품의서만 표시)
-      const filteredProposals = proposals.filter(proposal => proposal.isDraft !== true);
+      // 전체 개수 업데이트 (첫 로드 시에만)
+      if (reset || currentPage === 0) {
+        setTotalCount(total);
+      }
+      
+      // 백엔드에서 이미 승인완료된 품의서만 조회하므로 프론트에서는 필터링 불필요
+      const filteredProposals = proposals;
       
       // localStorage에서 새로 작성된 품의서 확인
       const newProposal = localStorage.getItem('newProposal');
@@ -331,28 +359,82 @@ const ContractList = () => {
         // 새로 작성된 품의서와 API 데이터 합치기
         formattedProposals = [...formattedProposals, ...apiFormattedProposals];
         
-        setContracts(formattedProposals);
-        setFilteredContracts(formattedProposals);
+        // reset이면 새로 설정, 아니면 기존에 추가
+        if (reset || currentPage === 0) {
+          setContracts(formattedProposals);
+          setFilteredContracts(formattedProposals);
+        } else {
+          setContracts(prev => [...prev, ...formattedProposals]);
+          setFilteredContracts(prev => [...prev, ...formattedProposals]);
+        }
+        
+        // 전체 로드 모드에서는 더 이상 로드할 데이터가 없음
+        if (loadAll || hasActiveFilters()) {
+          setHasMore(false);
+        } else {
+          setHasMore(hasMoreData);
+          setPage(currentPage + 1);
+        }
       } catch (error) {
         console.error('품의서 데이터 로드 실패:', error);
-        alert('품의서 데이터 로드에 실패했습니다. 서버가 실행 중인지 확인해주세요.');
-        // 에러 시 빈 배열로 설정
-        setContracts([]);
-        setFilteredContracts([]);
+        if (reset || currentPage === 0) {
+          alert('품의서 데이터 로드에 실패했습니다. 서버가 실행 중인지 확인해주세요.');
+          // 에러 시 빈 배열로 설정
+          setContracts([]);
+          setFilteredContracts([]);
+        }
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
     };
 
   useEffect(() => {
-    fetchProposals();
+    fetchProposals(true);
   }, []);
+
+  // 무한 스크롤 핸들러
+  const handleScroll = () => {
+    const scrollableDiv = document.querySelector('.table-responsive');
+    if (!scrollableDiv) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = scrollableDiv;
+    
+    // 스크롤이 하단에 가까워지면 (90% 이상 스크롤)
+    if (scrollTop + clientHeight >= scrollHeight * 0.9 && !loading) {
+      if (hasActiveFilters()) {
+        // 필터가 활성화된 경우: 클라이언트에서 더 많은 항목 표시
+        const nextEndIndex = (displayPage + 2) * ITEMS_PER_PAGE;
+        if (nextEndIndex <= filteredContracts.length && !loadingMore) {
+          setLoadingMore(true);
+          setTimeout(() => {
+            setDisplayPage(prev => prev + 1);
+            setLoadingMore(false);
+          }, 300); // 약간의 딜레이로 로딩 효과
+        }
+      } else {
+        // 필터가 없는 경우: 서버에서 다음 20개 가져오기
+        if (hasMore && !loadingMore) {
+          fetchProposals(false);
+        }
+      }
+    }
+  };
+
+  // 스크롤 이벤트 리스너 등록
+  useEffect(() => {
+    const scrollableDiv = document.querySelector('.table-responsive');
+    if (scrollableDiv) {
+      scrollableDiv.addEventListener('scroll', handleScroll);
+      return () => scrollableDiv.removeEventListener('scroll', handleScroll);
+    }
+  }, [hasMore, loadingMore, loading, page]);
 
   // 네비게이션 상태 확인 (새로 작성된 품의서 처리)
   useEffect(() => {
     if (location.state?.refreshList) {
       console.log('품의서 목록 새로고침 요청');
-      fetchProposals();
+      fetchProposals(true);
       
       if (location.state.message) {
         alert(location.state.message);
@@ -376,6 +458,17 @@ const ContractList = () => {
 
     return () => clearTimeout(timer);
   }, [contracts]);
+
+  // 필터가 활성화되어 있는지 확인하는 함수
+  const hasActiveFilters = () => {
+    return filters.keyword !== '' ||
+           filters.status !== 'all' ||
+           filters.type !== 'all' ||
+           filters.department !== 'all' ||
+           filters.author !== 'all' ||
+           filters.dateRange !== 'all' ||
+           filters.amountRange !== 'all';
+  };
 
   // 필터 적용 함수
   const applyFilters = () => {
@@ -460,10 +553,41 @@ const ContractList = () => {
     setFilteredContracts(sortedData);
   };
 
+  // 필터 변경 시 전체 데이터 로드
+  useEffect(() => {
+    if (hasActiveFilters()) {
+      // 필터가 활성화되면 전체 데이터를 로드
+      fetchProposals(true, true);
+    } else {
+      // 필터가 없으면 페이지네이션 모드로 초기 로드
+      fetchProposals(true, false);
+    }
+  }, [filters]);
+
   // 필터 변경 시 자동 적용
   useEffect(() => {
     applyFilters();
   }, [filters, contracts, sortConfigs]);
+
+  // filteredContracts가 변경될 때 displayedContracts 업데이트 (20개씩)
+  useEffect(() => {
+    if (hasActiveFilters()) {
+      // 필터가 활성화된 경우: filteredContracts의 처음 20개만 표시
+      setDisplayedContracts(filteredContracts.slice(0, ITEMS_PER_PAGE));
+      setDisplayPage(0);
+    } else {
+      // 필터가 없는 경우: filteredContracts 전체 표시 (서버에서 이미 20개씩 가져옴)
+      setDisplayedContracts(filteredContracts);
+    }
+  }, [filteredContracts]);
+
+  // displayPage 변경 시 더 많은 항목 표시
+  useEffect(() => {
+    if (hasActiveFilters() && displayPage > 0) {
+      const endIndex = (displayPage + 1) * ITEMS_PER_PAGE;
+      setDisplayedContracts(filteredContracts.slice(0, endIndex));
+    }
+  }, [displayPage]);
 
   // 필터 초기화
   const resetFilters = () => {
@@ -1237,6 +1361,8 @@ const ContractList = () => {
           <div className="result-info">
             <span className="result-count">
               검색 결과: {filteredContracts.length}건
+              {hasActiveFilters() && displayedContracts.length < filteredContracts.length && ` (${displayedContracts.length}건 표시 중)`}
+              {!hasActiveFilters() && contracts.length < totalCount && ` (전체 ${totalCount}건 중 ${contracts.length}건 로드됨)`}
             </span>
             {sortConfigs.length > 0 && (
               <span className="sort-info">
@@ -1264,9 +1390,11 @@ const ContractList = () => {
         <table className="table">
           <thead>
             <tr>
+              <th style={{ width: '60px', textAlign: 'center', position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}>순번</th>
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('title')}
+                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 계약명
                 {getSortDirection('title') && (
@@ -1279,6 +1407,7 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('department')}
+                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 요청부서
                 {getSortDirection('department') && (
@@ -1291,6 +1420,7 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('contractor')}
+                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 계약업체
                 {getSortDirection('contractor') && (
@@ -1303,6 +1433,7 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('author')}
+                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 작성자
                 {getSortDirection('author') && (
@@ -1315,6 +1446,7 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('amount')}
+                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 계약금액
                 {getSortDirection('amount') && (
@@ -1327,6 +1459,7 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('type')}
+                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 계약유형
                 {getSortDirection('type') && (
@@ -1339,6 +1472,7 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('status')}
+                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 상태
                 {getSortDirection('status') && (
@@ -1351,6 +1485,7 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('startDate')}
+                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 계약기간
                 {getSortDirection('startDate') && (
@@ -1363,6 +1498,7 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('createdAt')}
+                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 등록일
                 {getSortDirection('createdAt') && (
@@ -1375,12 +1511,13 @@ const ContractList = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredContracts.map(contract => (
+            {displayedContracts.map((contract, index) => (
               <tr 
                 key={contract.id} 
                 className={`clickable-row ${contract.isNew ? 'new-proposal-row' : ''}`}
                 onClick={() => handleRowClick(contract)}
               >
+                <td style={{ textAlign: 'center' }}>{index + 1}</td>
                 <td>{contract.title}</td>
                 <td>
                   {contract.requestDepartments && contract.requestDepartments.length > 0
@@ -1406,6 +1543,36 @@ const ContractList = () => {
             ))}
           </tbody>
         </table>
+        
+        {/* 무한 스크롤 로딩 인디케이터 */}
+        {loadingMore && (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <div style={{ 
+              display: 'inline-block', 
+              width: '40px', 
+              height: '40px', 
+              border: '4px solid #f3f3f3',
+              borderTop: '4px solid #3498db',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <p style={{ marginTop: '10px', color: '#666' }}>더 불러오는 중...</p>
+          </div>
+        )}
+        
+        {/* 필터 활성화 시: 모든 필터링 결과 표시 완료 */}
+        {hasActiveFilters() && displayedContracts.length >= filteredContracts.length && filteredContracts.length > 0 && (
+          <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+            모든 필터링 결과를 표시했습니다.
+          </div>
+        )}
+        
+        {/* 필터 비활성화 시: 모든 품의서 로드 완료 */}
+        {!hasActiveFilters() && !hasMore && contracts.length > 0 && (
+          <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+            모든 품의서를 불러왔습니다.
+          </div>
+        )}
       </div>
 
       {/* 상세보기 모달 */}
@@ -1892,15 +2059,19 @@ const ContractList = () => {
 
         .table-responsive {
           background: white;
-          border-radius: 12px;
-          overflow: hidden;
+          overflow-y: scroll;
+          overflow-x: auto;
+          max-height: 70vh;
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
           border: 1px solid rgba(0,0,0,0.05);
+          position: relative;
         }
 
         .table {
           width: 100%;
-          border-collapse: collapse;
+          border-collapse: separate;
+          border-spacing: 0;
+          margin: 0;
         }
 
         .table th,
@@ -1910,11 +2081,24 @@ const ContractList = () => {
           border-bottom: 1px solid #e1e5e9;
         }
 
+        .table thead {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          background-color: #f8f9fa;
+        }
+
         .table th {
-          background: #f8f9fa;
+          background-color: #f8f9fa !important;
           font-weight: 600;
           color: #333;
           font-size: 0.9rem;
+          border-bottom: 2px solid #dee2e6;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .table td {
+          background-color: white;
         }
 
         .sortable-header {
@@ -1924,7 +2108,7 @@ const ContractList = () => {
         }
 
         .sortable-header:hover {
-          background-color: #e9ecef !important;
+          background-color: #e9ecef;
         }
 
         .sort-indicator {

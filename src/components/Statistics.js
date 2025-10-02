@@ -10,6 +10,7 @@ import {
   Legend
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { getApiUrl } from '../config/api';
 
 ChartJS.register(
   CategoryScale,
@@ -21,15 +22,8 @@ ChartJS.register(
   Legend
 );
 
-// API 베이스 URL 동적 설정
-const getApiBaseUrl = () => {
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `http://${window.location.hostname}:3001`;
-  }
-  return 'http://localhost:3001';
-};
-
-const API_BASE_URL = getApiBaseUrl();
+// API 베이스 URL 설정
+const API_BASE_URL = getApiUrl();
 
 const Statistics = () => {
   const [proposalStats, setProposalStats] = useState({

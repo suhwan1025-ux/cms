@@ -1,16 +1,10 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { generatePreviewHTML, formatNumberWithComma, formatCurrency } from '../utils/previewGenerator';
+import { getApiUrl } from '../config/api';
 
-// API 베이스 URL 동적 설정
-const getApiBaseUrl = () => {
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `http://${window.location.hostname}:3004`;
-  }
-  return 'http://localhost:4002';
-};
-
-const API_BASE_URL = getApiBaseUrl();
+// API 베이스 URL 설정
+const API_BASE_URL = getApiUrl();
 
 const DraftList = () => {
   const location = useLocation();
@@ -32,7 +26,8 @@ const DraftList = () => {
   // 품의서 데이터를 가져오는 함수
   const fetchDrafts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/proposals`);
+      // 작성중인 품의서만 조회 (isDraft=true)
+      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=true`);
       
       if (!response.ok) {
         throw new Error('API 호출 실패');
@@ -40,10 +35,8 @@ const DraftList = () => {
       
       const proposals = await response.json();
       
-      // 작성중인 품의서만 필터링 (isDraft가 true인 경우만)
-      const draftProposals = proposals.filter(proposal => 
-        proposal.isDraft === true
-      );
+      // 백엔드에서 이미 작성중인 품의서만 조회하므로 프론트에서는 필터링 불필요
+      const draftProposals = proposals;
       
       // API 데이터를 화면에 맞는 형태로 변환
       const formattedDrafts = draftProposals.map(proposal => ({

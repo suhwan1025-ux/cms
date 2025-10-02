@@ -4,7 +4,7 @@ const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 
 // 미들웨어 설정
 app.use(cors());
@@ -987,14 +987,32 @@ app.post('/api/proposals', async (req, res) => {
 // 5. 품의서 목록 조회
 app.get('/api/proposals', async (req, res) => {
   try {
-    // budgetId 필터링 지원
+    // 쿼리 파라미터로 필터링 조건 설정
     const whereClause = {};
+    
+    // budgetId 필터링
     if (req.query.budgetId) {
       whereClause.budgetId = req.query.budgetId;
     }
+    
+    // isDraft 필터링 (작성중 여부)
+    if (req.query.isDraft !== undefined) {
+      whereClause.isDraft = req.query.isDraft === 'true';
+    }
+    
+    // status 필터링 (승인 상태)
+    if (req.query.status) {
+      whereClause.status = req.query.status;
+    }
 
-    const proposals = await models.Proposal.findAll({
+    // 페이지네이션 파라미터 (limit, offset)
+    const limit = req.query.limit ? parseInt(req.query.limit) : null;
+    const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+    
+    // findAndCountAll로 변경하여 전체 개수도 함께 반환
+    const queryOptions = {
       where: whereClause,
+      distinct: true,  // JOIN으로 인한 중복 카운트 방지
       include: [
         {
           model: models.PurchaseItem,
@@ -1019,7 +1037,16 @@ app.get('/api/proposals', async (req, res) => {
       ],
       order: [['createdAt', 'DESC']],
       attributes: { exclude: ['contract_method_id'] }
-    });
+    };
+    
+    // limit이 있으면 페이지네이션 적용
+    if (limit) {
+      queryOptions.limit = limit;
+      queryOptions.offset = offset;
+    }
+
+    const result = await models.Proposal.findAndCountAll(queryOptions);
+    const proposals = result.rows;
 
     // 예산 정보와 비용분배 정보를 포함하여 응답
     const proposalsWithBudget = await Promise.all(proposals.map(async (proposal) => {
@@ -1086,7 +1113,18 @@ app.get('/api/proposals', async (req, res) => {
       return proposalData;
     }));
 
-    res.json(proposalsWithBudget);
+    // limit이 있으면 페이지네이션 정보 포함하여 응답
+    if (limit) {
+      res.json({
+        proposals: proposalsWithBudget,
+        total: result.count,
+        limit: limit,
+        offset: offset,
+        hasMore: (offset + proposalsWithBudget.length) < result.count
+      });
+    } else {
+      res.json(proposalsWithBudget);
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

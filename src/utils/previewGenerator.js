@@ -46,24 +46,40 @@ export const getContractMethodName = (contractMethod) => {
     'general_competition': '경쟁계약(일반경쟁계약)',
     'limited_competition': '경쟁계약(제한경쟁계약)',
     'designated_competition': '경쟁계약(지명경쟁계약)',
+    'negotiated_competition': '경쟁계약(협상에 의한 계약)',
     'private_contract': '수의계약',
     'private_contract_6_1_a': '수의계약(제6조 제1항의 가)',
     'private_contract_6_1_b': '수의계약(제6조 제1항의 나)',
     'private_contract_6_1_c': '수의계약(제6조 제1항의 다)',
     'private_contract_6_1_d': '수의계약(제6조 제1항의 라)',
     'private_contract_6_1_e': '수의계약(제6조 제1항의 마)',
+    'private_contract_6_2_a': '수의계약(제6조 제2항의 가)',
+    'private_contract_6_2_b': '수의계약(제6조 제2항의 나)',
+    'private_contract_6_2_c': '수의계약(제6조 제2항의 다)',
+    'private_contract_6_2_d': '수의계약(제6조 제2항의 라)',
+    'private_contract_6_2_e': '수의계약(제6조 제2항의 마)',
+    'private_contract_6_2_f': '수의계약(제6조 제2항의 바)',
+    'private_contract_6_2_g': '수의계약(제6조 제2항의 사)',
     
     // 한글 이름으로 저장된 경우 (그대로 반환)
     '최저가 계약': '최저가 계약',
     '경쟁계약(일반경쟁계약)': '경쟁계약(일반경쟁계약)',
     '경쟁계약(제한경쟁계약)': '경쟁계약(제한경쟁계약)',
     '경쟁계약(지명경쟁계약)': '경쟁계약(지명경쟁계약)',
+    '경쟁계약(협상에 의한 계약)': '경쟁계약(협상에 의한 계약)',
     '수의계약': '수의계약',
     '수의계약(제6조 제1항의 가)': '수의계약(제6조 제1항의 가)',
     '수의계약(제6조 제1항의 나)': '수의계약(제6조 제1항의 나)',
     '수의계약(제6조 제1항의 다)': '수의계약(제6조 제1항의 다)',
     '수의계약(제6조 제1항의 라)': '수의계약(제6조 제1항의 라)',
-    '수의계약(제6조 제1항의 마)': '수의계약(제6조 제1항의 마)'
+    '수의계약(제6조 제1항의 마)': '수의계약(제6조 제1항의 마)',
+    '수의계약(제6조 제2항의 가)': '수의계약(제6조 제2항의 가)',
+    '수의계약(제6조 제2항의 나)': '수의계약(제6조 제2항의 나)',
+    '수의계약(제6조 제2항의 다)': '수의계약(제6조 제2항의 다)',
+    '수의계약(제6조 제2항의 라)': '수의계약(제6조 제2항의 라)',
+    '수의계약(제6조 제2항의 마)': '수의계약(제6조 제2항의 마)',
+    '수의계약(제6조 제2항의 바)': '수의계약(제6조 제2항의 바)',
+    '수의계약(제6조 제2항의 사)': '수의계약(제6조 제2항의 사)'
   };
   
   return methodMap[contractMethod] || contractMethod;
@@ -202,7 +218,7 @@ export const generateItemsSection = (data) => {
   if (contractType === 'freeform') {
     console.log('자유양식 처리 중...');
     return `
-      <div class="section-title">2. 자유양식 내용</div>
+      <div class="section-title">2. 상세 내역</div>
       <div style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; min-height: 100px;">
         ${data.wysiwygContent || data.wysiwyg_content || '내용이 입력되지 않았습니다.'}
       </div>
@@ -228,7 +244,7 @@ export const generateItemsSection = (data) => {
     });
     
     return `
-      <div class="section-title">2. 용역 상세 내역</div>
+      <div class="section-title">2. 상세 내역</div>
       <table class="items-table">
         <thead>
           <tr>
@@ -298,7 +314,7 @@ export const generateItemsSection = (data) => {
     });
     
     return `
-      <div class="section-title">2. 구매 상세 내역</div>
+      <div class="section-title">2. 상세 내역</div>
       <table class="items-table">
         <thead>
           <tr>
@@ -604,6 +620,7 @@ export const generatePreviewHTML = (data, options = {}) => {
       <style>
         body {
           font-family: 'Malgun Gothic', sans-serif;
+          font-size: 10pt;
           line-height: 1.6;
           margin: 0;
           padding: 20px;
@@ -655,7 +672,7 @@ export const generatePreviewHTML = (data, options = {}) => {
           font-weight: bold;
         }
         .section-title {
-          font-size: 18px;
+          font-size: 12pt;
           font-weight: bold;
           margin: 20px 0 10px 0;
           color: #333;
@@ -677,7 +694,7 @@ export const generatePreviewHTML = (data, options = {}) => {
           padding: 10px 20px;
           border-radius: 5px;
           cursor: pointer;
-          font-size: 14px;
+          font-size: 10pt;
           min-width: 100px;
           transition: all 0.3s ease;
         }
@@ -722,10 +739,6 @@ export const generatePreviewHTML = (data, options = {}) => {
         <div class="section-title">1. 기본 정보</div>
         <table class="info-table">
           <tbody>
-            <tr>
-              <th>계약 유형</th>
-              <td>${getContractTypeName(data.contractType || data.contract_type)}</td>
-            </tr>
             <tr>
               <th>계약 방식</th>
               <td>${getContractMethodName(data.contractMethod || data.contract_method)}</td>
@@ -786,7 +799,7 @@ export const generatePreviewHTML = (data, options = {}) => {
             </tr>
             <tr>
               <th>총 계약금액</th>
-              <td style="font-weight: bold;">${formatCurrency(totalAmount)}</td>
+              <td style="font-weight: bold;">${formatCurrency(totalAmount)} (VAT 포함)</td>
             </tr>
             ${data.other && data.other.trim() ? `
             <tr>

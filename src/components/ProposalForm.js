@@ -4,18 +4,10 @@ import html2canvas from 'html2canvas';
 import CKEditorComponent from './CKEditorComponent';
 import DocumentTemplates from './DocumentTemplates';
 import { generatePreviewHTML } from '../utils/previewGenerator';
+import { getApiUrl } from '../config/api';
 
-// API 베이스 URL 동적 설정
-const getApiBaseUrl = () => {
-  // 현재 호스트가 localhost가 아니면 현재 호스트의 IP를 사용
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `http://${window.location.hostname}:3004`;
-  }
-  // localhost에서 접근하는 경우 localhost 사용
-  return 'http://localhost:4002';
-};
-
-const API_BASE_URL = getApiBaseUrl();
+// API 베이스 URL 설정
+const API_BASE_URL = getApiUrl();
 
 const ProposalForm = () => {
   const originalNavigate = useNavigate();

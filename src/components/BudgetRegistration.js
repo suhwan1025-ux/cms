@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
-// API 베이스 URL 동적 설정
-const getApiBaseUrl = () => {
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `http://${window.location.hostname}:3001`;
-  }
-  return 'http://localhost:3001';
-};
+import { getApiUrl } from '../config/api';
 
-const API_BASE_URL = getApiBaseUrl();
+// API 베이스 URL 설정
+const API_BASE_URL = getApiUrl();
 
 
 const BudgetRegistration = ({ year = 2024 }) => {

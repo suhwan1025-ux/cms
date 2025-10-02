@@ -52,11 +52,11 @@
     "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1"
   },
-  "proxy": "http://localhost:3001",
+  "proxy": "http://localhost:3002",
   "scripts": {
-    "start": "set PORT=3002 && set DANGEROUSLY_DISABLE_HOST_CHECK=true && set BROWSER=chrome && npx craco start",
-    "start:local": "set PORT=3002 && set BROWSER=chrome && npx craco start",
-    "start:network": "set PORT=3002 && set HOST=0.0.0.0 && npx craco start",
+    "start": "set PORT=3001 && set DANGEROUSLY_DISABLE_HOST_CHECK=true && set BROWSER=chrome && npx craco start",
+    "start:local": "set PORT=3001 && set BROWSER=chrome && npx craco start",
+    "start:network": "set PORT=3001 && set HOST=0.0.0.0 && npx craco start",
     "build": "npx craco build",
     "build:prod": "set GENERATE_SOURCEMAP=false && npx craco build",
     "start:prod": "node server.js",
