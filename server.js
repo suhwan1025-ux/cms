@@ -77,7 +77,7 @@ app.get('/api/budgets', async (req, res) => {
 // 3-1. 사업예산 통계 데이터 조회 (JOIN 방식으로 실시간 계산)
 app.get('/api/budget-statistics', async (req, res) => {
   try {
-    // 모든 사업예산 데이터와 확정집행액을 JOIN으로 실시간 계산
+    // 모든 사업예산 데이터와 확정집행액, 미집행액을 JOIN으로 실시간 계산
     const allBudgetData = await sequelize.query(`
       SELECT 
         bb.id,
@@ -89,7 +89,7 @@ app.get('/api/budget-statistics', async (req, res) => {
         bb.executed_amount as "executedAmount",
         bb.pending_amount as "pendingAmount",
         COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.total_amount ELSE 0 END), 0) as "confirmedExecutionAmount",
-        bb.unexecuted_amount as "unexecutedAmount",
+        (bb.budget_amount - COALESCE(bb.executed_amount, 0) - COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.total_amount ELSE 0 END), 0)) as "unexecutedAmountCalc",
         bb.additional_budget as "additionalBudget",
         bb.hold_cancel_reason as "holdCancelReason",
         bb.notes,
@@ -117,6 +117,7 @@ app.get('/api/budget-statistics', async (req, res) => {
     // 각 사업예산에 계산된 값 추가
     const budgetsWithExecution = allBudgets.map(budget => ({
       ...budget,
+      unexecutedAmount: budget.unexecutedAmountCalc || 0,  // 계산된 미집행액 적용
       remainingAmount: parseFloat(budget.budgetAmount || 0) - parseFloat(budget.confirmedExecutionAmount || 0),
       executionRate: parseFloat(budget.budgetAmount || 0) > 0 
         ? Math.round((parseFloat(budget.confirmedExecutionAmount || 0) / parseFloat(budget.budgetAmount || 0)) * 100) 
@@ -198,14 +199,15 @@ app.get('/api/business-budgets', async (req, res) => {
       replacements.push(department, department);
     }
     
-    // 사업예산과 실제 품의서 집행금액을 함께 조회
+    // 사업예산과 실제 품의서 집행금액, 미집행액을 함께 조회
     const budgets = await sequelize.query(`
       SELECT 
         bb.*,
         COALESCE(SUM(bbd.total_amount), 0) as detail_total_amount,
         COUNT(bbd.id) as detail_count,
         COALESCE(proposal_executions.executed_amount, 0) as actual_executed_amount,
-        COALESCE(proposal_executions.proposal_count, 0) as executed_proposal_count
+        COALESCE(proposal_executions.proposal_count, 0) as executed_proposal_count,
+        (bb.budget_amount - COALESCE(bb.executed_amount, 0) - COALESCE(proposal_executions.executed_amount, 0)) as unexecuted_amount_calculated
       FROM business_budgets bb
       LEFT JOIN business_budget_details bbd ON bb.id = bbd.budget_id
       LEFT JOIN (
@@ -222,15 +224,21 @@ app.get('/api/business-budgets', async (req, res) => {
       ORDER BY bb.created_at DESC
     `, { replacements });
     
-    // 각 예산의 집행률과 잔여금액 계산
-    const budgetsWithCalculations = budgets[0].map(budget => ({
-      ...budget,
-      executed_amount: budget.actual_executed_amount || 0,
-      remaining_amount: parseFloat(budget.budget_amount || 0) - parseFloat(budget.actual_executed_amount || 0),
-      execution_rate: parseFloat(budget.budget_amount || 0) > 0 
-        ? Math.round((parseFloat(budget.actual_executed_amount || 0) / parseFloat(budget.budget_amount || 0)) * 100) 
-        : 0
-    }));
+    // 각 예산의 집행률과 잔여금액, 미집행액 계산
+    const budgetsWithCalculations = budgets[0].map(budget => {
+      // bb.*에서 가져온 기존 unexecuted_amount를 제거하고 계산된 값 사용
+      const { unexecuted_amount, ...budgetWithoutUnexecuted } = budget;
+      return {
+        ...budgetWithoutUnexecuted,
+        executed_amount: budget.actual_executed_amount || 0,
+        confirmed_execution_amount: budget.actual_executed_amount || 0,
+        unexecuted_amount: budget.unexecuted_amount_calculated || 0,  // 계산된 값 사용
+        remaining_amount: parseFloat(budget.budget_amount || 0) - parseFloat(budget.actual_executed_amount || 0),
+        execution_rate: parseFloat(budget.budget_amount || 0) > 0 
+          ? Math.round((parseFloat(budget.actual_executed_amount || 0) / parseFloat(budget.budget_amount || 0)) * 100) 
+          : 0
+      };
+    });
     
     res.json(budgetsWithCalculations);
   } catch (error) {

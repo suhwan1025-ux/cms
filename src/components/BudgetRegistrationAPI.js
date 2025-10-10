@@ -250,7 +250,7 @@ const BudgetRegistrationAPI = () => {
         executedAmount: formData.executedAmount ? parseInt(formData.executedAmount.replace(/[^\d]/g, '')) : 0,
         pendingAmount: formData.pendingAmount ? parseInt(formData.pendingAmount.replace(/[^\d]/g, '')) : 0,
         // confirmedExecutionAmount는 품의서와 JOIN으로 자동 계산되므로 전송하지 않음
-        unexecutedAmount: formData.unexecutedAmount ? parseInt(formData.unexecutedAmount.replace(/[^\d]/g, '')) : 0,
+        // unexecutedAmount는 자동 계산되므로 전송하지 않음 (예산 - 기집행 - 확정집행액)
         additionalBudget: formData.additionalBudget ? parseInt(formData.additionalBudget.replace(/[^\d]/g, '')) : 0,
         isEssential: formData.isEssential === '필수' ? true : false
       };
@@ -313,8 +313,8 @@ const BudgetRegistrationAPI = () => {
     let processedValue = value;
     
     // 금액 관련 필드에 콤마 추가
-    const amountFields = ['budgetAmount', 'executedAmount', 'pendingAmount', 'unexecutedAmount', 'additionalBudget'];
-    // confirmedExecutionAmount는 읽기 전용이므로 제외
+    const amountFields = ['budgetAmount', 'executedAmount', 'pendingAmount', 'additionalBudget'];
+    // confirmedExecutionAmount, unexecutedAmount는 읽기 전용이므로 제외
     if (amountFields.includes(name)) {
       // 숫자와 콤마만 허용
       const numericValue = value.replace(/[^\d]/g, '');
@@ -325,10 +325,24 @@ const BudgetRegistrationAPI = () => {
       }
     }
     
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : processedValue
-    }));
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : processedValue
+      };
+      
+      // 예산, 기집행, 확정집행액이 변경되면 미집행액 자동 계산
+      if (['budgetAmount', 'executedAmount', 'confirmedExecutionAmount'].includes(name)) {
+        const budget = parseInt((name === 'budgetAmount' ? processedValue : newFormData.budgetAmount || '0').replace(/[^\d]/g, '')) || 0;
+        const executed = parseInt((name === 'executedAmount' ? processedValue : newFormData.executedAmount || '0').replace(/[^\d]/g, '')) || 0;
+        const confirmed = parseInt((name === 'confirmedExecutionAmount' ? processedValue : newFormData.confirmedExecutionAmount || '0').replace(/[^\d]/g, '')) || 0;
+        
+        const unexecuted = budget - executed - confirmed;
+        newFormData.unexecutedAmount = unexecuted > 0 ? unexecuted.toLocaleString() : '0';
+      }
+      
+      return newFormData;
+    });
   };
 
   // 발의부서 검색 및 선택
@@ -410,6 +424,12 @@ const BudgetRegistrationAPI = () => {
 
   // 테이블 행 클릭 시 데이터 로드 (수정 모드로 전환)
   const handleRowClick = (budget) => {
+    // 미집행액 자동 계산: 예산 - (기집행 + 확정집행액)
+    const budgetAmt = budget.budgetAmount || 0;
+    const executedAmt = budget.executedAmount || 0;
+    const confirmedAmt = budget.confirmedExecutionAmount || 0;
+    const unexecutedAmt = Math.max(0, budgetAmt - executedAmt - confirmedAmt);
+    
     setFormData({
       projectName: budget.projectName,
       initiatorDepartment: budget.initiatorDepartment,
@@ -426,7 +446,7 @@ const BudgetRegistrationAPI = () => {
       executedAmount: budget.executedAmount ? budget.executedAmount.toLocaleString() : '',
       pendingAmount: budget.pendingAmount ? budget.pendingAmount.toLocaleString() : '',
       confirmedExecutionAmount: budget.confirmedExecutionAmount ? budget.confirmedExecutionAmount.toLocaleString() : '',
-      unexecutedAmount: budget.unexecutedAmount ? budget.unexecutedAmount.toLocaleString() : '',
+      unexecutedAmount: unexecutedAmt.toLocaleString(), // 자동 계산
       additionalBudget: budget.additionalBudget ? budget.additionalBudget.toLocaleString() : '',
       holdCancelReason: budget.holdCancelReason || '',
       notes: budget.notes || '',
@@ -1171,13 +1191,16 @@ const BudgetRegistrationAPI = () => {
                   </div>
                   
                   <div className="form-group">
-                    <label>미집행액</label>
+                    <label>미집행액 <span style={{ fontSize: '0.8em', color: '#666' }}>(자동 계산)</span></label>
                     <input
                       type="text"
                       name="unexecutedAmount"
                       value={formData.unexecutedAmount}
                       onChange={handleChange}
-                      placeholder="예: 1,000,000"
+                      placeholder="예산 - 기집행 - 확정집행액"
+                      readOnly
+                      style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+                      title="미집행액 = 예산 - (기집행 + 확정집행액)"
                     />
                   </div>
                 </div>
