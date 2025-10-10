@@ -15,6 +15,7 @@ const BudgetDashboard = () => {
   const [proposals, setProposals] = useState([]);
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [proposalSortConfig, setProposalSortConfig] = useState({ key: null, direction: 'asc' });
 
   // 데이터 로드
   useEffect(() => {
@@ -238,8 +239,8 @@ const BudgetDashboard = () => {
     setProposals([]);
 
     try {
-      console.log('품의서 조회 API 호출:', `${API_BASE_URL}/api/proposals?budgetId=${budget.id}&status=approved`);
-      const response = await fetch(`${API_BASE_URL}/api/proposals?budgetId=${budget.id}&status=approved`);
+      console.log('품의서 조회 API 호출:', `${API_BASE_URL}/api/proposals?budgetId=${budget.id}`);
+      const response = await fetch(`${API_BASE_URL}/api/proposals?budgetId=${budget.id}`);
       console.log('API 응답 상태:', response.status, response.ok);
       
       if (response.ok) {
@@ -266,6 +267,79 @@ const BudgetDashboard = () => {
     setShowProposalModal(false);
     setSelectedBudget(null);
     setProposals([]);
+    setProposalSortConfig({ key: null, direction: 'asc' }); // 정렬 초기화
+  };
+
+  // 품의서 정렬 함수
+  const handleProposalSort = (key) => {
+    let direction = 'asc';
+    if (proposalSortConfig.key === key && proposalSortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setProposalSortConfig({ key, direction });
+  };
+
+  // 품의서 정렬 아이콘 표시
+  const getProposalSortIcon = (key) => {
+    if (proposalSortConfig.key !== key) {
+      return ' ↕️';
+    }
+    return proposalSortConfig.direction === 'asc' ? ' ↑' : ' ↓';
+  };
+
+  // 정렬된 품의서 목록
+  const getSortedProposals = () => {
+    if (!proposalSortConfig.key) return proposals;
+
+    return [...proposals].sort((a, b) => {
+      let aValue = a[proposalSortConfig.key];
+      let bValue = b[proposalSortConfig.key];
+
+      // 계약유형 정렬
+      if (proposalSortConfig.key === 'contractType') {
+        const getContractTypeForSort = (proposal) => {
+          if (proposal.contractType === 'purchase') return '구매계약';
+          if (proposal.contractType === 'service') return '용역계약';
+          if (proposal.contractType === 'change') return '변경계약';
+          if (proposal.contractType === 'extension') return '연장계약';
+          if (proposal.contractType === 'bidding') return '입찰계약';
+          if (proposal.contractType === 'freeform') {
+            if (proposal.contractMethod && 
+                /[가-힣]/.test(proposal.contractMethod) && 
+                !proposal.contractMethod.includes('_')) {
+              return proposal.contractMethod;
+            }
+            return '기타';
+          }
+          return '기타';
+        };
+        aValue = getContractTypeForSort(a);
+        bValue = getContractTypeForSort(b);
+      }
+      // 계약금액 정렬
+      else if (proposalSortConfig.key === 'totalAmount') {
+        aValue = parseFloat(aValue) || 0;
+        bValue = parseFloat(bValue) || 0;
+      }
+      // 날짜 정렬
+      else if (proposalSortConfig.key === 'createdAt' || proposalSortConfig.key === 'approvalDate') {
+        aValue = aValue ? new Date(aValue).getTime() : 0;
+        bValue = bValue ? new Date(bValue).getTime() : 0;
+      }
+      // 문자열 정렬
+      else if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = (bValue || '').toLowerCase();
+      }
+
+      if (aValue < bValue) {
+        return proposalSortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return proposalSortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
   };
 
   // 품의서 미리보기 열기
@@ -647,12 +721,14 @@ const BudgetDashboard = () => {
                 const purposeDesc = budget.projectPurposeDescription || '';
                 const purposeDisplay = purposeDesc ? `${purposeCode} - ${purposeDesc}` : purposeCode;
                 
+                // 예산 초과 여부 체크 (기집행액 또는 확정집행액이 예산+추가예산을 초과)
+                const isOverBudget = executedAmt > totalBudget || confirmedAmt > totalBudget;
+                
                 return (
                   <tr 
                     key={budget.id || index}
                     onClick={() => handleBudgetClick(budget)}
-                    style={{ cursor: 'pointer' }}
-                    className="budget-row"
+                    className={`budget-row ${isOverBudget ? 'over-budget' : ''}`}
                   >
                     <td style={{ textAlign: 'center' }}>{index + 1}</td>
                     <td style={{ textAlign: 'center' }}>{budget.projectName}</td>
@@ -693,40 +769,132 @@ const BudgetDashboard = () => {
               {loadingProposals ? (
                 <div className="loading">품의서를 불러오는 중...</div>
               ) : proposals.length === 0 ? (
-                <div className="no-data">결재완료된 품의서가 없습니다.</div>
+                <div className="no-data">품의서가 없습니다.</div>
               ) : (
                 <table className="proposals-table">
                   <thead>
                     <tr>
-                      <th>번호</th>
-                      <th>품의서명</th>
-                      <th>계약방식</th>
-                      <th>계약금액</th>
-                      <th>작성자</th>
-                      <th>작성일</th>
-                      <th>결재일</th>
+                      <th style={{ textAlign: 'center' }}>번호</th>
+                      <th 
+                        style={{ cursor: 'pointer', textAlign: 'center' }}
+                        onClick={() => handleProposalSort('title')}
+                      >
+                        품의서명{getProposalSortIcon('title')}
+                      </th>
+                      <th 
+                        style={{ cursor: 'pointer', textAlign: 'center' }}
+                        onClick={() => handleProposalSort('contractType')}
+                      >
+                        계약유형{getProposalSortIcon('contractType')}
+                      </th>
+                      <th 
+                        style={{ cursor: 'pointer', textAlign: 'center' }}
+                        onClick={() => handleProposalSort('totalAmount')}
+                      >
+                        계약금액{getProposalSortIcon('totalAmount')}
+                      </th>
+                      <th 
+                        style={{ cursor: 'pointer', textAlign: 'center' }}
+                        onClick={() => handleProposalSort('status')}
+                      >
+                        상태{getProposalSortIcon('status')}
+                      </th>
+                      <th 
+                        style={{ cursor: 'pointer', textAlign: 'center' }}
+                        onClick={() => handleProposalSort('requesterName')}
+                      >
+                        작성자{getProposalSortIcon('requesterName')}
+                      </th>
+                      <th 
+                        style={{ cursor: 'pointer', textAlign: 'center' }}
+                        onClick={() => handleProposalSort('createdAt')}
+                      >
+                        작성일{getProposalSortIcon('createdAt')}
+                      </th>
+                      <th 
+                        style={{ cursor: 'pointer', textAlign: 'center' }}
+                        onClick={() => handleProposalSort('approvalDate')}
+                      >
+                        결재일{getProposalSortIcon('approvalDate')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {proposals.map((proposal, index) => (
-                      <tr 
-                        key={proposal.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleProposalPreview(proposal);
-                        }}
-                        style={{ cursor: 'pointer' }}
-                        className="proposal-row"
-                      >
-                        <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                        <td>{proposal.title}</td>
-                        <td>{proposal.contractMethod}</td>
-                        <td style={{ textAlign: 'right' }}>{formatCurrency(parseFloat(proposal.totalAmount) || 0)}</td>
-                        <td>{proposal.requesterName}</td>
-                        <td>{new Date(proposal.createdAt).toLocaleDateString()}</td>
-                        <td>{proposal.approvedAt ? new Date(proposal.approvedAt).toLocaleDateString() : '-'}</td>
-                      </tr>
-                    ))}
+                    {getSortedProposals().map((proposal, index) => {
+                      // 상태 표시 함수
+                      const getStatusLabel = (status) => {
+                        const statusMap = {
+                          'draft': '임시저장',
+                          'submitted': '결재대기',
+                          'approved': '결재완료',
+                          'rejected': '반려',
+                          'cancelled': '취소'
+                        };
+                        return statusMap[status] || status;
+                      };
+                      
+                      const getStatusColor = (status) => {
+                        const colorMap = {
+                          'draft': '#6c757d',
+                          'submitted': '#007bff',
+                          'approved': '#28a745',
+                          'rejected': '#dc3545',
+                          'cancelled': '#6c757d'
+                        };
+                        return colorMap[status] || '#6c757d';
+                      };
+                      
+                      // 계약유형 표시 함수
+                      const getContractType = (proposal) => {
+                        if (proposal.contractType === 'purchase') return '구매계약';
+                        if (proposal.contractType === 'service') return '용역계약';
+                        if (proposal.contractType === 'change') return '변경계약';
+                        if (proposal.contractType === 'extension') return '연장계약';
+                        if (proposal.contractType === 'bidding') return '입찰계약';
+                        if (proposal.contractType === 'freeform') {
+                          // 자유양식일 때 contractMethod에 템플릿 이름(한글)이 있으면 표시, 아니면 "기타"
+                          if (proposal.contractMethod && 
+                              /[가-힣]/.test(proposal.contractMethod) && 
+                              !proposal.contractMethod.includes('_')) {
+                            return proposal.contractMethod;
+                          }
+                          return '기타';
+                        }
+                        return '기타';
+                      };
+                      
+                      return (
+                        <tr 
+                          key={proposal.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProposalPreview(proposal);
+                          }}
+                          style={{ cursor: 'pointer' }}
+                          className="proposal-row"
+                        >
+                          <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                          <td>{proposal.title}</td>
+                          <td>{getContractType(proposal)}</td>
+                          <td style={{ textAlign: 'right' }}>{formatCurrency(parseFloat(proposal.totalAmount) || 0)}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span style={{
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: getStatusColor(proposal.status) + '20',
+                              color: getStatusColor(proposal.status),
+                              fontSize: '0.85em',
+                              fontWeight: '500'
+                            }}>
+                              {getStatusLabel(proposal.status)}
+                            </span>
+                          </td>
+                          <td>{proposal.requesterName}</td>
+                          <td>{new Date(proposal.createdAt).toLocaleDateString()}</td>
+                          <td>{proposal.approvalDate ? new Date(proposal.approvalDate).toLocaleDateString() : '-'}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}

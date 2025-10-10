@@ -216,7 +216,7 @@ const ContractList = () => {
   const [sortConfigs, setSortConfigs] = useState([]);
 
   // 필터 옵션들
-  const statusOptions = ['전체', '진행중', '완료', '지연', '검토중', '승인대기'];
+  const statusOptions = ['전체', '결재대기', '결재완료'];
   const typeOptions = ['전체', '구매계약', '용역계약', '변경계약', '연장계약', '입찰계약'];
   const departmentOptions = ['전체', 'IT팀', '총무팀', '기획팀', '영업팀', '재무팀', '법무팀'];
   const authorOptions = ['전체', '김철수', '이영희', '박민수', '정수진', '최지원'];
@@ -225,21 +225,15 @@ const ContractList = () => {
 
   // 상태 변경 옵션들
   const statusChangeOptions = [
-    '결재완료',
-    '예가산정',
-    '입찰실시',
-    '보고 품의',
-    '계약체결',
-    '계약완료',
-    '검토중',
-    '승인대기',
-    '반려'
+    '결재완료'
   ];
 
   // 품의서 목록 조회 함수 (초기 로드용)
   const fetchProposals = async (reset = false, loadAll = false) => {
     const currentPage = reset ? 0 : page;
     const offset = currentPage * ITEMS_PER_PAGE;
+    
+    console.log('📥 fetchProposals 호출:', { reset, loadAll, currentPage });
     
     try {
       if (reset) {
@@ -252,11 +246,12 @@ const ContractList = () => {
       // 필터가 활성화되어 있거나 loadAll이 true면 모든 데이터 로드, 아니면 페이지네이션
       let apiUrl;
       if (loadAll || hasActiveFilters()) {
-        apiUrl = `${API_BASE_URL}/api/proposals?isDraft=false&status=approved`;
+        apiUrl = `${API_BASE_URL}/api/proposals?isDraft=false`;
       } else {
-        apiUrl = `${API_BASE_URL}/api/proposals?isDraft=false&status=approved&limit=${ITEMS_PER_PAGE}&offset=${offset}`;
+        apiUrl = `${API_BASE_URL}/api/proposals?isDraft=false&limit=${ITEMS_PER_PAGE}&offset=${offset}`;
       }
       
+      console.log('📡 API 요청:', apiUrl);
       const response = await fetch(apiUrl);
       
       if (!response.ok) {
@@ -268,6 +263,8 @@ const ContractList = () => {
       const hasMoreData = data.hasMore !== undefined ? data.hasMore : false;
       const total = data.total || proposals.length; // 전체 개수
       
+      console.log(`✅ API 응답: ${proposals.length}개의 품의서 로드`);
+      
       // 전체 개수 업데이트 (첫 로드 시에만)
       if (reset || currentPage === 0) {
         setTotalCount(total);
@@ -275,6 +272,13 @@ const ContractList = () => {
       
       // 백엔드에서 이미 승인완료된 품의서만 조회하므로 프론트에서는 필터링 불필요
       const filteredProposals = proposals;
+      
+      // 상태별 개수 확인 (디버깅용)
+      const statusCount = proposals.reduce((acc, p) => {
+        acc[p.status] = (acc[p.status] || 0) + 1;
+        return acc;
+      }, {});
+      console.log('📊 상태별 개수 (DB):', statusCount);
       
       // localStorage에서 새로 작성된 품의서 확인
       const newProposal = localStorage.getItem('newProposal');
@@ -310,16 +314,23 @@ const ContractList = () => {
           contractor: proposal.purchaseItems?.[0]?.supplier || proposal.serviceItems?.[0]?.supplier || '미지정',
           author: '작성자', // 추후 사용자 정보 추가
           amount: proposal.totalAmount || 0,
-          status: proposal.isDraft ? '작성중' : 
-                 proposal.status === 'submitted' ? '검토중' : 
-                 proposal.status === 'approved' ? '승인됨' : '검토중',
+          status: (proposal.status === 'approved' || proposal.status === '결재완료') ? '결재완료' : 
+                  (proposal.status === 'submitted' || proposal.status === '결재대기') ? '결재대기' : 
+                  proposal.status,
           startDate: proposal.createdAt ? new Date(proposal.createdAt).toISOString().split('T')[0] : '',
           endDate: proposal.contractPeriod || '',
           type: proposal.contractType === 'purchase' ? '구매계약' :
                 proposal.contractType === 'service' ? '용역계약' :
                 proposal.contractType === 'change' ? '변경계약' :
                 proposal.contractType === 'extension' ? '연장계약' :
-                proposal.contractType === 'bidding' ? '입찰계약' : '기타',
+                proposal.contractType === 'bidding' ? '입찰계약' :
+                proposal.contractType === 'freeform' ? 
+                  // 자유양식일 때 contractMethod에 템플릿 이름(한글)이 있으면 표시, 아니면 "기타"
+                  (proposal.contractMethod && 
+                   /[가-힣]/.test(proposal.contractMethod) && 
+                   !proposal.contractMethod.includes('_')) ? 
+                    proposal.contractMethod : '기타' : 
+                '기타',
           purpose: proposal.purpose || '',
           basis: proposal.basis || '',
           budget: proposal.budgetInfo?.projectName || proposal.budgetId || '',
@@ -359,11 +370,20 @@ const ContractList = () => {
         // 새로 작성된 품의서와 API 데이터 합치기
         formattedProposals = [...formattedProposals, ...apiFormattedProposals];
         
+        // 상태별 개수 확인 (변환 후)
+        const formattedStatusCount = formattedProposals.reduce((acc, p) => {
+          acc[p.status] = (acc[p.status] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('📊 상태별 개수 (변환 후):', formattedStatusCount);
+        
         // reset이면 새로 설정, 아니면 기존에 추가
         if (reset || currentPage === 0) {
+          console.log(`🔄 상태 리셋: ${formattedProposals.length}개의 품의서로 교체`);
           setContracts(formattedProposals);
           setFilteredContracts(formattedProposals);
         } else {
+          console.log(`➕ 기존 목록에 ${formattedProposals.length}개 추가`);
           setContracts(prev => [...prev, ...formattedProposals]);
           setFilteredContracts(prev => [...prev, ...formattedProposals]);
         }
@@ -723,25 +743,20 @@ const ContractList = () => {
   };
 
   const getStatusColor = (status) => {
+    // 결재대기: 파란색, 결재완료: 초록색
     switch (status) {
-      case '완료': return '#28a745';
-      case '진행중': return '#007bff';
-      case '지연': return '#dc3545';
-      case '검토중': return '#ffc107';
-      case '승인대기': return '#6f42c1';
-      case '작성중': return '#17a2b8';
+      case '결재대기': return '#007bff';  // 파란색
+      case '결재완료': return '#28a745';  // 초록색
+      case '임시저장': return '#6c757d';  // 회색
+      case '반려': return '#dc3545';      // 빨간색
+      case '취소': return '#6c757d';      // 회색
       default: return '#6c757d';
     }
   };
 
   const getStatusDisplay = (status) => {
-    const statusMapping = {
-      'draft': '품의서 작성',
-      'submitted': '검토중',
-      'approved': '승인됨',
-      'rejected': '반려'
-    };
-    return statusMapping[status] || status;
+    // 상태를 그대로 표시 (이미 한글로 변환됨)
+    return status;
   };
 
   // 미리보기 열기 (리스트 클릭 시)
@@ -768,12 +783,13 @@ const ContractList = () => {
 
         // 공통 유틸리티에 맞는 데이터 구조로 변환
         const previewData = {
-          contractType: enhancedContract.contractType || enhancedContract.type,
+          title: enhancedContract.title,
+          contractType: originalData.contractType || originalData.contract_type || enhancedContract.contractType || enhancedContract.type,
           purpose: enhancedContract.purpose,
           basis: enhancedContract.basis,
           budget: enhancedContract.budget,
           budgetInfo: enhancedContract.budgetInfo, // 서버에서 가져온 예산 정보 추가
-          contractMethod: enhancedContract.contractMethod,
+          contractMethod: originalData.contractMethod || originalData.contract_method || enhancedContract.contractMethod,
           requestDepartments: enhancedContract.requestDepartments && enhancedContract.requestDepartments.length > 0
             ? enhancedContract.requestDepartments.map(d => d.department || d.name || d)
             : (enhancedContract.department ? [enhancedContract.department] : []),
@@ -781,12 +797,17 @@ const ContractList = () => {
           other: enhancedContract.other,
           purchaseItems: enhancedContract.purchaseItems || [],
           serviceItems: enhancedContract.serviceItems || [],
-          costDepartments: enhancedContract.costDepartments || []
+          costDepartments: enhancedContract.costDepartments || [],
+          wysiwygContent: enhancedContract.wysiwygContent || enhancedContract.wysiwyg_content || '' // 자유양식 컨텐츠 추가
         };
         
         console.log('=== ContractList 미리보기 데이터 ===');
+        console.log('서버에서 가져온 originalData:', originalData);
         console.log('원본 contract:', enhancedContract);
         console.log('변환된 데이터:', previewData);
+        console.log('contractType:', previewData.contractType);
+        console.log('wysiwygContent 길이:', previewData.wysiwygContent?.length || 0);
+        console.log('contractMethod:', previewData.contractMethod);
         
         // 재활용 버튼 표시 조건 확인
         console.log('=== 재활용 버튼 조건 확인 ===');
@@ -847,9 +868,8 @@ const ContractList = () => {
             statusBtn.style.marginRight = '10px';
             
             statusBtn.onclick = () => {
-              // 부모 창의 함수 호출
-              window.setSelectedContract(enhancedContract);
-              window.openStatusUpdate();
+              // 부모 창의 함수 호출 - contract 직접 전달
+              window.openStatusUpdate(enhancedContract);
               previewWindow.close();
             };
             
@@ -942,9 +962,8 @@ const ContractList = () => {
             statusBtn.style.marginRight = '10px';
             
             statusBtn.onclick = () => {
-              // 부모 창의 함수 호출
-              window.setSelectedContract(contract);
-              window.openStatusUpdate();
+              // 부모 창의 함수 호출 - contract 직접 전달
+              window.openStatusUpdate(contract);
               previewWindow.close();
             };
             
@@ -1095,8 +1114,37 @@ const ContractList = () => {
   window.handleRecycleProposal = handleRecycleProposal;
 
   // 상태 업데이트 모달 열기
-  const openStatusUpdate = () => {
-    setNewStatus(getStatusDisplay(selectedContract.status));
+  const openStatusUpdate = (contract = null) => {
+    const targetContract = contract || selectedContract;
+    
+    if (!targetContract) {
+      console.error('선택된 품의서가 없습니다.');
+      alert('품의서를 먼저 선택해주세요.');
+      return;
+    }
+    
+    // contract가 매개변수로 전달된 경우 selectedContract도 업데이트
+    if (contract) {
+      setSelectedContract(contract);
+    }
+    
+    // 현재 상태 확인
+    console.log('현재 품의서 상태:', targetContract.status);
+    
+    // 이미 결재완료된 경우 변경 불가
+    if (targetContract.status === '결재완료') {
+      alert('이미 결재완료된 품의서는 상태를 변경할 수 없습니다.');
+      return;
+    }
+    
+    // 결재대기 상태만 결재완료로 변경 가능
+    if (targetContract.status !== '결재대기') {
+      alert('결재대기 상태의 품의서만 결재완료로 변경할 수 있습니다.');
+      return;
+    }
+    
+    // 결재완료로만 변경 가능하도록 자동 설정
+    setNewStatus('결재완료');
     setStatusDate(new Date().toISOString().split('T')[0]); // 오늘 날짜를 기본값으로 설정
     setChangeReason('');
     setShowStatusUpdate(true);
@@ -1116,11 +1164,6 @@ const ContractList = () => {
 
   // 상태 업데이트 실행
   const handleStatusUpdate = async () => {
-    if (!newStatus.trim()) {
-      alert('새로운 상태를 선택해주세요.');
-      return;
-    }
-
     if (!statusDate) {
       alert('상태 변경 날짜를 입력해주세요.');
       return;
@@ -1128,13 +1171,21 @@ const ContractList = () => {
 
     try {
       setUpdatingStatus(true);
-              const response = await fetch(`${API_BASE_URL}/api/proposals/${selectedContract.id}/status`, {
+      
+      console.log('상태 업데이트 요청:', {
+        id: selectedContract.id,
+        status: 'approved',
+        statusDate,
+        changeReason
+      });
+      
+      const response = await fetch(`${API_BASE_URL}/api/proposals/${selectedContract.id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          status: newStatus,
+          status: 'approved', // submitted → approved로 변경
           statusDate: statusDate,
           changeReason: changeReason,
           changedBy: '관리자' // 실제로는 로그인한 사용자 정보를 사용
@@ -1143,32 +1194,17 @@ const ContractList = () => {
 
       if (response.ok) {
         const result = await response.json();
-        alert('상태가 성공적으로 업데이트되었습니다.');
+        console.log('✅ 서버 응답:', result);
         
-        // 선택된 품의서 상태 업데이트
-        setSelectedContract({
-          ...selectedContract,
-          status: newStatus
-        });
-        
-        // 전체 목록에서도 상태 업데이트
-        setContracts(prev => 
-          prev.map(contract => 
-            contract.id === selectedContract.id 
-              ? { ...contract, status: newStatus }
-              : contract
-          )
-        );
-        
-        setFilteredContracts(prev => 
-          prev.map(contract => 
-            contract.id === selectedContract.id 
-              ? { ...contract, status: newStatus }
-              : contract
-          )
-        );
-        
+        // 모달 닫기
         closeStatusUpdate();
+        
+        // 품의서 목록 새로고침
+        console.log('🔄 품의서 목록 새로고침 시작...');
+        await fetchProposals(true); // reset = true로 전체 목록 다시 로드
+        console.log('✅ 품의서 목록 새로고침 완료');
+        
+        alert('상태가 성공적으로 업데이트되었습니다.');
       } else {
         const error = await response.json();
         alert(`상태 업데이트 실패: ${error.error}`);
@@ -1928,13 +1964,21 @@ const ContractList = () => {
               </div>
               <div className="form-group">
                 <label>새로운 상태:</label>
-                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-                  {statusChangeOptions.map(option => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                <input 
+                  type="text" 
+                  value="결재완료" 
+                  readOnly 
+                  style={{ 
+                    backgroundColor: '#f0f0f0', 
+                    cursor: 'not-allowed',
+                    border: '1px solid #ddd',
+                    padding: '8px',
+                    borderRadius: '4px'
+                  }}
+                />
+                <small style={{ color: '#666', fontSize: '0.85em', marginTop: '4px', display: 'block' }}>
+                  ℹ️ 결재대기 상태는 결재완료로만 변경할 수 있습니다.
+                </small>
               </div>
               <div className="form-group">
                 <label>상태 변경 날짜:</label>

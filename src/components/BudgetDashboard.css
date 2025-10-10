@@ -626,6 +626,17 @@
   cursor: pointer;
 }
 
+/* 예산 초과 행 스타일 */
+.budget-list-table .budget-row.over-budget {
+  background-color: #ffe6e6 !important;
+  color: #c00;
+  font-weight: 600;
+}
+
+.budget-list-table .budget-row.over-budget:hover {
+  background-color: #ffcccc !important;
+}
+
 .status-badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
@@ -763,6 +774,15 @@
   color: #495057;
   border-bottom: 2px solid #dee2e6;
   white-space: nowrap;
+  user-select: none;
+}
+
+.proposals-table th[style*="cursor: pointer"] {
+  transition: background-color 0.2s ease;
+}
+
+.proposals-table th[style*="cursor: pointer"]:hover {
+  background-color: #e9ecef;
 }
 
 .proposals-table td {

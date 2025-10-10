@@ -797,10 +797,12 @@ export const generatePreviewHTML = (data, options = {}) => {
                 return '-';
               })()}</td>
             </tr>
+            ${data.contractType !== 'freeform' ? `
             <tr>
               <th>총 계약금액</th>
               <td style="font-weight: bold;">${formatCurrency(totalAmount)} (VAT 포함)</td>
             </tr>
+            ` : ''}
             ${data.other && data.other.trim() ? `
             <tr>
               <th>기타</th>

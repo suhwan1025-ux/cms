@@ -57,7 +57,14 @@ const DraftList = () => {
                      proposal.contractType === 'service' ? '용역계약' :
                      proposal.contractType === 'change' ? '변경계약' :
                      proposal.contractType === 'extension' ? '연장계약' :
-                     proposal.contractType === 'bidding' ? '입찰계약' : '기타',
+                     proposal.contractType === 'bidding' ? '입찰계약' :
+                     proposal.contractType === 'freeform' ? 
+                       // 자유양식일 때 contractMethod에 템플릿 이름(한글)이 있으면 표시, 아니면 "기타"
+                       (proposal.contractMethod && 
+                        /[가-힣]/.test(proposal.contractMethod) && 
+                        !proposal.contractMethod.includes('_')) ? 
+                         proposal.contractMethod : '기타' : 
+                     '기타',
         purpose: proposal.purpose || '',
         basis: proposal.basis || '',
         budget: proposal.budgetInfo?.projectName || proposal.budgetId || '',

@@ -1554,54 +1554,67 @@ app.put('/api/proposals/:id', async (req, res) => {
 // 7. 품의서 상태 업데이트
 app.patch('/api/proposals/:id/status', async (req, res) => {
   try {
+    console.log('=== 품의서 상태 업데이트 요청 ===');
+    console.log('품의서 ID:', req.params.id);
+    console.log('요청 데이터:', req.body);
+    
     const { status, statusDate, changeReason, changedBy = '시스템관리자' } = req.body;
     const proposal = await models.Proposal.findByPk(req.params.id);
     
     if (!proposal) {
+      console.log('❌ 품의서를 찾을 수 없음:', req.params.id);
       return res.status(404).json({ error: '품의서를 찾을 수 없습니다.' });
     }
     
     const previousStatus = proposal.status;
+    console.log('이전 상태:', previousStatus);
     
-    // 상태값을 enum 값으로 변환
-    const statusMapping = {
-      '품의서 작성': 'draft',
-      '검토중': 'submitted',
-      '승인됨': 'approved',
-      '반려': 'rejected',
-      '결재완료': 'approved',
-      '예가산정': 'submitted',
-      '입찰실시': 'submitted',
-      '보고 품의': 'submitted',
-      '계약체결': 'approved',
-      '계약완료': 'approved',
-      '승인대기': 'submitted'
-    };
-    
-    const dbStatus = statusMapping[status] || 'submitted';
-    
-    // 상태 업데이트 (isDraft도 함께 업데이트)
-    const updateData = { status: dbStatus };
-    
-    // 검토중, 승인됨 등의 상태로 변경되면 isDraft를 false로 설정
-    if (dbStatus !== 'draft') {
-      updateData.isDraft = false;
+    // 상태는 submitted 또는 approved만 허용
+    let dbStatus;
+    if (status === 'approved' || status === '결재완료') {
+      dbStatus = 'approved';
+    } else if (status === 'submitted' || status === '결재대기') {
+      dbStatus = 'submitted';
+    } else {
+      // 기본값: submitted
+      dbStatus = 'submitted';
     }
     
+    console.log('변환된 DB 상태:', status, '->', dbStatus);
+    
+    // submitted -> approved로만 변경 가능 (보안 체크)
+    if (previousStatus === 'approved' && dbStatus === 'submitted') {
+      console.log('⚠️ approved -> submitted 변경 불가');
+      return res.status(400).json({ 
+        error: '결재완료된 품의서는 결재대기로 변경할 수 없습니다.' 
+      });
+    }
+    
+    // 상태 업데이트
+    const updateData = { 
+      status: dbStatus,
+      isDraft: false
+    };
+    
+    console.log('업데이트할 데이터:', updateData);
     await proposal.update(updateData);
+    console.log('✅ 상태 업데이트 완료');
     
     // 상태에 따라 특정 날짜 필드 업데이트
     if (status === '결재완료' && statusDate) {
       await proposal.update({ approvalDate: statusDate });
     }
     
-    // 히스토리 저장
+    // 히스토리 저장 (현재 테이블 구조에 맞게)
     await models.ProposalHistory.create({
       proposalId: proposal.id,
-      previousStatus,
-      newStatus: status,
       changedBy,
-      changeReason
+      changedAt: new Date(),
+      changeType: 'status_update',
+      fieldName: 'status',
+      oldValue: previousStatus,
+      newValue: status,
+      description: changeReason || `상태 변경: ${previousStatus} → ${status}`
     });
     
     res.json({ 

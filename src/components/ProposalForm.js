@@ -17,20 +17,24 @@ const ProposalForm = () => {
     if (template) {
       setFormData(prevData => ({
         ...prevData,
-        wysiwygContent: template.content
+        wysiwygContent: template.content,
+        contractMethod: template.name // 템플릿명을 계약 유형으로 저장
       }));
       setSelectedTemplate(template.id);
       setShowTemplates(false);
       console.log(`✅ 템플릿 선택됨: ${template.name}`);
+      console.log(`✅ 계약 유형 설정: ${template.name}`);
     } else {
-      // 템플릿 초기화
+      // 템플릿 초기화 (빈 문서)
       setFormData(prevData => ({
         ...prevData,
-        wysiwygContent: ''
+        wysiwygContent: '',
+        contractMethod: '기타' // 빈 문서는 "기타"로 설정
       }));
       setSelectedTemplate(null);
       setShowTemplates(false);
-      console.log('🗑️ 템플릿 초기화됨');
+      console.log('🗑️ 템플릿 초기화됨 (빈 문서)');
+      console.log('✅ 계약 유형 설정: 기타');
     }
   };
 
@@ -586,6 +590,8 @@ const ProposalForm = () => {
         console.log('사업예산 샘플:', safeBusinessBudgetsData.slice(0, 2));
         console.log('부서 데이터 로드됨:', safeDepartmentsData.length, '개');
         console.log('부서 샘플:', safeDepartmentsData.slice(0, 3));
+        console.log('계약방식 데이터 로드됨:', contractMethodsData.length, '개');
+        console.log('계약방식 샘플:', contractMethodsData);
         
         // 초기 필터링 설정
         if (safeBusinessBudgetsData.length > 0) {
@@ -2998,11 +3004,11 @@ const ProposalForm = () => {
     
     const method = contractMethods.find(m => 
       m.value === formData.contractMethod || 
-      m.id == formData.contractMethod ||
-      m.name === formData.contractMethod
+      m.name === formData.contractMethod ||
+      m.id == formData.contractMethod
     );
     
-    return method?.name || `미등록 계약방식 (${formData.contractMethod})`;
+    return method?.name || formData.contractMethod || '-';
   };
 
   // 예산 이름 반환
@@ -3758,7 +3764,14 @@ const ProposalForm = () => {
                            formData.contractType === 'service' ? '용역계약' :
                            formData.contractType === 'change' ? '변경계약' :
                            formData.contractType === 'extension' ? '연장계약' :
-                           formData.contractType === 'freeform' ? '자유양식' : '기타',
+                           formData.contractType === 'bidding' ? '입찰계약' :
+                           formData.contractType === 'freeform' ? 
+                             // 자유양식일 때 contractMethod에 템플릿 이름(한글)이 있으면 표시, 아니면 "기타"
+                             (formData.contractMethod && 
+                              /[가-힣]/.test(formData.contractMethod) && 
+                              !formData.contractMethod.includes('_')) ? 
+                               formData.contractMethod : '기타' : 
+                           '기타',
               purpose: formData.purpose || '',
               basis: formData.basis || '',
               budget: formData.budgetInfo?.projectName || formData.budgetId || '',
@@ -4018,26 +4031,29 @@ const ProposalForm = () => {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>계약방식</label>
-                <select
-                  value={formData.contractMethod}
-                  onChange={(e) => setFormData({...formData, contractMethod: e.target.value})}
-                  required
-                >
-                  <option value="">계약방식을 선택하세요</option>
-                  {contractMethods.map(method => (
-                    <option key={method.value} value={method.value}>
-                      {method.name}
-                    </option>
-                  ))}
-                </select>
-                {formData.contractMethod && (
-                  <div className="regulation-info">
-                    <span>사내규정: {contractMethods.find(m => m.value === formData.contractMethod)?.regulation}</span>
-                  </div>
-                )}
-              </div>
+              {/* 자유양식이 아닐 때만 계약방식 선택 표시 (템플릿 이름 보존) */}
+              {contractType !== 'freeform' && (
+                <div className="form-group">
+                  <label>계약방식</label>
+                  <select
+                    value={formData.contractMethod}
+                    onChange={(e) => setFormData({...formData, contractMethod: e.target.value})}
+                    required
+                  >
+                    <option value="">계약방식을 선택하세요</option>
+                    {contractMethods.map(method => (
+                      <option key={method.id || method.value} value={method.value}>
+                        {method.name}
+                      </option>
+                    ))}
+                  </select>
+                  {formData.contractMethod && (
+                    <div className="regulation-info">
+                      <span>사내규정: {contractMethods.find(m => m.value === formData.contractMethod)?.basis}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="form-row">
@@ -5940,19 +5956,14 @@ const ProposalForm = () => {
                               // value로 매칭되지 않으면 다른 방식 시도
                               if (!method) {
                                 method = contractMethods.find(m => 
+                                  m.name === formData.contractMethod ||
                                   m.id == formData.contractMethod || 
                                   m.id === parseInt(formData.contractMethod) || 
-                                  String(m.id) === String(formData.contractMethod) ||
-                                  m.name === formData.contractMethod
+                                  String(m.id) === String(formData.contractMethod)
                                 );
                               }
                               
-                              // "lowest" 같은 특수 값 처리
-                              if (!method && formData.contractMethod === 'lowest') {
-                                return '최저가계약';
-                              }
-                              
-                              return method?.name || `미등록 계약방식 (${formData.contractMethod})`;
+                              return method?.name || formData.contractMethod || '미입력';
                             })()}
                           </td>
                         </tr>
