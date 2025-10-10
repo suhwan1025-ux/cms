@@ -122,12 +122,19 @@ async function createCompleteTables() {
         budget_category VARCHAR(100) NOT NULL,
         budget_amount DECIMAL(15,2) NOT NULL,
         executed_amount DECIMAL(15,2) DEFAULT 0,
+        pending_amount DECIMAL(15,2) DEFAULT 0,
+        confirmed_execution_amount DECIMAL(15,2) DEFAULT 0,
+        unexecuted_amount DECIMAL(15,2) DEFAULT 0,
+        additional_budget DECIMAL(15,2) DEFAULT 0,
         start_date VARCHAR(7) NOT NULL,
         end_date VARCHAR(7) NOT NULL,
         is_essential BOOLEAN DEFAULT false,
         project_purpose VARCHAR(10) NOT NULL,
         budget_year INTEGER NOT NULL,
         status VARCHAR(20) DEFAULT '승인대기',
+        hold_cancel_reason TEXT,
+        notes TEXT,
+        it_plan_reported BOOLEAN DEFAULT FALSE,
         created_by VARCHAR(100) DEFAULT '작성자',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -165,6 +172,22 @@ async function createCompleteTables() {
       );
     `);
     console.log('✅ business_budget_approvals 테이블 생성 완료');
+    
+    // 6-1. 사업예산 변경이력 테이블
+    await sequelize.query(`
+      CREATE TABLE business_budget_history (
+        id SERIAL PRIMARY KEY,
+        budget_id INTEGER NOT NULL REFERENCES business_budgets(id) ON DELETE CASCADE,
+        change_type VARCHAR(20) NOT NULL,
+        changed_field VARCHAR(100),
+        old_value TEXT,
+        new_value TEXT,
+        changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        changed_by VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ business_budget_history 테이블 생성 완료');
     
     // 7. 계약방식 테이블
     await sequelize.query(`
