@@ -249,7 +249,7 @@ const BudgetRegistrationAPI = () => {
         budgetAmount: formData.budgetAmount ? parseInt(formData.budgetAmount.replace(/[^\d]/g, '')) : 0,
         executedAmount: formData.executedAmount ? parseInt(formData.executedAmount.replace(/[^\d]/g, '')) : 0,
         pendingAmount: formData.pendingAmount ? parseInt(formData.pendingAmount.replace(/[^\d]/g, '')) : 0,
-        confirmedExecutionAmount: formData.confirmedExecutionAmount ? parseInt(formData.confirmedExecutionAmount.replace(/[^\d]/g, '')) : 0,
+        // confirmedExecutionAmount는 품의서와 JOIN으로 자동 계산되므로 전송하지 않음
         unexecutedAmount: formData.unexecutedAmount ? parseInt(formData.unexecutedAmount.replace(/[^\d]/g, '')) : 0,
         additionalBudget: formData.additionalBudget ? parseInt(formData.additionalBudget.replace(/[^\d]/g, '')) : 0,
         isEssential: formData.isEssential === '필수' ? true : false
@@ -313,7 +313,8 @@ const BudgetRegistrationAPI = () => {
     let processedValue = value;
     
     // 금액 관련 필드에 콤마 추가
-    const amountFields = ['budgetAmount', 'executedAmount', 'pendingAmount', 'confirmedExecutionAmount', 'unexecutedAmount', 'additionalBudget'];
+    const amountFields = ['budgetAmount', 'executedAmount', 'pendingAmount', 'unexecutedAmount', 'additionalBudget'];
+    // confirmedExecutionAmount는 읽기 전용이므로 제외
     if (amountFields.includes(name)) {
       // 숫자와 콤마만 허용
       const numericValue = value.replace(/[^\d]/g, '');
@@ -1156,13 +1157,16 @@ const BudgetRegistrationAPI = () => {
                   </div>
                   
                   <div className="form-group">
-                    <label>확정집행액</label>
+                    <label>확정집행액 <span style={{ fontSize: '0.8em', color: '#666' }}>(자동 계산)</span></label>
                     <input
                       type="text"
                       name="confirmedExecutionAmount"
                       value={formData.confirmedExecutionAmount}
                       onChange={handleChange}
-                      placeholder="예: 1,000,000"
+                      placeholder="품의완료 시 자동 계산됨"
+                      readOnly
+                      style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+                      title="확정집행액은 결재완료된 품의서 금액의 합계로 자동 계산됩니다"
                     />
                   </div>
                   

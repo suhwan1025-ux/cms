@@ -15,63 +15,7 @@ app.use(express.static('public'));
 app.use(express.static('.'));
 
 // 사업예산 확정집행액 동기화 함수 (결재완료된 품의서 기준)
-async function updateBudgetExecutionAmount() {
-  try {
-    // 결재완료된 품의서들의 총 계약금액 조회
-    const approvedProposals = await sequelize.query(`
-      SELECT 
-        p.id as proposal_id,
-        p.total_amount as totalAmount,
-        p.budget_id as budget_id,
-        COALESCE(SUM(cd.amount), 0) as total_dept_amount
-      FROM proposals p
-      LEFT JOIN cost_departments cd ON p.id = cd.proposal_id
-      WHERE p.status = 'approved'
-      GROUP BY p.id, p.total_amount, p.budget_id
-    `);
-
-    const proposalData = approvedProposals[0] || [];
-    
-    // 사업예산별로 집행금액 계산
-    const budgetExecutions = {};
-    
-    proposalData.forEach(proposal => {
-      if (proposal.budget_id) {
-        if (!budgetExecutions[proposal.budget_id]) {
-          budgetExecutions[proposal.budget_id] = 0;
-        }
-        // 비용귀속부서 금액이 품의서 총액과 일치하는지 검증
-        // 일치하지 않으면 품의서 총액을 사용 (중복 계산 방지)
-        let amount;
-        if (proposal.total_dept_amount > 0 && Math.abs(proposal.total_dept_amount - proposal.totalAmount) < 100) {
-          // 금액이 거의 일치하면 비용귀속부서 금액 사용
-          amount = proposal.total_dept_amount;
-        } else {
-          // 금액이 다르면 품의서 총액 사용 (중복 계산 방지)
-          amount = proposal.totalAmount;
-        }
-        budgetExecutions[proposal.budget_id] += parseFloat(amount || 0);
-      }
-    });
-
-    // 각 사업예산의 확정집행액 업데이트 (기집행액은 별도 관리)
-    for (const [budgetId, confirmedAmount] of Object.entries(budgetExecutions)) {
-      await sequelize.query(`
-        UPDATE business_budgets 
-        SET 
-          confirmed_execution_amount = ?,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `, {
-        replacements: [confirmedAmount, budgetId]
-      });
-    }
-
-    console.log('사업예산 확정집행액 동기화 완료:', budgetExecutions);
-  } catch (error) {
-    console.error('사업예산 확정집행액 동기화 실패:', error);
-  }
-}
+// 확정집행액은 JOIN으로 실시간 계산하므로 별도 동기화 함수 불필요
 
 // 데이터베이스 연결
 const sequelize = new Sequelize(
@@ -130,32 +74,10 @@ app.get('/api/budgets', async (req, res) => {
   }
 });
 
-// 3-1. 사업예산 통계 데이터 조회
+// 3-1. 사업예산 통계 데이터 조회 (JOIN 방식으로 실시간 계산)
 app.get('/api/budget-statistics', async (req, res) => {
   try {
-    // 사업예산 집행액 동기화 (결재완료 품의서 기준)
-    await updateBudgetExecutionAmount();
-    
-    // 결재완료된 품의서와 관련 사업예산 정보를 함께 조회
-    const proposalBudgetData = await sequelize.query(`
-      SELECT 
-        p.id as proposal_id,
-        p.total_amount as "totalAmount",
-        p.contract_type as "contractType",
-        p.created_at as "proposalCreatedAt",
-        p.budget_id as "budgetName",
-        bb.id as budget_id,
-        bb.project_name as "projectName",
-        bb.initiator_department as "initiatorDepartment",
-        bb.executor_department as "executorDepartment",
-        bb.budget_category as "budgetCategory",
-        bb.budget_amount as "budgetAmount"
-      FROM proposals p
-      LEFT JOIN business_budgets bb ON p.budget_id = bb.id
-      WHERE p.status = 'approved'
-    `);
-
-    // 모든 사업예산 데이터 가져오기 (사업목적 설명 포함)
+    // 모든 사업예산 데이터와 확정집행액을 JOIN으로 실시간 계산
     const allBudgetData = await sequelize.query(`
       SELECT 
         bb.id,
@@ -166,7 +88,7 @@ app.get('/api/budget-statistics', async (req, res) => {
         bb.budget_amount as "budgetAmount",
         bb.executed_amount as "executedAmount",
         bb.pending_amount as "pendingAmount",
-        bb.confirmed_execution_amount as "confirmedExecutionAmount",
+        COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.total_amount ELSE 0 END), 0) as "confirmedExecutionAmount",
         bb.unexecuted_amount as "unexecutedAmount",
         bb.additional_budget as "additionalBudget",
         bb.hold_cancel_reason as "holdCancelReason",
@@ -181,48 +103,34 @@ app.get('/api/budget-statistics', async (req, res) => {
         bb.budget_year as "budgetYear",
         bb.status,
         bb.created_by as "createdBy",
-        bb.created_at as "createdAt"
+        bb.created_at as "createdAt",
+        COUNT(CASE WHEN p.status = 'approved' THEN p.id ELSE NULL END) as "approvedProposalCount"
       FROM business_budgets bb
       LEFT JOIN project_purposes pp ON bb.project_purpose = pp.code AND bb.budget_year = pp.year
+      LEFT JOIN proposals p ON p.budget_id = bb.id
+      GROUP BY bb.id, pp.code, pp.description
       ORDER BY bb.created_at DESC
     `);
 
-    const proposalBudgets = proposalBudgetData[0] || [];
     const allBudgets = allBudgetData[0] || [];
 
-    // 사업예산별 실제 집행금액 계산
-    const budgetExecutions = {};
-    proposalBudgets.forEach(item => {
-      if (item.budget_id && item.totalAmount) {
-        if (!budgetExecutions[item.budget_id]) {
-          budgetExecutions[item.budget_id] = 0;
-        }
-        budgetExecutions[item.budget_id] += parseFloat(item.totalAmount || 0);
-      }
-    });
-    
-    console.log('=== 사업예산 집행금액 계산 디버깅 ===');
-    console.log('proposalBudgets:', proposalBudgets);
-    console.log('budgetExecutions:', budgetExecutions);
-    console.log('allBudgets 샘플:', allBudgets.slice(0, 2));
-
-    // 각 사업예산에 실제 집행금액 추가
+    // 각 사업예산에 계산된 값 추가
     const budgetsWithExecution = allBudgets.map(budget => ({
       ...budget,
-      executedAmount: budgetExecutions[budget.id] || 0,
-      remainingAmount: parseFloat(budget.budgetAmount || 0) - (budgetExecutions[budget.id] || 0),
+      remainingAmount: parseFloat(budget.budgetAmount || 0) - parseFloat(budget.confirmedExecutionAmount || 0),
       executionRate: parseFloat(budget.budgetAmount || 0) > 0 
-        ? Math.round(((budgetExecutions[budget.id] || 0) / parseFloat(budget.budgetAmount || 0)) * 100) 
+        ? Math.round((parseFloat(budget.confirmedExecutionAmount || 0) / parseFloat(budget.budgetAmount || 0)) * 100) 
         : 0
     }));
 
     // 전체 통계 계산
     const totalBudgets = allBudgets.length;
     const totalBudgetAmount = allBudgets.reduce((sum, budget) => sum + parseFloat(budget.budgetAmount || 0), 0);
-    const totalExecutedAmount = Object.values(budgetExecutions).reduce((sum, amount) => sum + amount, 0);
+    const totalExecutedAmount = allBudgets.reduce((sum, budget) => sum + parseFloat(budget.confirmedExecutionAmount || 0), 0);
     const totalRemainingAmount = totalBudgetAmount - totalExecutedAmount;
+    const totalApprovedProposals = allBudgets.reduce((sum, budget) => sum + parseInt(budget.approvedProposalCount || 0), 0);
 
-    // 부서별 통계 (실제 집행금액 반영)
+    // 부서별 통계 (확정집행액 반영)
     const budgetByDepartment = {};
     budgetsWithExecution.forEach(budget => {
       const dept = budget.executorDepartment;
@@ -230,11 +138,11 @@ app.get('/api/budget-statistics', async (req, res) => {
         budgetByDepartment[dept] = { department: dept, totalAmount: 0, executedAmount: 0, count: 0 };
       }
       budgetByDepartment[dept].totalAmount += parseFloat(budget.budgetAmount || 0);
-      budgetByDepartment[dept].executedAmount += budget.executedAmount;
+      budgetByDepartment[dept].executedAmount += parseFloat(budget.confirmedExecutionAmount || 0);
       budgetByDepartment[dept].count += 1;
     });
 
-    // 년도별 통계 (실제 집행금액 반영)
+    // 년도별 통계 (확정집행액 반영)
     const budgetByYear = {};
     budgetsWithExecution.forEach(budget => {
       const year = budget.budgetYear;
@@ -242,7 +150,7 @@ app.get('/api/budget-statistics', async (req, res) => {
         budgetByYear[year] = { year, totalAmount: 0, executedAmount: 0, count: 0 };
       }
       budgetByYear[year].totalAmount += parseFloat(budget.budgetAmount || 0);
-      budgetByYear[year].executedAmount += budget.executedAmount;
+      budgetByYear[year].executedAmount += parseFloat(budget.confirmedExecutionAmount || 0);
       budgetByYear[year].count += 1;
     });
 
@@ -258,9 +166,8 @@ app.get('/api/budget-statistics', async (req, res) => {
       budgetByYear: Object.values(budgetByYear),
       budgetData: budgetsWithExecution,
       currentYear,
-      approvedProposalsCount: proposalBudgets.length,
-      totalExecutedFromProposals: totalExecutedAmount,
-      budgetExecutions
+      approvedProposalsCount: totalApprovedProposals,
+      totalExecutedFromProposals: totalExecutedAmount
     });
   } catch (error) {
     console.error('사업예산 통계 조회 오류:', error);
@@ -1652,11 +1559,6 @@ app.patch('/api/proposals/:id/status', async (req, res) => {
       await proposal.update({ approvalDate: statusDate });
     }
     
-    // 결재완료 시 사업예산 집행금액 동기화
-    if (status === '결재완료' && dbStatus === 'approved') {
-      await updateBudgetExecutionAmount();
-    }
-    
     // 히스토리 저장
     await models.ProposalHistory.create({
       proposalId: proposal.id,
@@ -2023,11 +1925,6 @@ app.post('/api/proposals/draft', async (req, res) => {
       await models.ApprovalLine.bulkCreate(approvalLines);
     }
 
-    // 임시저장 후 사업예산 집행금액 동기화 (결재완료 상태인 경우에만)
-    if (proposal.status === 'approved') {
-      await updateBudgetExecutionAmount();
-    }
-
     res.status(201).json({
       message: '품의서가 임시저장되었습니다.',
       proposalId: proposal.id
@@ -2227,6 +2124,7 @@ app.delete('/api/proposals/:id', async (req, res) => {
     }
 
     console.log('✅ 품의서 삭제 완료:', proposalId);
+    
     res.json({ 
       message: '품의서가 성공적으로 삭제되었습니다.',
       deletedId: proposalId
@@ -2992,9 +2890,6 @@ app.listen(PORT, '0.0.0.0', async () => {
     
     // 스키마 자동 업데이트
     await updateDatabaseSchema();
-    
-    // 사업예산 집행액 초기 동기화
-    await updateBudgetExecutionAmount();
     
     console.log(`🚀 API 서버가 포트 ${PORT}에서 실행 중입니다.`);
     console.log(`🌐 로컬 접근: http://localhost:${PORT}/api`);
