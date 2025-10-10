@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 import Dashboard from './components/Dashboard';
+import BudgetDashboard from './components/BudgetDashboard';
 import BudgetRegistration from './components/BudgetRegistrationAPI';
 import BudgetHistory from './components/BudgetHistory';
 import ContractList from './components/ContractList';
@@ -15,6 +16,7 @@ import EditorTest from './components/EditorTest';
 
 
 function App() {
+  const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
   const [proposalMenuOpen, setProposalMenuOpen] = useState(false);
   const [budgetMenuOpen, setBudgetMenuOpen] = useState(false);
 
@@ -28,10 +30,27 @@ function App() {
               <h1>계약 관리시스템</h1>
             </div>
             <nav className="sidebar-nav">
-              <Link to="/" className="nav-link">
-                <span className="nav-icon">📊</span>
-                대시보드
-              </Link>
+              {/* 대시보드 드롭다운 메뉴 */}
+              <div className="nav-dropdown">
+                <button 
+                  className="nav-link dropdown-toggle"
+                  onClick={() => setDashboardMenuOpen(!dashboardMenuOpen)}
+                >
+                  <span className="nav-icon">📊</span>
+                  대시보드
+                  <span className="dropdown-arrow">{dashboardMenuOpen ? '▼' : '▶'}</span>
+                </button>
+                {dashboardMenuOpen && (
+                  <div className="dropdown-menu">
+                    <Link to="/" className="dropdown-item">
+                      계약현황
+                    </Link>
+                    <Link to="/budget-dashboard" className="dropdown-item">
+                      사업예산현황
+                    </Link>
+                  </div>
+                )}
+              </div>
               
               {/* 품의서 관리 드롭다운 메뉴 */}
               <div className="nav-dropdown">
@@ -107,6 +126,7 @@ function App() {
           <main className="main-content">
                        <Routes>
              <Route path="/" element={<Dashboard />} />
+             <Route path="/budget-dashboard" element={<BudgetDashboard />} />
              <Route path="/budget" element={<BudgetRegistration />} />
              <Route path="/budget-history" element={<BudgetHistory />} />
              <Route path="/contract-list" element={<ContractList />} />

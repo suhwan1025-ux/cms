@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use(express.static('.'));
 
-// 사업예산 집행금액 동기화 함수
+// 사업예산 확정집행액 동기화 함수 (결재완료된 품의서 기준)
 async function updateBudgetExecutionAmount() {
   try {
     // 결재완료된 품의서들의 총 계약금액 조회
@@ -54,20 +54,22 @@ async function updateBudgetExecutionAmount() {
       }
     });
 
-    // 각 사업예산의 집행금액 업데이트
-    for (const [budgetId, executedAmount] of Object.entries(budgetExecutions)) {
+    // 각 사업예산의 확정집행액 업데이트 (기집행액은 별도 관리)
+    for (const [budgetId, confirmedAmount] of Object.entries(budgetExecutions)) {
       await sequelize.query(`
         UPDATE business_budgets 
-        SET executed_amount = ?, updated_at = CURRENT_TIMESTAMP
+        SET 
+          confirmed_execution_amount = ?,
+          updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `, {
-        replacements: [executedAmount, budgetId]
+        replacements: [confirmedAmount, budgetId]
       });
     }
 
-    console.log('사업예산 집행금액 동기화 완료:', budgetExecutions);
+    console.log('사업예산 확정집행액 동기화 완료:', budgetExecutions);
   } catch (error) {
-    console.error('사업예산 집행금액 동기화 실패:', error);
+    console.error('사업예산 확정집행액 동기화 실패:', error);
   }
 }
 
@@ -131,6 +133,9 @@ app.get('/api/budgets', async (req, res) => {
 // 3-1. 사업예산 통계 데이터 조회
 app.get('/api/budget-statistics', async (req, res) => {
   try {
+    // 사업예산 집행액 동기화 (결재완료 품의서 기준)
+    await updateBudgetExecutionAmount();
+    
     // 결재완료된 품의서와 관련 사업예산 정보를 함께 조회
     const proposalBudgetData = await sequelize.query(`
       SELECT 
@@ -150,25 +155,36 @@ app.get('/api/budget-statistics', async (req, res) => {
       WHERE p.status = 'approved'
     `);
 
-    // 모든 사업예산 데이터 가져오기
+    // 모든 사업예산 데이터 가져오기 (사업목적 설명 포함)
     const allBudgetData = await sequelize.query(`
       SELECT 
-        id,
-        project_name as "projectName",
-        initiator_department as "initiatorDepartment",
-        executor_department as "executorDepartment",
-        budget_category as "budgetCategory",
-        budget_amount as "budgetAmount",
-        start_date as "startDate",
-        end_date as "endDate",
-        is_essential as "isEssential",
-        project_purpose as "projectPurpose",
-        budget_year as "budgetYear",
-        status,
-        created_by as "createdBy",
-        created_at as "createdAt"
-      FROM business_budgets 
-      ORDER BY created_at DESC
+        bb.id,
+        bb.project_name as "projectName",
+        bb.initiator_department as "initiatorDepartment",
+        bb.executor_department as "executorDepartment",
+        bb.budget_category as "budgetCategory",
+        bb.budget_amount as "budgetAmount",
+        bb.executed_amount as "executedAmount",
+        bb.pending_amount as "pendingAmount",
+        bb.confirmed_execution_amount as "confirmedExecutionAmount",
+        bb.unexecuted_amount as "unexecutedAmount",
+        bb.additional_budget as "additionalBudget",
+        bb.hold_cancel_reason as "holdCancelReason",
+        bb.notes,
+        bb.it_plan_reported as "itPlanReported",
+        bb.start_date as "startDate",
+        bb.end_date as "endDate",
+        bb.is_essential as "isEssential",
+        bb.project_purpose as "projectPurpose",
+        pp.code as "projectPurposeCode",
+        pp.description as "projectPurposeDescription",
+        bb.budget_year as "budgetYear",
+        bb.status,
+        bb.created_by as "createdBy",
+        bb.created_at as "createdAt"
+      FROM business_budgets bb
+      LEFT JOIN project_purposes pp ON bb.project_purpose = pp.code AND bb.budget_year = pp.year
+      ORDER BY bb.created_at DESC
     `);
 
     const proposalBudgets = proposalBudgetData[0] || [];
@@ -2976,6 +2992,9 @@ app.listen(PORT, '0.0.0.0', async () => {
     
     // 스키마 자동 업데이트
     await updateDatabaseSchema();
+    
+    // 사업예산 집행액 초기 동기화
+    await updateBudgetExecutionAmount();
     
     console.log(`🚀 API 서버가 포트 ${PORT}에서 실행 중입니다.`);
     console.log(`🌐 로컬 접근: http://localhost:${PORT}/api`);
