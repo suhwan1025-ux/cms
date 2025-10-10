@@ -23,6 +23,7 @@ const BudgetRegistrationAPI = () => {
     pendingAmount: '', // 집행대기
     confirmedExecutionAmount: '', // 확정집행액
     unexecutedAmount: '', // 미집행액
+    budgetExcessAmount: '', // 예산초과액
     additionalBudget: '', // 추가예산
     holdCancelReason: '', // 보류/취소 사유
     notes: '', // 비고
@@ -331,14 +332,21 @@ const BudgetRegistrationAPI = () => {
         [name]: type === 'checkbox' ? checked : processedValue
       };
       
-      // 예산, 기집행, 확정집행액이 변경되면 미집행액 자동 계산
-      if (['budgetAmount', 'executedAmount', 'confirmedExecutionAmount'].includes(name)) {
+      // 예산, 기집행액이 변경되면 미집행액과 예산초과액 자동 계산
+      if (['budgetAmount', 'executedAmount'].includes(name)) {
         const budget = parseInt((name === 'budgetAmount' ? processedValue : newFormData.budgetAmount || '0').replace(/[^\d]/g, '')) || 0;
         const executed = parseInt((name === 'executedAmount' ? processedValue : newFormData.executedAmount || '0').replace(/[^\d]/g, '')) || 0;
-        const confirmed = parseInt((name === 'confirmedExecutionAmount' ? processedValue : newFormData.confirmedExecutionAmount || '0').replace(/[^\d]/g, '')) || 0;
         
-        const unexecuted = budget - executed - confirmed;
-        newFormData.unexecutedAmount = unexecuted > 0 ? unexecuted.toLocaleString() : '0';
+        // 예산초과 여부에 따라 계산 (기집행액만 비교)
+        if (executed > budget) {
+          // 예산 초과: 미집행액 = 0, 예산초과액 = 초과분
+          newFormData.unexecutedAmount = '0';
+          newFormData.budgetExcessAmount = (executed - budget).toLocaleString();
+        } else {
+          // 예산 내: 미집행액 = 잔액, 예산초과액 = 0
+          newFormData.unexecutedAmount = (budget - executed).toLocaleString();
+          newFormData.budgetExcessAmount = '0';
+        }
       }
       
       return newFormData;
@@ -409,6 +417,7 @@ const BudgetRegistrationAPI = () => {
       pendingAmount: '',
       confirmedExecutionAmount: '',
       unexecutedAmount: '',
+      budgetExcessAmount: '',
       additionalBudget: '',
       holdCancelReason: '',
       notes: '',
@@ -424,11 +433,13 @@ const BudgetRegistrationAPI = () => {
 
   // 테이블 행 클릭 시 데이터 로드 (수정 모드로 전환)
   const handleRowClick = (budget) => {
-    // 미집행액 자동 계산: 예산 - (기집행 + 확정집행액)
+    // 미집행액 및 예산초과액 자동 계산 (기집행액 기준)
     const budgetAmt = budget.budgetAmount || 0;
     const executedAmt = budget.executedAmount || 0;
-    const confirmedAmt = budget.confirmedExecutionAmount || 0;
-    const unexecutedAmt = Math.max(0, budgetAmt - executedAmt - confirmedAmt);
+    
+    // 예산초과 여부에 따라 계산 (기집행액만 비교)
+    const budgetExcessAmt = executedAmt > budgetAmt ? executedAmt - budgetAmt : 0;
+    const unexecutedAmt = executedAmt <= budgetAmt ? budgetAmt - executedAmt : 0;
     
     setFormData({
       projectName: budget.projectName,
@@ -446,7 +457,8 @@ const BudgetRegistrationAPI = () => {
       executedAmount: budget.executedAmount ? budget.executedAmount.toLocaleString() : '',
       pendingAmount: budget.pendingAmount ? budget.pendingAmount.toLocaleString() : '',
       confirmedExecutionAmount: budget.confirmedExecutionAmount ? budget.confirmedExecutionAmount.toLocaleString() : '',
-      unexecutedAmount: unexecutedAmt.toLocaleString(), // 자동 계산
+      unexecutedAmount: unexecutedAmt.toLocaleString(), // 자동 계산 (0 이상)
+      budgetExcessAmount: budgetExcessAmt > 0 ? budgetExcessAmt.toLocaleString() : '0', // 예산초과액
       additionalBudget: budget.additionalBudget ? budget.additionalBudget.toLocaleString() : '',
       holdCancelReason: budget.holdCancelReason || '',
       notes: budget.notes || '',
@@ -894,11 +906,22 @@ const BudgetRegistrationAPI = () => {
     }
   };
 
-  // 금액 포맷팅
+  // 금액 포맷팅 (백만원 단위)
   const formatCurrency = (amount) => {
     // 소수점 제거하고 정수로 변환
     const integerAmount = Math.round(amount);
-    return new Intl.NumberFormat('ko-KR').format(integerAmount) + '원';
+    
+    // 백만원 단위로 변환 (1,000,000원 = 1백만원)
+    const millionAmount = integerAmount / 1000000;
+    
+    // 소수점 처리: 1백만원 미만은 소수점 1자리, 그 이상은 정수로 표시
+    if (millionAmount < 1) {
+      return millionAmount.toFixed(2) + '백만원';
+    } else if (millionAmount < 10) {
+      return millionAmount.toFixed(1) + '백만원';
+    } else {
+      return Math.round(millionAmount).toLocaleString('ko-KR') + '백만원';
+    }
   };
 
   if (loading) {
@@ -1197,10 +1220,24 @@ const BudgetRegistrationAPI = () => {
                       name="unexecutedAmount"
                       value={formData.unexecutedAmount}
                       onChange={handleChange}
-                      placeholder="예산 - 기집행 - 확정집행액"
+                      placeholder="예산 - 기집행 (0 이상)"
                       readOnly
                       style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
-                      title="미집행액 = 예산 - (기집행 + 확정집행액)"
+                      title="미집행액 = 예산 - 기집행, 음수일 경우 0 표시"
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>예산초과액 <span style={{ fontSize: '0.8em', color: '#d9534f' }}>(자동 계산)</span></label>
+                    <input
+                      type="text"
+                      name="budgetExcessAmount"
+                      value={formData.budgetExcessAmount}
+                      onChange={handleChange}
+                      placeholder="초과집행 시 자동 계산"
+                      readOnly
+                      style={{ backgroundColor: '#fff3cd', cursor: 'not-allowed', border: '1px solid #ffc107' }}
+                      title="예산초과액 = 기집행 - 예산 (초과 시에만 표시)"
                     />
                   </div>
                 </div>
@@ -1476,6 +1513,7 @@ const BudgetRegistrationAPI = () => {
                 <th>확정집행액</th>
                 <th>집행률</th>
                 <th>미집행액</th>
+                <th style={{ backgroundColor: '#fff3cd' }}>예산초과액</th>
                 <th>추가예산</th>
                 <th className="sortable" onClick={() => handleSort('status')}>
                   상태 {getSortIcon('status')}
@@ -1514,6 +1552,9 @@ const BudgetRegistrationAPI = () => {
                   <td style={{ textAlign: 'right' }}>{formatCurrency(budget.confirmedExecutionAmount || 0)}</td>
                   <td style={{ textAlign: 'right' }}>{budget.executionRate || 0}%</td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(budget.unexecutedAmount || 0)}</td>
+                  <td style={{ textAlign: 'right', backgroundColor: budget.budgetExcessAmount > 0 ? '#fff3cd' : 'transparent', color: budget.budgetExcessAmount > 0 ? '#d9534f' : 'inherit', fontWeight: budget.budgetExcessAmount > 0 ? 'bold' : 'normal' }}>
+                    {budget.budgetExcessAmount > 0 ? '⚠️ ' : ''}{formatCurrency(budget.budgetExcessAmount || 0)}
+                  </td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(budget.additionalBudget || 0)}</td>
                   <td>
                     <span style={{ color: getStatusColor(budget.status) }}>
