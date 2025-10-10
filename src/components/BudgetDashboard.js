@@ -52,11 +52,15 @@ const BudgetDashboard = () => {
     // 집행대기액 = 확정집행액 - 기집행액
     const totalPending = totalConfirmedExecution - totalExecuted;
     
-    // 미집행액 = 예산 - 확정집행액
-    const totalUnexecuted = totalBudget - totalConfirmedExecution;
+    // 미집행액 = 예산 - 기집행액
+    const totalUnexecuted = totalBudget - totalExecuted;
     
-    // 집행률 = (확정집행액 / 사업예산액) × 100
+    // 확정집행액 기준 집행률 = (확정집행액 / 사업예산액) × 100
     const executionRate = totalBudget > 0 ? ((totalConfirmedExecution / totalBudget) * 100).toFixed(1) : 0;
+    
+    // 기집행 집행률 = (기집행 / (예산 + 추가예산)) × 100
+    const totalBudgetWithAdditional = totalBudget + totalAdditional;
+    const executedRate = totalBudgetWithAdditional > 0 ? ((totalExecuted / totalBudgetWithAdditional) * 100).toFixed(1) : 0;
 
     return {
       totalBudget,
@@ -66,6 +70,7 @@ const BudgetDashboard = () => {
       totalUnexecuted,
       totalAdditional,
       executionRate,
+      executedRate,  // 기집행 집행률 추가
       totalProjects: budgets.length
     };
   };
@@ -234,7 +239,7 @@ const BudgetDashboard = () => {
           <div className="card-content">
             <h3>기 집행</h3>
             <p className="amount">{formatBillionWon(stats.totalExecuted)}</p>
-            <p className="sub-amount">{formatCurrency(stats.totalExecuted)}</p>
+            <p className="sub-text">집행률: {stats.executedRate}%</p>
           </div>
         </div>
 
@@ -243,7 +248,7 @@ const BudgetDashboard = () => {
           <div className="card-content">
             <h3>확정집행액</h3>
             <p className="amount">{formatBillionWon(stats.totalConfirmedExecution)}</p>
-            <p className="sub-text">집행률: {stats.executionRate}%</p>
+            <p className="sub-text">확정집행률: {stats.executionRate}%</p>
           </div>
         </div>
 
