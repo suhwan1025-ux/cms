@@ -765,6 +765,21 @@
   background: #f8f9fa;
 }
 
+.proposal-row {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.proposal-row:hover {
+  background-color: #e3f2fd !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.proposal-row:active {
+  transform: translateY(0);
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;

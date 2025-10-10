@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '../config/api';
+import { generatePreviewHTML } from '../utils/previewGenerator';
 import './BudgetDashboard.css';
 
 const API_BASE_URL = getApiUrl();
@@ -13,6 +14,7 @@ const BudgetDashboard = () => {
   const [selectedBudget, setSelectedBudget] = useState(null);
   const [proposals, setProposals] = useState([]);
   const [loadingProposals, setLoadingProposals] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   // 데이터 로드
   useEffect(() => {
@@ -52,8 +54,8 @@ const BudgetDashboard = () => {
     // 집행대기액 = 확정집행액 - 기집행액
     const totalPending = totalConfirmedExecution - totalExecuted;
     
-    // 미집행액 = 예산 - 기집행액
-    const totalUnexecuted = totalBudget - totalExecuted;
+    // 미집행액 = (예산 + 추가예산) - 기집행액
+    const totalUnexecuted = (totalBudget + totalAdditional) - totalExecuted;
     
     // 확정집행액 기준 집행률 = (확정집행액 / 사업예산액) × 100
     const executionRate = totalBudget > 0 ? ((totalConfirmedExecution / totalBudget) * 100).toFixed(1) : 0;
@@ -147,20 +149,77 @@ const BudgetDashboard = () => {
     return (amount / 100000000).toFixed(1) + '억원';
   };
 
+  // 정렬 함수
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // 정렬 아이콘 표시
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return ' ↕️';
+    }
+    return sortConfig.direction === 'asc' ? ' ↑' : ' ↓';
+  };
+
+  // 정렬된 예산 목록
+  const getSortedBudgets = () => {
+    if (!sortConfig.key) return budgets;
+
+    return [...budgets].sort((a, b) => {
+      let aValue = a[sortConfig.key];
+      let bValue = b[sortConfig.key];
+
+      // 숫자 타입 처리
+      if (sortConfig.key === 'budgetAmount' || sortConfig.key === 'confirmedExecutionAmount') {
+        aValue = parseFloat(aValue) || 0;
+        bValue = parseFloat(bValue) || 0;
+      }
+
+      // 문자열 타입 처리
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  };
+
   // 사업예산 클릭 시 품의서 조회
   const handleBudgetClick = async (budget) => {
+    console.log('예산 클릭:', budget);
     setSelectedBudget(budget);
     setShowProposalModal(true);
     setLoadingProposals(true);
     setProposals([]);
 
     try {
+      console.log('품의서 조회 API 호출:', `${API_BASE_URL}/api/proposals?budgetId=${budget.id}&status=approved`);
       const response = await fetch(`${API_BASE_URL}/api/proposals?budgetId=${budget.id}&status=approved`);
+      console.log('API 응답 상태:', response.status, response.ok);
+      
       if (response.ok) {
         const data = await response.json();
-        setProposals(data.proposals || []);
+        console.log('API 응답 데이터:', data);
+        // 서버가 배열을 직접 반환하는지 또는 객체로 감싸서 반환하는지 확인
+        const proposalsList = Array.isArray(data) ? data : (data.proposals || []);
+        console.log('품의서 리스트:', proposalsList);
+        setProposals(proposalsList);
       } else {
-        console.error('품의서 조회 실패');
+        console.error('품의서 조회 실패, 상태 코드:', response.status);
+        const errorText = await response.text();
+        console.error('오류 응답:', errorText);
       }
     } catch (error) {
       console.error('품의서 조회 오류:', error);
@@ -174,6 +233,39 @@ const BudgetDashboard = () => {
     setShowProposalModal(false);
     setSelectedBudget(null);
     setProposals([]);
+  };
+
+  // 품의서 미리보기 열기
+  const handleProposalPreview = async (proposal) => {
+    try {
+      console.log('품의서 미리보기:', proposal);
+      
+      // 상세 데이터 가져오기
+      const response = await fetch(`${API_BASE_URL}/api/proposals/${proposal.id}`);
+      if (!response.ok) {
+        throw new Error('품의서 상세 조회 실패');
+      }
+      
+      const fullProposalData = await response.json();
+      console.log('품의서 상세 데이터:', fullProposalData);
+      
+      // 미리보기 HTML 생성
+      const previewHTML = generatePreviewHTML(fullProposalData);
+      const previewWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+      
+      if (!previewWindow) {
+        alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');
+        return;
+      }
+
+      previewWindow.document.write(previewHTML);
+      previewWindow.document.close();
+      previewWindow.focus();
+      
+    } catch (error) {
+      console.error('품의서 미리보기 오류:', error);
+      alert('품의서 미리보기를 여는 중 오류가 발생했습니다.');
+    }
   };
 
   if (loading) {
@@ -268,7 +360,7 @@ const BudgetDashboard = () => {
             <h3>미집행액</h3>
             <p className="amount">{formatBillionWon(stats.totalUnexecuted)}</p>
             <p className="sub-amount">{formatCurrency(stats.totalUnexecuted)}</p>
-            <p className="sub-text">예산 - 확정집행액</p>
+            <p className="sub-text">(예산 + 추가예산) - 기집행</p>
           </div>
         </div>
 
@@ -396,49 +488,6 @@ const BudgetDashboard = () => {
             </div>
           </div>
         </div>
-
-        {/* 집행률 현황 */}
-        <div className="chart-card">
-          <h3>집행률 현황</h3>
-          <div className="chart-content">
-            <div className="execution-rate-container">
-              <div className="execution-rate-circle">
-                <svg viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="45" fill="none" stroke="#e9ecef" strokeWidth="10"/>
-                  <circle 
-                    cx="50" 
-                    cy="50" 
-                    r="45" 
-                    fill="none" 
-                    stroke="#28a745" 
-                    strokeWidth="10"
-                    strokeDasharray={`${stats.executionRate * 2.827} 282.7`}
-                    strokeLinecap="round"
-                    transform="rotate(-90 50 50)"
-                  />
-                </svg>
-                <div className="execution-rate-text">
-                  <div className="rate-number">{stats.executionRate}%</div>
-                  <div className="rate-label">집행률</div>
-                </div>
-              </div>
-              <div className="execution-details">
-                <div className="detail-item">
-                  <span className="detail-label">총 예산:</span>
-                  <span className="detail-value">{formatBillionWon(stats.totalBudget)}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">확정집행액:</span>
-                  <span className="detail-value">{formatBillionWon(stats.totalConfirmedExecution)}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">미집행:</span>
-                  <span className="detail-value">{formatBillionWon(stats.totalUnexecuted)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* 사업예산 목록 */}
@@ -448,21 +497,61 @@ const BudgetDashboard = () => {
           <table className="budget-list-table">
             <thead>
               <tr>
-                <th>번호</th>
-                <th>사업명</th>
-                <th>예산 구분</th>
-                <th>사업목적</th>
-                <th>예산</th>
-                <th>확정집행액</th>
-                <th>집행률</th>
-                <th>상태</th>
-                <th>필수여부</th>
-                <th>발의부서</th>
-                <th>추진부서</th>
+                <th style={{ textAlign: 'center' }}>번호</th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('projectName')}
+                >
+                  사업명{getSortIcon('projectName')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('budgetCategory')}
+                >
+                  예산 구분{getSortIcon('budgetCategory')}
+                </th>
+                <th style={{ textAlign: 'center' }}>사업목적</th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('budgetAmount')}
+                >
+                  예산{getSortIcon('budgetAmount')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('confirmedExecutionAmount')}
+                >
+                  확정집행액{getSortIcon('confirmedExecutionAmount')}
+                </th>
+                <th style={{ textAlign: 'center' }}>집행률</th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('status')}
+                >
+                  상태{getSortIcon('status')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('isEssential')}
+                >
+                  필수여부{getSortIcon('isEssential')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('initiatorDepartment')}
+                >
+                  발의부서{getSortIcon('initiatorDepartment')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('executorDepartment')}
+                >
+                  추진부서{getSortIcon('executorDepartment')}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {budgets.map((budget, index) => {
+              {getSortedBudgets().map((budget, index) => {
                 const budgetAmt = parseFloat(budget.budgetAmount) || 0;
                 const confirmedAmt = parseFloat(budget.confirmedExecutionAmount) || 0;
                 const rate = budgetAmt > 0 
@@ -480,13 +569,13 @@ const BudgetDashboard = () => {
                     className="budget-row"
                   >
                     <td style={{ textAlign: 'center' }}>{index + 1}</td>
-                    <td>{budget.projectName}</td>
-                    <td>{budget.budgetCategory}</td>
-                    <td>{purposeDisplay}</td>
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(budgetAmt)}</td>
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(confirmedAmt)}</td>
-                    <td style={{ textAlign: 'right' }}>{rate}%</td>
-                    <td>
+                    <td style={{ textAlign: 'center' }}>{budget.projectName}</td>
+                    <td style={{ textAlign: 'center' }}>{budget.budgetCategory}</td>
+                    <td style={{ textAlign: 'center' }}>{purposeDisplay}</td>
+                    <td style={{ textAlign: 'center' }}>{formatCurrency(budgetAmt)}</td>
+                    <td style={{ textAlign: 'center' }}>{formatCurrency(confirmedAmt)}</td>
+                    <td style={{ textAlign: 'center' }}>{rate}%</td>
+                    <td style={{ textAlign: 'center' }}>
                       <span className={`status-badge ${budget.status}`}>
                         {budget.status}
                       </span>
@@ -494,8 +583,8 @@ const BudgetDashboard = () => {
                     <td style={{ textAlign: 'center' }}>
                       {budget.isEssential === true || budget.isEssential === '필수' ? '필수' : '선택'}
                     </td>
-                    <td>{budget.initiatorDepartment}</td>
-                    <td>{budget.executorDepartment}</td>
+                    <td style={{ textAlign: 'center' }}>{budget.initiatorDepartment}</td>
+                    <td style={{ textAlign: 'center' }}>{budget.executorDepartment}</td>
                   </tr>
                 );
               })}
@@ -532,7 +621,15 @@ const BudgetDashboard = () => {
                   </thead>
                   <tbody>
                     {proposals.map((proposal, index) => (
-                      <tr key={proposal.id}>
+                      <tr 
+                        key={proposal.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleProposalPreview(proposal);
+                        }}
+                        style={{ cursor: 'pointer' }}
+                        className="proposal-row"
+                      >
                         <td style={{ textAlign: 'center' }}>{index + 1}</td>
                         <td>{proposal.title}</td>
                         <td>{proposal.contractMethod}</td>

@@ -206,3 +206,56 @@
     width: 100%;
   }
 }
+
+/* 테이블 헤더 고정 스타일 */
+.table-responsive {
+  max-height: calc(100vh - 450px) !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  position: relative !important;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+}
+
+.table-responsive .table {
+  margin-bottom: 0 !important;
+}
+
+.table-responsive .table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  background-color: #f8f9fa !important;
+  z-index: 100 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+  border-bottom: 2px solid #dee2e6 !important;
+  white-space: nowrap;
+  vertical-align: middle;
+  padding: 12px 8px !important;
+}
+
+.table-responsive .table thead th::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), transparent);
+}
+
+/* 정렬 가능한 헤더에 마우스 오버 시 */
+.table-responsive .table thead th.sortable {
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+.table-responsive .table thead th.sortable:hover {
+  background-color: #e9ecef !important;
+  transition: background-color 0.2s ease;
+}
+
+/* 테이블 바디 스타일 */
+.table-responsive .table tbody td {
+  vertical-align: middle;
+  white-space: nowrap;
+}

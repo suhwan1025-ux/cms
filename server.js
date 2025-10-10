@@ -89,16 +89,16 @@ app.get('/api/budget-statistics', async (req, res) => {
         bb.executed_amount as "executedAmount",
         bb.pending_amount as "pendingAmount",
         COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.total_amount ELSE 0 END), 0) as "confirmedExecutionAmount",
-        -- 예산초과액: 기집행액이 예산보다 크면 초과분, 아니면 0
+        -- 예산초과액: 기집행액이 (예산 + 추가예산)보다 크면 초과분, 아니면 0
         CASE 
-          WHEN COALESCE(bb.executed_amount, 0) > bb.budget_amount 
-          THEN COALESCE(bb.executed_amount, 0) - bb.budget_amount
+          WHEN COALESCE(bb.executed_amount, 0) > (bb.budget_amount + COALESCE(bb.additional_budget, 0))
+          THEN COALESCE(bb.executed_amount, 0) - (bb.budget_amount + COALESCE(bb.additional_budget, 0))
           ELSE 0
         END as "budgetExcessAmount",
-        -- 미집행액: 기집행액이 예산보다 작거나 같으면 잔액, 아니면 0
+        -- 미집행액: 기집행액이 (예산 + 추가예산) 이하면 잔액, 아니면 0
         CASE 
-          WHEN COALESCE(bb.executed_amount, 0) <= bb.budget_amount 
-          THEN bb.budget_amount - COALESCE(bb.executed_amount, 0)
+          WHEN COALESCE(bb.executed_amount, 0) <= (bb.budget_amount + COALESCE(bb.additional_budget, 0))
+          THEN (bb.budget_amount + COALESCE(bb.additional_budget, 0)) - COALESCE(bb.executed_amount, 0)
           ELSE 0
         END as "unexecutedAmountCalc",
         bb.additional_budget as "additionalBudget",
@@ -222,16 +222,16 @@ app.get('/api/business-budgets', async (req, res) => {
         COUNT(bbd.id) as detail_count,
         COALESCE(proposal_executions.executed_amount, 0) as actual_executed_amount,
         COALESCE(proposal_executions.proposal_count, 0) as executed_proposal_count,
-        -- 예산초과액: 기집행액이 예산보다 크면 초과분, 아니면 0
+        -- 예산초과액: 기집행액이 (예산 + 추가예산)보다 크면 초과분, 아니면 0
         CASE 
-          WHEN COALESCE(bb.executed_amount, 0) > bb.budget_amount 
-          THEN COALESCE(bb.executed_amount, 0) - bb.budget_amount
+          WHEN COALESCE(bb.executed_amount, 0) > (bb.budget_amount + COALESCE(bb.additional_budget, 0))
+          THEN COALESCE(bb.executed_amount, 0) - (bb.budget_amount + COALESCE(bb.additional_budget, 0))
           ELSE 0
         END as budget_excess_amount_calculated,
-        -- 미집행액: 기집행액이 예산보다 작거나 같으면 잔액, 아니면 0
+        -- 미집행액: 기집행액이 (예산 + 추가예산) 이하면 잔액, 아니면 0
         CASE 
-          WHEN COALESCE(bb.executed_amount, 0) <= bb.budget_amount 
-          THEN bb.budget_amount - COALESCE(bb.executed_amount, 0)
+          WHEN COALESCE(bb.executed_amount, 0) <= (bb.budget_amount + COALESCE(bb.additional_budget, 0))
+          THEN (bb.budget_amount + COALESCE(bb.additional_budget, 0)) - COALESCE(bb.executed_amount, 0)
           ELSE 0
         END as unexecuted_amount_calculated
       FROM business_budgets bb

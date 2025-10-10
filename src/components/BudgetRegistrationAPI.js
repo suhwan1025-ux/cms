@@ -244,17 +244,19 @@ const BudgetRegistrationAPI = () => {
     }
 
     try {
+      // 자동 계산 필드를 제외한 데이터 준비
+      const { confirmedExecutionAmount, unexecutedAmount, budgetExcessAmount, ...restFormData } = formData;
+      
       // 모든 금액 필드에서 콤마 제거하고 숫자로 변환, isEssential을 boolean으로 변환
       const submitData = {
-        ...formData,
+        ...restFormData,
         budgetAmount: formData.budgetAmount ? parseInt(formData.budgetAmount.replace(/[^\d]/g, '')) : 0,
         executedAmount: formData.executedAmount ? parseInt(formData.executedAmount.replace(/[^\d]/g, '')) : 0,
         pendingAmount: formData.pendingAmount ? parseInt(formData.pendingAmount.replace(/[^\d]/g, '')) : 0,
-        // confirmedExecutionAmount는 품의서와 JOIN으로 자동 계산되므로 전송하지 않음
-        // unexecutedAmount는 자동 계산되므로 전송하지 않음 (예산 - 기집행 - 확정집행액)
         additionalBudget: formData.additionalBudget ? parseInt(formData.additionalBudget.replace(/[^\d]/g, '')) : 0,
         isEssential: formData.isEssential === '필수' ? true : false
       };
+      // confirmedExecutionAmount, unexecutedAmount, budgetExcessAmount는 서버에서 자동 계산되므로 전송하지 않음
 
       let response;
       if (isEditMode && editingBudgetId) {
@@ -332,19 +334,21 @@ const BudgetRegistrationAPI = () => {
         [name]: type === 'checkbox' ? checked : processedValue
       };
       
-      // 예산, 기집행액이 변경되면 미집행액과 예산초과액 자동 계산
-      if (['budgetAmount', 'executedAmount'].includes(name)) {
+      // 예산, 기집행액, 추가예산이 변경되면 미집행액과 예산초과액 자동 계산
+      if (['budgetAmount', 'executedAmount', 'additionalBudget'].includes(name)) {
         const budget = parseInt((name === 'budgetAmount' ? processedValue : newFormData.budgetAmount || '0').replace(/[^\d]/g, '')) || 0;
         const executed = parseInt((name === 'executedAmount' ? processedValue : newFormData.executedAmount || '0').replace(/[^\d]/g, '')) || 0;
+        const additional = parseInt((name === 'additionalBudget' ? processedValue : newFormData.additionalBudget || '0').replace(/[^\d]/g, '')) || 0;
+        const totalBudget = budget + additional;
         
-        // 예산초과 여부에 따라 계산 (기집행액만 비교)
-        if (executed > budget) {
+        // 예산초과 여부에 따라 계산 (예산 + 추가예산 기준)
+        if (executed > totalBudget) {
           // 예산 초과: 미집행액 = 0, 예산초과액 = 초과분
           newFormData.unexecutedAmount = '0';
-          newFormData.budgetExcessAmount = (executed - budget).toLocaleString();
+          newFormData.budgetExcessAmount = (executed - totalBudget).toLocaleString();
         } else {
           // 예산 내: 미집행액 = 잔액, 예산초과액 = 0
-          newFormData.unexecutedAmount = (budget - executed).toLocaleString();
+          newFormData.unexecutedAmount = (totalBudget - executed).toLocaleString();
           newFormData.budgetExcessAmount = '0';
         }
       }
@@ -433,13 +437,15 @@ const BudgetRegistrationAPI = () => {
 
   // 테이블 행 클릭 시 데이터 로드 (수정 모드로 전환)
   const handleRowClick = (budget) => {
-    // 미집행액 및 예산초과액 자동 계산 (기집행액 기준)
+    // 미집행액 및 예산초과액 자동 계산 (기집행액 기준, 추가예산 포함)
     const budgetAmt = budget.budgetAmount || 0;
     const executedAmt = budget.executedAmount || 0;
+    const additionalAmt = budget.additionalBudget || 0;
+    const totalBudget = budgetAmt + additionalAmt;
     
-    // 예산초과 여부에 따라 계산 (기집행액만 비교)
-    const budgetExcessAmt = executedAmt > budgetAmt ? executedAmt - budgetAmt : 0;
-    const unexecutedAmt = executedAmt <= budgetAmt ? budgetAmt - executedAmt : 0;
+    // 예산초과 여부에 따라 계산 (예산 + 추가예산 기준)
+    const budgetExcessAmt = executedAmt > totalBudget ? executedAmt - totalBudget : 0;
+    const unexecutedAmt = executedAmt <= totalBudget ? totalBudget - executedAmt : 0;
     
     setFormData({
       projectName: budget.projectName,
@@ -1220,10 +1226,10 @@ const BudgetRegistrationAPI = () => {
                       name="unexecutedAmount"
                       value={formData.unexecutedAmount}
                       onChange={handleChange}
-                      placeholder="예산 - 기집행 (0 이상)"
+                      placeholder="(예산 + 추가예산) - 기집행"
                       readOnly
                       style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
-                      title="미집행액 = 예산 - 기집행, 음수일 경우 0 표시"
+                      title="미집행액 = (예산 + 추가예산) - 기집행, 음수일 경우 0 표시"
                     />
                   </div>
                   
@@ -1237,7 +1243,7 @@ const BudgetRegistrationAPI = () => {
                       placeholder="초과집행 시 자동 계산"
                       readOnly
                       style={{ backgroundColor: '#fff3cd', cursor: 'not-allowed', border: '1px solid #ffc107' }}
-                      title="예산초과액 = 기집행 - 예산 (초과 시에만 표시)"
+                      title="예산초과액 = 기집행 - (예산 + 추가예산) (초과 시에만 표시)"
                     />
                   </div>
                 </div>
@@ -1483,48 +1489,219 @@ const BudgetRegistrationAPI = () => {
           <strong>조회 결과: {filteredBudgets.length}건</strong>
         </div>
 
-        <div className="table-responsive">
-          <table className="table">
+        <div className="table-responsive" style={{ 
+          height: '500px',
+          maxHeight: '500px', 
+          overflowY: 'scroll', 
+          overflowX: 'auto',
+          position: 'relative',
+          border: '1px solid #dee2e6',
+          borderRadius: '4px',
+          display: 'block'
+        }}>
+          <table className="table" style={{ marginBottom: 0 }}>
             <thead>
               <tr>
-                <th>번호</th>
-                <th className="sortable" onClick={() => handleSort('budgetYear')}>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>번호</th>
+                <th className="sortable" onClick={() => handleSort('budgetYear')} style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px',
+                  cursor: 'pointer'
+                }}>
                   사업연도 {getSortIcon('budgetYear')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('projectName')}>
+                <th className="sortable" onClick={() => handleSort('projectName')} style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px',
+                  cursor: 'pointer'
+                }}>
                   사업명 {getSortIcon('projectName')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('initiatorDepartment')}>
+                <th className="sortable" onClick={() => handleSort('initiatorDepartment')} style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px',
+                  cursor: 'pointer'
+                }}>
                   발의부서 {getSortIcon('initiatorDepartment')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('executorDepartment')}>
+                <th className="sortable" onClick={() => handleSort('executorDepartment')} style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px',
+                  cursor: 'pointer'
+                }}>
                   추진부서 {getSortIcon('executorDepartment')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('budgetCategory')}>
+                <th className="sortable" onClick={() => handleSort('budgetCategory')} style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px',
+                  cursor: 'pointer'
+                }}>
                   예산 구분 {getSortIcon('budgetCategory')}
                 </th>
-                <th>사업 시작월</th>
-                <th>사업 종료월</th>
-                <th className="sortable" onClick={() => handleSort('budgetAmount')}>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>사업 시작월</th>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>사업 종료월</th>
+                <th className="sortable" onClick={() => handleSort('budgetAmount')} style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px',
+                  cursor: 'pointer'
+                }}>
                   예산 {getSortIcon('budgetAmount')}
                 </th>
-                <th>기 집행</th>
-                <th>집행대기</th>
-                <th>확정집행액</th>
-                <th>집행률</th>
-                <th>미집행액</th>
-                <th style={{ backgroundColor: '#fff3cd' }}>예산초과액</th>
-                <th>추가예산</th>
-                <th className="sortable" onClick={() => handleSort('status')}>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>기 집행</th>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>집행대기</th>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>확정집행액</th>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>집행률</th>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>미집행액</th>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#fff3cd', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>예산초과액</th>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>추가예산</th>
+                <th className="sortable" onClick={() => handleSort('status')} style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px',
+                  cursor: 'pointer'
+                }}>
                   상태 {getSortIcon('status')}
                 </th>
-                <th>필수사업</th>
-                <th>사업목적</th>
-                <th>IT계획서</th>
-                <th className="sortable" onClick={() => handleSort('createdAt')}>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>필수사업</th>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>사업목적</th>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>IT계획서</th>
+                <th className="sortable" onClick={() => handleSort('createdAt')} style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px',
+                  cursor: 'pointer'
+                }}>
                   등록일 {getSortIcon('createdAt')}
                 </th>
-                <th>등록자</th>
+                <th style={{ 
+                  position: 'sticky', 
+                  top: 0, 
+                  backgroundColor: '#f8f9fa', 
+                  zIndex: 100,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                  padding: '12px 8px'
+                }}>등록자</th>
               </tr>
             </thead>
             <tbody>
@@ -1564,7 +1741,14 @@ const BudgetRegistrationAPI = () => {
                   <td>{budget.isEssential === true || budget.isEssential === '필수' ? '필수' : budget.isEssential === false || budget.isEssential === '선택' ? '선택' : '-'}</td>
                   <td>{budget.projectPurpose || '-'}</td>
                   <td>{budget.itPlanReported ? '보고완료' : '미보고'}</td>
-                  <td>{budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' }).replace(/\./g, '-').replace(/\s/g, '') : '-'}</td>
+                  <td>
+                    {budget.createdAt ? (() => {
+                      const date = new Date(budget.createdAt);
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      return `${month}-${day}`;
+                    })() : '-'}
+                  </td>
                   <td>{budget.createdBy || '-'}</td>
                 </tr>
               ))}
