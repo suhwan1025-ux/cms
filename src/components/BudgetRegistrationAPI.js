@@ -447,19 +447,19 @@ const BudgetRegistrationAPI = () => {
       executorDepartment: budget.executorDepartment,
       budgetType: '자본예산',
       budgetCategory: budget.budgetCategory,
-      budgetAmount: budget.budgetAmount ? budget.budgetAmount.toLocaleString() : '',
+      budgetAmount: budget.budgetAmount ? Math.round(budget.budgetAmount).toLocaleString() : '',
       startDate: budget.startDate,
       endDate: budget.endDate,
       isEssential: budget.isEssential === true || budget.isEssential === '필수' ? '필수' : '선택',
       projectPurpose: budget.projectPurpose,
       budgetYear: budget.budgetYear, // 표시용으로만 사용 (수정 불가)
       status: budget.status || '대기',
-      executedAmount: budget.executedAmount ? budget.executedAmount.toLocaleString() : '',
-      pendingAmount: budget.pendingAmount ? budget.pendingAmount.toLocaleString() : '',
-      confirmedExecutionAmount: budget.confirmedExecutionAmount ? budget.confirmedExecutionAmount.toLocaleString() : '',
-      unexecutedAmount: unexecutedAmt.toLocaleString(), // 자동 계산 (0 이상)
-      budgetExcessAmount: budgetExcessAmt > 0 ? budgetExcessAmt.toLocaleString() : '0', // 예산초과액
-      additionalBudget: budget.additionalBudget ? budget.additionalBudget.toLocaleString() : '',
+      executedAmount: budget.executedAmount ? Math.round(budget.executedAmount).toLocaleString() : '',
+      pendingAmount: budget.pendingAmount ? Math.round(budget.pendingAmount).toLocaleString() : '',
+      confirmedExecutionAmount: budget.confirmedExecutionAmount ? Math.round(budget.confirmedExecutionAmount).toLocaleString() : '',
+      unexecutedAmount: Math.round(unexecutedAmt).toLocaleString(), // 자동 계산 (0 이상)
+      budgetExcessAmount: budgetExcessAmt > 0 ? Math.round(budgetExcessAmt).toLocaleString() : '0', // 예산초과액
+      additionalBudget: budget.additionalBudget ? Math.round(budget.additionalBudget).toLocaleString() : '',
       holdCancelReason: budget.holdCancelReason || '',
       notes: budget.notes || '',
       itPlanReported: budget.itPlanReported || false
