@@ -63,6 +63,17 @@ const BudgetDashboard = () => {
     // 기집행 집행률 = (기집행 / (예산 + 추가예산)) × 100
     const totalBudgetWithAdditional = totalBudget + totalAdditional;
     const executedRate = totalBudgetWithAdditional > 0 ? ((totalExecuted / totalBudgetWithAdditional) * 100).toFixed(1) : 0;
+    
+    // 예산초과액 = 각 사업별 예산초과액의 합계
+    // 각 사업마다: 기집행액 > (예산 + 추가예산) 일 경우 초과분 계산 후 합산
+    const totalBudgetExcess = budgets.reduce((sum, b) => {
+      const budgetAmt = parseFloat(b.budgetAmount) || 0;
+      const additionalAmt = parseFloat(b.additionalBudget) || 0;
+      const executedAmt = parseFloat(b.executedAmount) || 0;
+      const totalBudgetForProject = budgetAmt + additionalAmt;
+      const excess = executedAmt > totalBudgetForProject ? executedAmt - totalBudgetForProject : 0;
+      return sum + excess;
+    }, 0);
 
     return {
       totalBudget,
@@ -71,6 +82,7 @@ const BudgetDashboard = () => {
       totalPending,
       totalUnexecuted,
       totalAdditional,
+      totalBudgetExcess,  // 예산초과액 추가
       executionRate,
       executedRate,  // 기집행 집행률 추가
       totalProjects: budgets.length
@@ -158,6 +170,11 @@ const BudgetDashboard = () => {
     setSortConfig({ key, direction });
   };
 
+  // 정렬 초기화
+  const handleResetSort = () => {
+    setSortConfig({ key: null, direction: 'asc' });
+  };
+
   // 정렬 아이콘 표시
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) {
@@ -174,14 +191,30 @@ const BudgetDashboard = () => {
       let aValue = a[sortConfig.key];
       let bValue = b[sortConfig.key];
 
+      // 집행률 계산 (실시간)
+      if (sortConfig.key === 'executionRate') {
+        const aBudget = parseFloat(a.budgetAmount) || 0;
+        const aAdditional = parseFloat(a.additionalBudget) || 0;
+        const aExecuted = parseFloat(a.executedAmount) || 0;
+        const aTotalBudget = aBudget + aAdditional;
+        aValue = aTotalBudget > 0 ? (aExecuted / aTotalBudget) * 100 : 0;
+
+        const bBudget = parseFloat(b.budgetAmount) || 0;
+        const bAdditional = parseFloat(b.additionalBudget) || 0;
+        const bExecuted = parseFloat(b.executedAmount) || 0;
+        const bTotalBudget = bBudget + bAdditional;
+        bValue = bTotalBudget > 0 ? (bExecuted / bTotalBudget) * 100 : 0;
+      }
       // 숫자 타입 처리
-      if (sortConfig.key === 'budgetAmount' || sortConfig.key === 'confirmedExecutionAmount') {
+      else if (sortConfig.key === 'budgetAmount' || 
+          sortConfig.key === 'additionalBudget' || 
+          sortConfig.key === 'executedAmount' || 
+          sortConfig.key === 'confirmedExecutionAmount') {
         aValue = parseFloat(aValue) || 0;
         bValue = parseFloat(bValue) || 0;
       }
-
       // 문자열 타입 처리
-      if (typeof aValue === 'string') {
+      else if (typeof aValue === 'string') {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
@@ -364,16 +397,28 @@ const BudgetDashboard = () => {
           </div>
         </div>
 
-        {stats.totalAdditional > 0 && (
-          <div className="summary-card additional">
-            <div className="card-icon">➕</div>
-            <div className="card-content">
-              <h3>추가예산</h3>
-              <p className="amount">{formatBillionWon(stats.totalAdditional)}</p>
-              <p className="sub-amount">{formatCurrency(stats.totalAdditional)}</p>
-            </div>
+        <div className="summary-card additional">
+          <div className="card-icon">➕</div>
+          <div className="card-content">
+            <h3>추가예산</h3>
+            <p className="amount">{formatBillionWon(stats.totalAdditional)}</p>
+            <p className="sub-amount">{formatCurrency(stats.totalAdditional)}</p>
           </div>
-        )}
+        </div>
+
+        <div className="summary-card excess">
+          <div className="card-icon">⚠️</div>
+          <div className="card-content">
+            <h3>예산초과액</h3>
+            <p className="amount" style={{ color: stats.totalBudgetExcess > 0 ? '#dc3545' : '#2c3e50' }}>
+              {formatBillionWon(stats.totalBudgetExcess)}
+            </p>
+            <p className="sub-amount" style={{ color: stats.totalBudgetExcess > 0 ? '#dc3545' : '#6c757d' }}>
+              {formatCurrency(stats.totalBudgetExcess)}
+            </p>
+            <p className="sub-text">기집행 - (예산 + 추가예산)</p>
+          </div>
+        </div>
       </div>
 
       {/* 차트 영역 */}
@@ -492,7 +537,28 @@ const BudgetDashboard = () => {
 
       {/* 사업예산 목록 */}
       <div className="budget-list-section">
-        <h3>{selectedYear}년 사업예산 목록 (총 {budgets.length}건)</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3>{selectedYear}년 사업예산 목록 (총 {budgets.length}건)</h3>
+          {sortConfig.key && (
+            <button 
+              onClick={handleResetSort}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '500'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
+            >
+              🔄 정렬 초기화
+            </button>
+          )}
+        </div>
         <div className="table-responsive">
           <table className="budget-list-table">
             <thead>
@@ -519,11 +585,28 @@ const BudgetDashboard = () => {
                 </th>
                 <th 
                   style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('additionalBudget')}
+                >
+                  추가예산{getSortIcon('additionalBudget')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('executedAmount')}
+                >
+                  기집행액{getSortIcon('executedAmount')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
                   onClick={() => handleSort('confirmedExecutionAmount')}
                 >
                   확정집행액{getSortIcon('confirmedExecutionAmount')}
                 </th>
-                <th style={{ textAlign: 'center' }}>집행률</th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('executionRate')}
+                >
+                  집행률{getSortIcon('executionRate')}
+                </th>
                 <th 
                   style={{ cursor: 'pointer', textAlign: 'center' }} 
                   onClick={() => handleSort('status')}
@@ -553,9 +636,12 @@ const BudgetDashboard = () => {
             <tbody>
               {getSortedBudgets().map((budget, index) => {
                 const budgetAmt = parseFloat(budget.budgetAmount) || 0;
+                const additionalAmt = parseFloat(budget.additionalBudget) || 0;
+                const executedAmt = parseFloat(budget.executedAmount) || 0;
                 const confirmedAmt = parseFloat(budget.confirmedExecutionAmount) || 0;
-                const rate = budgetAmt > 0 
-                  ? ((confirmedAmt / budgetAmt) * 100).toFixed(1)
+                const totalBudget = budgetAmt + additionalAmt;
+                const rate = totalBudget > 0 
+                  ? ((executedAmt / totalBudget) * 100).toFixed(1)
                   : 0;
                 const purposeCode = budget.projectPurposeCode || budget.projectPurpose || '-';
                 const purposeDesc = budget.projectPurposeDescription || '';
@@ -573,6 +659,8 @@ const BudgetDashboard = () => {
                     <td style={{ textAlign: 'center' }}>{budget.budgetCategory}</td>
                     <td style={{ textAlign: 'center' }}>{purposeDisplay}</td>
                     <td style={{ textAlign: 'center' }}>{formatCurrency(budgetAmt)}</td>
+                    <td style={{ textAlign: 'center' }}>{formatCurrency(additionalAmt)}</td>
+                    <td style={{ textAlign: 'center' }}>{formatCurrency(executedAmt)}</td>
                     <td style={{ textAlign: 'center' }}>{formatCurrency(confirmedAmt)}</td>
                     <td style={{ textAlign: 'center' }}>{rate}%</td>
                     <td style={{ textAlign: 'center' }}>

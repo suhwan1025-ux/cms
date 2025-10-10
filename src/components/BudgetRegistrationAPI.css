@@ -259,3 +259,73 @@
   vertical-align: middle;
   white-space: nowrap;
 }
+
+/* 조회 결과 섹션 - 대시보드 스타일 */
+.budget-list-section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+.budget-list-section h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #f0f3f5;
+}
+
+/* 테이블 컨테이너 - 대시보드와 동일 */
+.budget-list-section .table-responsive {
+  overflow-x: auto;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.budget-list-section .budget-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.budget-list-section .budget-list-table thead {
+  background: #f8f9fa;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.budget-list-section .budget-list-table th {
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap;
+  background-color: #f8f9fa;
+}
+
+.budget-list-section .budget-list-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.budget-list-section .budget-list-table th.sortable:hover {
+  background-color: #e9ecef;
+  transition: background-color 0.2s ease;
+}
+
+.budget-list-section .budget-list-table td {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid #dee2e6;
+  color: #495057;
+}
+
+.budget-list-section .budget-list-table tbody tr:hover {
+  background-color: #e3f2fd;
+  transition: background 0.2s;
+  cursor: pointer;
+}

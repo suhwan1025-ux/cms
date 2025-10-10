@@ -624,14 +624,38 @@ const BudgetRegistrationAPI = () => {
   const getSortedData = () => {
     let sortedData = [...budgets];
     
+    // 숫자 필드 목록
+    const numericFields = [
+      'budgetYear',
+      'budgetAmount',
+      'executedAmount',
+      'pendingAmount',
+      'confirmedExecutionAmount',
+      'executionRate',
+      'unexecutedAmount',
+      'budgetExcessAmount',
+      'additionalBudget'
+    ];
+    
     sortConfigs.forEach(config => {
       sortedData.sort((a, b) => {
         let aVal = a[config.key];
         let bVal = b[config.key];
         
-        if (typeof aVal === 'string') {
+        // 숫자 필드인 경우 숫자로 변환
+        if (numericFields.includes(config.key)) {
+          aVal = parseFloat(aVal) || 0;
+          bVal = parseFloat(bVal) || 0;
+        }
+        // 불린 필드 처리 (필수사업, IT계획서)
+        else if (config.key === 'isEssential' || config.key === 'itPlanReported') {
+          aVal = aVal === true || aVal === '필수' ? 1 : 0;
+          bVal = bVal === true || bVal === '필수' ? 1 : 0;
+        }
+        // 문자열 필드
+        else if (typeof aVal === 'string') {
           aVal = aVal.toLowerCase();
-          bVal = bVal.toLowerCase();
+          bVal = (bVal || '').toLowerCase();
         }
         
         if (aVal < bVal) return config.direction === 'asc' ? -1 : 1;
@@ -668,6 +692,11 @@ const BudgetRegistrationAPI = () => {
     const config = sortConfigs.find(c => c.key === key);
     if (!config) return '↕️';
     return config.direction === 'asc' ? '↑' : '↓';
+  };
+
+  // 정렬 초기화
+  const handleResetSort = () => {
+    setSortConfigs([]);
   };
 
   // 편집 모드 시작
@@ -1485,223 +1514,99 @@ const BudgetRegistrationAPI = () => {
         </div>
 
         {/* 조회 결과 */}
-        <div style={{ marginBottom: '1rem' }}>
-          <strong>조회 결과: {filteredBudgets.length}건</strong>
-        </div>
-
-        <div className="table-responsive" style={{ 
-          height: '500px',
-          maxHeight: '500px', 
-          overflowY: 'scroll', 
-          overflowX: 'auto',
-          position: 'relative',
-          border: '1px solid #dee2e6',
-          borderRadius: '4px',
-          display: 'block'
-        }}>
-          <table className="table" style={{ marginBottom: 0 }}>
+        <div className="budget-list-section">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0 }}>조회 결과: {filteredBudgets.length}건</h3>
+            {sortConfigs.length > 0 && (
+              <button
+                onClick={handleResetSort}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+                onMouseEnter={(e) => e.target.style.background = '#5a6268'}
+                onMouseLeave={(e) => e.target.style.background = '#6c757d'}
+              >
+                🔄 정렬 초기화
+              </button>
+            )}
+          </div>
+          <div className="table-responsive">
+            <table className="budget-list-table">
             <thead>
               <tr>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>번호</th>
-                <th className="sortable" onClick={() => handleSort('budgetYear')} style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px',
-                  cursor: 'pointer'
-                }}>
+                <th>번호</th>
+                <th className="sortable" onClick={() => handleSort('budgetYear')}>
                   사업연도 {getSortIcon('budgetYear')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('projectName')} style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px',
-                  cursor: 'pointer'
-                }}>
+                <th className="sortable" onClick={() => handleSort('projectName')}>
                   사업명 {getSortIcon('projectName')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('initiatorDepartment')} style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px',
-                  cursor: 'pointer'
-                }}>
+                <th className="sortable" onClick={() => handleSort('initiatorDepartment')}>
                   발의부서 {getSortIcon('initiatorDepartment')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('executorDepartment')} style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px',
-                  cursor: 'pointer'
-                }}>
+                <th className="sortable" onClick={() => handleSort('executorDepartment')}>
                   추진부서 {getSortIcon('executorDepartment')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('budgetCategory')} style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px',
-                  cursor: 'pointer'
-                }}>
+                <th className="sortable" onClick={() => handleSort('budgetCategory')}>
                   예산 구분 {getSortIcon('budgetCategory')}
                 </th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>사업 시작월</th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>사업 종료월</th>
-                <th className="sortable" onClick={() => handleSort('budgetAmount')} style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px',
-                  cursor: 'pointer'
-                }}>
+                <th className="sortable" onClick={() => handleSort('startDate')}>
+                  사업 시작월 {getSortIcon('startDate')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('endDate')}>
+                  사업 종료월 {getSortIcon('endDate')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('budgetAmount')}>
                   예산 {getSortIcon('budgetAmount')}
                 </th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>기 집행</th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>집행대기</th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>확정집행액</th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>집행률</th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>미집행액</th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#fff3cd', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>예산초과액</th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>추가예산</th>
-                <th className="sortable" onClick={() => handleSort('status')} style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px',
-                  cursor: 'pointer'
-                }}>
+                <th className="sortable" onClick={() => handleSort('executedAmount')}>
+                  기 집행 {getSortIcon('executedAmount')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('pendingAmount')}>
+                  집행대기 {getSortIcon('pendingAmount')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('confirmedExecutionAmount')}>
+                  확정집행액 {getSortIcon('confirmedExecutionAmount')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('executionRate')}>
+                  집행률 {getSortIcon('executionRate')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('unexecutedAmount')}>
+                  미집행액 {getSortIcon('unexecutedAmount')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('budgetExcessAmount')} style={{ backgroundColor: '#fff3cd' }}>
+                  예산초과액 {getSortIcon('budgetExcessAmount')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('additionalBudget')}>
+                  추가예산 {getSortIcon('additionalBudget')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('status')}>
                   상태 {getSortIcon('status')}
                 </th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>필수사업</th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>사업목적</th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>IT계획서</th>
-                <th className="sortable" onClick={() => handleSort('createdAt')} style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px',
-                  cursor: 'pointer'
-                }}>
+                <th className="sortable" onClick={() => handleSort('isEssential')}>
+                  필수사업 {getSortIcon('isEssential')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('projectPurpose')}>
+                  사업목적 {getSortIcon('projectPurpose')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('itPlanReported')}>
+                  IT계획서 {getSortIcon('itPlanReported')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('createdAt')}>
                   등록일 {getSortIcon('createdAt')}
                 </th>
-                <th style={{ 
-                  position: 'sticky', 
-                  top: 0, 
-                  backgroundColor: '#f8f9fa', 
-                  zIndex: 100,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                  padding: '12px 8px'
-                }}>등록자</th>
+                <th className="sortable" onClick={() => handleSort('createdBy')}>
+                  등록자 {getSortIcon('createdBy')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -1754,6 +1659,7 @@ const BudgetRegistrationAPI = () => {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
