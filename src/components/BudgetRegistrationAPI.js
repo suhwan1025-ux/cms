@@ -1088,25 +1088,25 @@ const BudgetRegistrationAPI = () => {
                   </div>
                   
                   <div className="form-group">
-                    <label>예산 금액 <span className="required">*</span></label>
+                    <label>예산 금액 (원) <span className="required">*</span></label>
                     <input
                       type="text"
                       name="budgetAmount"
                       value={formData.budgetAmount}
                       onChange={handleChange}
-                      placeholder="예: 1,000,000"
+                      placeholder="예: 300,000,000원"
                       required
                     />
                   </div>
                   
                   <div className="form-group">
-                    <label>추가예산</label>
+                    <label>추가예산 (원)</label>
                     <input
                       type="text"
                       name="additionalBudget"
                       value={formData.additionalBudget}
                       onChange={handleChange}
-                      placeholder="예: 1,000,000"
+                      placeholder="예: 50,000,000원"
                     />
                   </div>
                 </div>
@@ -1178,29 +1178,29 @@ const BudgetRegistrationAPI = () => {
                   <h3 className="section-title">📊 집행 현황</h3>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label>기 집행</label>
+                    <label>기 집행 (원)</label>
                     <input
                       type="text"
                       name="executedAmount"
                       value={formData.executedAmount}
                       onChange={handleChange}
-                      placeholder="예: 1,000,000"
+                      placeholder="예: 100,000,000원"
                     />
                   </div>
                   
                   <div className="form-group">
-                    <label>집행대기</label>
+                    <label>집행대기 (원)</label>
                     <input
                       type="text"
                       name="pendingAmount"
                       value={formData.pendingAmount}
                       onChange={handleChange}
-                      placeholder="예: 1,000,000"
+                      placeholder="예: 50,000,000원"
                     />
                   </div>
                   
                   <div className="form-group">
-                    <label>확정집행액 <span style={{ fontSize: '0.8em', color: '#666' }}>(자동 계산)</span></label>
+                    <label>확정집행액 (원) <span style={{ fontSize: '0.8em', color: '#666' }}>(자동 계산)</span></label>
                     <input
                       type="text"
                       name="confirmedExecutionAmount"
@@ -1214,7 +1214,7 @@ const BudgetRegistrationAPI = () => {
                   </div>
                   
                   <div className="form-group">
-                    <label>미집행액 <span style={{ fontSize: '0.8em', color: '#666' }}>(자동 계산)</span></label>
+                    <label>미집행액 (원) <span style={{ fontSize: '0.8em', color: '#666' }}>(자동 계산)</span></label>
                     <input
                       type="text"
                       name="unexecutedAmount"
@@ -1228,7 +1228,7 @@ const BudgetRegistrationAPI = () => {
                   </div>
                   
                   <div className="form-group">
-                    <label>예산초과액 <span style={{ fontSize: '0.8em', color: '#d9534f' }}>(자동 계산)</span></label>
+                    <label>예산초과액 (원) <span style={{ fontSize: '0.8em', color: '#d9534f' }}>(자동 계산)</span></label>
                     <input
                       type="text"
                       name="budgetExcessAmount"
