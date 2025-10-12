@@ -10,7 +10,6 @@ import DraftList from './components/DraftList';
 import ApprovalLine from './components/ApprovalLine';
 import TeamManagement from './components/TeamManagement';
 import ProposalForm from './components/ProposalForm';
-import Statistics from './components/Statistics';
 import EditorTest from './components/EditorTest';
 
 
@@ -81,10 +80,6 @@ function App() {
                 <span className="nav-icon">📋</span>
                 결재라인 참조
               </Link>
-              <Link to="/statistics" className="nav-link">
-                <span className="nav-icon">📈</span>
-                통계 및 모니터링
-              </Link>
               
 
               
@@ -133,7 +128,6 @@ function App() {
              <Route path="/draft-list" element={<DraftList />} />
              <Route path="/proposal" element={<ProposalForm />} />
              <Route path="/approval-line" element={<ApprovalLine />} />
-             <Route path="/statistics" element={<Statistics />} />
              
              <Route path="/team" element={<TeamManagement />} />
              <Route path="/editor-test" element={<EditorTest />} />

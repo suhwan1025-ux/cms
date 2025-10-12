@@ -344,6 +344,7 @@ const ContractList = () => {
           approvalLine: proposal.approvalLines?.map(line => `${line.approver} → `).join('') || '',
           createdAt: proposal.createdAt ? new Date(proposal.createdAt).toISOString().split('T')[0] : '',
           updatedAt: proposal.updatedAt ? new Date(proposal.updatedAt).toISOString().split('T')[0] : '',
+          approvalDate: proposal.approvalDate ? new Date(proposal.approvalDate).toISOString().split('T')[0] : null,
           items: proposal.purchaseItems?.map(item => ({
             item: item.item,
             productName: item.productName,
@@ -692,7 +693,7 @@ const ContractList = () => {
           bValue = Number(bValue || 0);
         }
         // 날짜 필드 처리
-        else if (sortConfig.key === 'createdAt' || sortConfig.key === 'startDate' || sortConfig.key === 'endDate') {
+        else if (sortConfig.key === 'createdAt' || sortConfig.key === 'startDate' || sortConfig.key === 'endDate' || sortConfig.key === 'approvalDate') {
           aValue = new Date(aValue || '1900-01-01');
           bValue = new Date(bValue || '1900-01-01');
         }
@@ -1406,13 +1407,13 @@ const ContractList = () => {
                   const fieldNames = {
                     title: '계약명',
                     department: '요청부서',
-                    contractor: '계약업체',
                     author: '작성자',
                     amount: '계약금액',
                     type: '계약유형',
                     status: '상태',
                     startDate: '계약기간',
-                    createdAt: '등록일'
+                    createdAt: '등록일',
+                    approvalDate: '결재완료일'
                   };
                   return `${fieldNames[config.key]} ${config.direction === 'asc' ? '↑' : '↓'}`;
                 }).join(', ')}
@@ -1422,15 +1423,38 @@ const ContractList = () => {
         </div>
       </div>
 
-      <div className="table-responsive">
-        <table className="table">
+      {/* 품의서 목록 */}
+      <div className="proposals-list-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3>품의서 목록 (총 {filteredContracts.length}건)</h3>
+          {sortConfigs.length > 0 && (
+            <button 
+              onClick={resetFilters}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '500'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
+            >
+              🔄 정렬 초기화
+            </button>
+          )}
+        </div>
+        <div className="table-responsive">
+          <table className="proposals-list-table">
           <thead>
             <tr>
-              <th style={{ width: '60px', textAlign: 'center', position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}>순번</th>
+              <th style={{ width: '60px', textAlign: 'center' }}>순번</th>
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('title')}
-                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 계약명
                 {getSortDirection('title') && (
@@ -1443,7 +1467,6 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('department')}
-                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 요청부서
                 {getSortDirection('department') && (
@@ -1455,34 +1478,7 @@ const ContractList = () => {
               </th>
               <th 
                 className="sortable-header"
-                onClick={() => handleSort('contractor')}
-                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
-              >
-                계약업체
-                {getSortDirection('contractor') && (
-                  <span className="sort-indicator">
-                    {getSortDirection('contractor') === 'asc' ? ' ↑' : ' ↓'}
-                    <span className="sort-priority">{getSortPriority('contractor')}</span>
-                  </span>
-                )}
-              </th>
-              <th 
-                className="sortable-header"
-                onClick={() => handleSort('author')}
-                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
-              >
-                작성자
-                {getSortDirection('author') && (
-                  <span className="sort-indicator">
-                    {getSortDirection('author') === 'asc' ? ' ↑' : ' ↓'}
-                    <span className="sort-priority">{getSortPriority('author')}</span>
-                  </span>
-                )}
-              </th>
-              <th 
-                className="sortable-header"
                 onClick={() => handleSort('amount')}
-                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 계약금액
                 {getSortDirection('amount') && (
@@ -1495,7 +1491,6 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('type')}
-                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 계약유형
                 {getSortDirection('type') && (
@@ -1508,7 +1503,6 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('status')}
-                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 상태
                 {getSortDirection('status') && (
@@ -1521,7 +1515,6 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('startDate')}
-                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 계약기간
                 {getSortDirection('startDate') && (
@@ -1534,7 +1527,6 @@ const ContractList = () => {
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('createdAt')}
-                style={{ position: 'sticky', top: 0, backgroundColor: '#f8f9fa', zIndex: 100 }}
               >
                 등록일
                 {getSortDirection('createdAt') && (
@@ -1544,13 +1536,37 @@ const ContractList = () => {
                   </span>
                 )}
               </th>
+              <th 
+                className="sortable-header"
+                onClick={() => handleSort('approvalDate')}
+              >
+                결재완료일
+                {getSortDirection('approvalDate') && (
+                  <span className="sort-indicator">
+                    {getSortDirection('approvalDate') === 'asc' ? ' ↑' : ' ↓'}
+                    <span className="sort-priority">{getSortPriority('approvalDate')}</span>
+                  </span>
+                )}
+              </th>
+              <th 
+                className="sortable-header"
+                onClick={() => handleSort('author')}
+              >
+                작성자
+                {getSortDirection('author') && (
+                  <span className="sort-indicator">
+                    {getSortDirection('author') === 'asc' ? ' ↑' : ' ↓'}
+                    <span className="sort-priority">{getSortPriority('author')}</span>
+                  </span>
+                )}
+              </th>
             </tr>
           </thead>
           <tbody>
             {displayedContracts.map((contract, index) => (
               <tr 
                 key={contract.id} 
-                className={`clickable-row ${contract.isNew ? 'new-proposal-row' : ''}`}
+                className={`proposal-row ${contract.isNew ? 'new-proposal-row' : ''}`}
                 onClick={() => handleRowClick(contract)}
               >
                 <td style={{ textAlign: 'center' }}>{index + 1}</td>
@@ -1561,8 +1577,6 @@ const ContractList = () => {
                     : (contract.department || '-')
                   }
                 </td>
-                <td>{contract.contractor}</td>
-                <td>{contract.author || '-'}</td>
                 <td>{formatCurrency(contract.amount)}</td>
                 <td>{contract.type}</td>
                 <td>
@@ -1575,6 +1589,8 @@ const ContractList = () => {
                 </td>
                 <td>{formatDate(contract.startDate)} ~ {formatDate(contract.endDate)}</td>
                 <td>{formatDate(contract.createdAt)}</td>
+                <td>{contract.approvalDate ? formatDate(contract.approvalDate) : '-'}</td>
+                <td>{contract.author || '-'}</td>
               </tr>
             ))}
           </tbody>
@@ -1609,6 +1625,7 @@ const ContractList = () => {
             모든 품의서를 불러왔습니다.
           </div>
         )}
+        </div>
       </div>
 
       {/* 상세보기 모달 */}
@@ -2101,48 +2118,63 @@ const ContractList = () => {
           font-style: italic;
         }
 
-        .table-responsive {
+        .proposals-list-section {
           background: white;
-          overflow-y: scroll;
-          overflow-x: auto;
-          max-height: 70vh;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-          border: 1px solid rgba(0,0,0,0.05);
-          position: relative;
-        }
-
-        .table {
-          width: 100%;
-          border-collapse: separate;
-          border-spacing: 0;
-          margin: 0;
-        }
-
-        .table th,
-        .table td {
-          padding: 1rem;
-          text-align: left;
-          border-bottom: 1px solid #e1e5e9;
-        }
-
-        .table thead {
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          background-color: #f8f9fa;
-        }
-
-        .table th {
-          background-color: #f8f9fa !important;
-          font-weight: 600;
-          color: #333;
-          font-size: 0.9rem;
-          border-bottom: 2px solid #dee2e6;
+          border-radius: 8px;
+          padding: 1.5rem;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
-        
-        .table td {
-          background-color: white;
+
+        .proposals-list-section h3 {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #2c3e50;
+          margin: 0;
+          padding-bottom: 0.5rem;
+          border-bottom: 2px solid #f0f3f5;
+        }
+
+        .table-responsive {
+          overflow-x: auto;
+          max-height: 600px;
+          overflow-y: auto;
+        }
+
+        .proposals-list-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 0.9rem;
+        }
+
+        .proposals-list-table thead {
+          background: #f8f9fa;
+          position: sticky;
+          top: 0;
+          z-index: 10;
+        }
+
+        .proposals-list-table th {
+          padding: 0.75rem 0.5rem;
+          text-align: left;
+          font-weight: 600;
+          color: #495057;
+          border-bottom: 2px solid #dee2e6;
+          white-space: nowrap;
+        }
+
+        .proposals-list-table td {
+          padding: 0.75rem 0.5rem;
+          border-bottom: 1px solid #dee2e6;
+          color: #495057;
+        }
+
+        .proposals-list-table tbody tr {
+          cursor: pointer;
+        }
+
+        .proposals-list-table tbody tr:hover {
+          background: #e3f2fd;
+          transition: background 0.2s;
         }
 
         .sortable-header {
@@ -2175,13 +2207,19 @@ const ContractList = () => {
           font-weight: bold;
         }
 
-        .clickable-row {
+        .proposal-row {
           cursor: pointer;
-          transition: background-color 0.3s ease;
+          transition: all 0.2s ease;
         }
 
-        .clickable-row:hover {
-          background-color: #f8f9fa;
+        .proposal-row:hover {
+          background-color: #e3f2fd !important;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .proposal-row:active {
+          transform: translateY(0);
         }
 
         .status-badge {
@@ -2598,6 +2636,15 @@ const ContractList = () => {
             align-items: center;
           }
 
+          .proposals-list-table {
+            font-size: 0.8rem;
+          }
+
+          .proposals-list-table th,
+          .proposals-list-table td {
+            padding: 0.5rem 0.3rem;
+          }
+
           .detail-content {
             margin: 1rem;
             max-height: 95vh;
@@ -2610,12 +2657,6 @@ const ContractList = () => {
 
           .detail-grid {
             grid-template-columns: 1fr;
-          }
-
-          .table th,
-          .table td {
-            padding: 0.5rem;
-            font-size: 0.8rem;
           }
         }
         .no-history {
