@@ -13,11 +13,18 @@ const Dashboard = () => {
   });
 
   const [recentProposals, setRecentProposals] = useState([]);
+  const [allApprovedProposals, setAllApprovedProposals] = useState([]); // 모든 결재완료 품의서
+  const [businessBudgets, setBusinessBudgets] = useState([]); // 사업예산 목록
   const [monthlyStats, setMonthlyStats] = useState([]);
   const [outsourcingPersonnel, setOutsourcingPersonnel] = useState([]);
   const [monthlyPersonnelCost, setMonthlyPersonnelCost] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  
+  // 일반계약 팝업 관련 상태
+  const [showContractPopup, setShowContractPopup] = useState(false);
+  const [selectedContracts, setSelectedContracts] = useState([]);
+  const [selectedProjectInfo, setSelectedProjectInfo] = useState({});
 
   useEffect(() => {
     fetchDashboardData();
@@ -26,6 +33,13 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      
+      // 사업예산 데이터 가져오기
+      const budgetResponse = await fetch(`${API_BASE_URL}/api/business-budgets`);
+      const budgetData = await budgetResponse.json();
+      const budgets = Array.isArray(budgetData) ? budgetData : (budgetData.budgets || []);
+      console.log('사업예산 데이터:', budgets);
+      setBusinessBudgets(budgets);
       
       // 품의서 데이터 가져오기
       const response = await fetch(`${API_BASE_URL}/api/proposals`);
@@ -168,6 +182,9 @@ const Dashboard = () => {
         approvedProposals: approvedProposals.length,
         draftProposals: draftProposals.length
       });
+      
+      // 모든 결재완료 품의서 저장
+      setAllApprovedProposals(approvedProposals);
       
       // 최근 결재완료 순서로 정렬 (결재일 기준 내림차순)
       const sortedByApprovalDate = [...approvedProposals].sort((a, b) => {
@@ -387,6 +404,20 @@ const Dashboard = () => {
 
     // 파일 다운로드
     XLSX.writeFile(workbook, filename);
+  };
+
+  // 일반계약 팝업 열기
+  const handleOpenContractPopup = (contracts, projectInfo) => {
+    setSelectedContracts(contracts);
+    setSelectedProjectInfo(projectInfo);
+    setShowContractPopup(true);
+  };
+
+  // 일반계약 팝업 닫기
+  const handleCloseContractPopup = () => {
+    setShowContractPopup(false);
+    setSelectedContracts([]);
+    setSelectedProjectInfo({});
   };
 
   // 외주인력 행 클릭 핸들러 (품의서 미리보기)
@@ -1057,6 +1088,403 @@ const Dashboard = () => {
         </div>
       </div>
       </div>
+
+      {/* 사업별 계약 진행 현황 */}
+      <div className="card">
+        <h2>사업별 계약 진행 현황</h2>
+        <p className="stats-description">각 사업의 품의서 작성 및 결재 진행 상황을 확인할 수 있습니다.</p>
+        <div className="table-responsive">
+          <table className="contract-progress-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f8f9fa' }}>
+                <th rowSpan="2" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', minWidth: '200px' }}>
+                  사업명
+                </th>
+                <th colSpan="3" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', backgroundColor: '#e3f2fd' }}>
+                  추진품의서
+                </th>
+                <th colSpan="3" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', backgroundColor: '#fff3e0' }}>
+                  입찰실시 품의서
+                </th>
+                <th colSpan="3" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', backgroundColor: '#f3e5f5' }}>
+                  입찰결과보고 품의
+                </th>
+                <th rowSpan="2" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', backgroundColor: '#e8f5e9', minWidth: '250px' }}>
+                  구매/용역/변경/연장 계약
+                </th>
+              </tr>
+              <tr style={{ backgroundColor: '#f8f9fa' }}>
+                <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#e3f2fd' }}>작성여부</th>
+                <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#e3f2fd' }}>작성일자</th>
+                <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#e3f2fd' }}>결재일자</th>
+                <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#fff3e0' }}>작성여부</th>
+                <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#fff3e0' }}>작성일자</th>
+                <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#fff3e0' }}>결재일자</th>
+                <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#f3e5f5' }}>작성여부</th>
+                <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#f3e5f5' }}>작성일자</th>
+                <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#f3e5f5' }}>결재일자</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                console.log('📊 사업예산 목록:', businessBudgets.length);
+                console.log('📊 전체 결재완료 품의서 수:', allApprovedProposals.length);
+                
+                // 사업예산이 없는 경우 메시지 표시
+                if (businessBudgets.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan="11" style={{ border: '1px solid #dee2e6', padding: '2rem', textAlign: 'center', color: '#666' }}>
+                        등록된 사업예산이 없습니다.
+                      </td>
+                    </tr>
+                  );
+                }
+                
+                // 계약 유형 한글명 반환 함수
+                const getContractTypeName = (type) => {
+                  switch(type) {
+                    case 'purchase': return '구매';
+                    case 'service': return '용역';
+                    case 'change': return '변경';
+                    case 'extension': return '연장';
+                    default: return type;
+                  }
+                };
+                
+                // 사업예산을 연도순, 사업명순으로 정렬
+                const sortedBudgets = [...businessBudgets].sort((a, b) => {
+                  if (a.budget_year !== b.budget_year) {
+                    return b.budget_year - a.budget_year; // 연도 내림차순
+                  }
+                  return (a.project_name || '').localeCompare(b.project_name || ''); // 사업명 오름차순
+                });
+                
+                // 각 사업예산별로 관련 품의서 찾기
+                return sortedBudgets.map((budget) => {
+                  const budgetId = budget.id;
+                  const budgetYear = budget.budget_year;
+                  const projectName = budget.project_name;
+                  const budgetAmount = budget.budget_amount;
+                  
+                  // 해당 사업예산에 연결된 품의서들 찾기
+                  const relatedProposals = allApprovedProposals.filter(p => p.budgetId === budgetId);
+                  
+                  console.log(`📋 ${projectName} (${budgetYear}년) - 연결된 품의서: ${relatedProposals.length}건`);
+                  
+                  // 품의서 분류
+                  let 추진품의서 = null;
+                  let 입찰실시품의서 = null;
+                  let 입찰결과보고품의 = null;
+                  const 일반계약목록 = [];
+                  
+                  relatedProposals.forEach(proposal => {
+                    const contractMethod = proposal.contractMethod || '';
+                    const contractType = proposal.contractType;
+                    
+                    // 추진품의 템플릿 사용
+                    if (contractMethod.includes('추진품의')) {
+                      추진품의서 = proposal;
+                    } 
+                    // 입찰실시 품의서 템플릿 사용
+                    else if (contractMethod.includes('입찰 실시') || contractMethod.includes('입찰실시')) {
+                      입찰실시품의서 = proposal;
+                    }
+                    // 입찰결과보고 품의 템플릿 사용
+                    else if (contractMethod.includes('입찰결과') || contractMethod.includes('입찰 결과') || contractMethod.includes('결과보고') || contractMethod.includes('결과 보고')) {
+                      입찰결과보고품의 = proposal;
+                    }
+                    
+                    // 구매/용역/변경/연장 계약 (일반 계약)
+                    if (['purchase', 'service', 'change', 'extension'].includes(contractType)) {
+                      일반계약목록.push({
+                        id: proposal.id,
+                        type: contractType,
+                        title: proposal.title,
+                        totalAmount: proposal.totalAmount,
+                        createdAt: proposal.createdAt,
+                        approvalDate: proposal.approvalDate
+                      });
+                    }
+                  });
+                  
+                  return (
+                    <tr key={budget.id}>
+                      <td style={{ border: '1px solid #dee2e6', padding: '12px', fontWeight: '500' }}>
+                        <div style={{ marginBottom: '4px' }}>
+                          <span style={{ 
+                            display: 'inline-block',
+                            padding: '2px 8px',
+                            backgroundColor: '#667eea',
+                            color: 'white',
+                            borderRadius: '4px',
+                            fontSize: '0.85rem',
+                            fontWeight: '600',
+                            marginRight: '8px'
+                          }}>
+                            {budgetYear}년
+                          </span>
+                          {projectName}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>
+                          예산: {new Intl.NumberFormat('ko-KR').format(budgetAmount)}원
+                        </div>
+                      </td>
+                      
+                      {/* 추진품의서 */}
+                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center' }}>
+                        {추진품의서 ? (
+                          <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
+                        ) : (
+                          <span style={{ color: '#e5e7eb', fontSize: '1.2rem' }}>-</span>
+                        )}
+                      </td>
+                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                        {추진품의서?.createdAt ? new Date(추진품의서.createdAt).toLocaleDateString('ko-KR') : '-'}
+                      </td>
+                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                        {추진품의서?.approvalDate ? new Date(추진품의서.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                      </td>
+                      
+                      {/* 입찰실시 품의서 */}
+                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center' }}>
+                        {입찰실시품의서 ? (
+                          <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
+                        ) : (
+                          <span style={{ color: '#e5e7eb', fontSize: '1.2rem' }}>-</span>
+                        )}
+                      </td>
+                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                        {입찰실시품의서?.createdAt ? new Date(입찰실시품의서.createdAt).toLocaleDateString('ko-KR') : '-'}
+                      </td>
+                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                        {입찰실시품의서?.approvalDate ? new Date(입찰실시품의서.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                      </td>
+                      
+                      {/* 입찰결과보고 품의 */}
+                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center' }}>
+                        {입찰결과보고품의 ? (
+                          <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
+                        ) : (
+                          <span style={{ color: '#e5e7eb', fontSize: '1.2rem' }}>-</span>
+                        )}
+                      </td>
+                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                        {입찰결과보고품의?.createdAt ? new Date(입찰결과보고품의.createdAt).toLocaleDateString('ko-KR') : '-'}
+                      </td>
+                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                        {입찰결과보고품의?.approvalDate ? new Date(입찰결과보고품의.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                      </td>
+                      
+                      {/* 구매/용역/변경/연장 계약 요약 */}
+                      <td style={{ border: '1px solid #dee2e6', padding: '12px', backgroundColor: '#f9fbe7', textAlign: 'center' }}>
+                        {일반계약목록.length > 0 ? (
+                          <div 
+                            onClick={() => handleOpenContractPopup(일반계약목록, {
+                              year: budgetYear,
+                              projectName: projectName,
+                              budgetAmount: budgetAmount
+                            })}
+                            style={{
+                              cursor: 'pointer',
+                              padding: '8px',
+                              borderRadius: '6px',
+                              transition: 'all 0.2s',
+                              backgroundColor: '#fff'
+                            }}
+                            onMouseOver={(e) => {
+                              e.currentTarget.style.backgroundColor = '#e8f5e9';
+                              e.currentTarget.style.transform = 'scale(1.02)';
+                            }}
+                            onMouseOut={(e) => {
+                              e.currentTarget.style.backgroundColor = '#fff';
+                              e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                          >
+                            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#4CAF50', marginBottom: '4px' }}>
+                              {일반계약목록.length}건
+                            </div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#333' }}>
+                              {new Intl.NumberFormat('ko-KR').format(
+                                일반계약목록.reduce((sum, c) => sum + (c.totalAmount || 0), 0)
+                              )}원
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '4px' }}>
+                              📋 클릭하여 상세보기
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#999' }}>-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 일반계약 상세 팝업 */}
+      {showContractPopup && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+          onClick={handleCloseContractPopup}
+        >
+          <div 
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '800px',
+              width: '90%',
+              maxHeight: '80vh',
+              overflow: 'auto',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#333', fontSize: '1.5rem' }}>
+                  일반 계약 상세 목록
+                </h3>
+                <p style={{ margin: '8px 0 0 0', color: '#666', fontSize: '0.9rem' }}>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '2px 8px',
+                    backgroundColor: '#667eea',
+                    color: 'white',
+                    borderRadius: '4px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    marginRight: '8px'
+                  }}>
+                    {selectedProjectInfo.year}년
+                  </span>
+                  {selectedProjectInfo.projectName}
+                </p>
+              </div>
+              <button
+                onClick={handleCloseContractPopup}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#999',
+                  padding: '4px 8px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              {selectedContracts.map((contract, idx) => (
+                <div 
+                  key={contract.id}
+                  style={{
+                    padding: '16px',
+                    marginBottom: '12px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '8px',
+                    border: '1px solid #e0e0e0'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 12px',
+                      backgroundColor: contract.type === 'purchase' ? '#2196F3' :
+                                      contract.type === 'service' ? '#4CAF50' :
+                                      contract.type === 'change' ? '#FF9800' : '#9C27B0',
+                      color: 'white',
+                      borderRadius: '4px',
+                      fontSize: '0.85rem',
+                      fontWeight: '600',
+                      minWidth: '50px',
+                      textAlign: 'center'
+                    }}>
+                      {(() => {
+                        switch(contract.type) {
+                          case 'purchase': return '구매';
+                          case 'service': return '용역';
+                          case 'change': return '변경';
+                          case 'extension': return '연장';
+                          default: return contract.type;
+                        }
+                      })()}
+                    </span>
+                    <span style={{ fontSize: '1.1rem', fontWeight: '600', color: '#333', flex: 1 }}>
+                      {contract.title || '품의서'}
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.9rem' }}>
+                    <div style={{ color: '#666' }}>
+                      <strong style={{ color: '#333' }}>계약금액:</strong> {new Intl.NumberFormat('ko-KR').format(contract.totalAmount || 0)}원
+                    </div>
+                    <div style={{ color: '#666' }}>
+                      <strong style={{ color: '#333' }}>작성일:</strong> {contract.createdAt ? new Date(contract.createdAt).toLocaleDateString('ko-KR') : '-'}
+                    </div>
+                    <div style={{ color: '#666' }}>
+                      <strong style={{ color: '#333' }}>결재일:</strong> {contract.approvalDate ? new Date(contract.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{
+              borderTop: '2px solid #4CAF50',
+              paddingTop: '16px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#4CAF50' }}>
+                총 {selectedContracts.length}건
+              </div>
+              <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#333' }}>
+                합계: {new Intl.NumberFormat('ko-KR').format(
+                  selectedContracts.reduce((sum, c) => sum + (c.totalAmount || 0), 0)
+                )}원
+              </div>
+            </div>
+
+            <div style={{ marginTop: '20px', textAlign: 'center' }}>
+              <button
+                onClick={handleCloseContractPopup}
+                style={{
+                  padding: '10px 24px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: '500'
+                }}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 외주인력 현황 */}
       <div className="card">
