@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '../config/api';
 import { generatePreviewHTML } from '../utils/previewGenerator';
+import * as XLSX from 'xlsx';
 
 // API 베이스 URL 설정
 const API_BASE_URL = getApiUrl();
@@ -168,7 +169,13 @@ const Dashboard = () => {
         draftProposals: draftProposals.length
       });
       
-      setRecentProposals(approvedProposals.slice(0, 10)); // 최근 10개
+      // 최근 결재완료 순서로 정렬 (결재일 기준 내림차순)
+      const sortedByApprovalDate = [...approvedProposals].sort((a, b) => {
+        const dateA = a.approvalDate ? new Date(a.approvalDate) : new Date(0);
+        const dateB = b.approvalDate ? new Date(b.approvalDate) : new Date(0);
+        return dateB - dateA; // 내림차순 (최근 것이 먼저)
+      });
+      setRecentProposals(sortedByApprovalDate.slice(0, 5)); // 최근 5개
       setMonthlyStats(sortedMonths);
       setOutsourcingPersonnel(personnelList);
       setMonthlyPersonnelCost(sortedCosts);
@@ -332,6 +339,56 @@ const Dashboard = () => {
     return `${parseInt(month)}월`;
   };
 
+  // 엑셀 다운로드 함수
+  const handleExcelDownload = () => {
+    const sortedData = getSortedPersonnel();
+    
+    // 엑셀용 데이터 변환
+    const excelData = sortedData.map((person, index) => ({
+      '순번': index + 1,
+      '성명': person.name,
+      '기술등급': person.skillLevel,
+      '요청부서': person.department,
+      '사업목적': person.purpose,
+      '계약기간(개월)': person.period,
+      '월단가(원)': person.monthlyRate,
+      '시작일': person.startDate ? person.startDate.toLocaleDateString('ko-KR') : '-',
+      '종료일': person.endDate ? person.endDate.toLocaleDateString('ko-KR') : '-',
+      '공급업체': person.supplier,
+      '재직여부': person.workStatus === 'working' ? '재직중' : 
+                  person.workStatus === 'notStarted' ? '시작전' : '종료'
+    }));
+
+    // 워크북 생성
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, '외주인력현황');
+
+    // 열 너비 자동 조정
+    const columnWidths = [
+      { wch: 8 },   // 순번
+      { wch: 12 },  // 성명
+      { wch: 12 },  // 기술등급
+      { wch: 15 },  // 요청부서
+      { wch: 25 },  // 사업목적
+      { wch: 15 },  // 계약기간
+      { wch: 15 },  // 월단가
+      { wch: 15 },  // 시작일
+      { wch: 15 },  // 종료일
+      { wch: 20 },  // 공급업체
+      { wch: 12 }   // 재직여부
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    // 파일명에 현재 날짜 포함
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const filename = `외주인력현황_${dateStr}.xlsx`;
+
+    // 파일 다운로드
+    XLSX.writeFile(workbook, filename);
+  };
+
   // 외주인력 행 클릭 핸들러 (품의서 미리보기)
   const handlePersonnelClick = async (proposalId) => {
     console.log('🔍 선택된 품의서 ID:', proposalId);
@@ -437,13 +494,57 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* 월별 결재완료 통계 그래프 */}
+      {/* 최근 품의서 현황 */}
       <div className="card">
+        <h2>최근 결재완료 품의서</h2>
+        <p className="stats-description">최근 결재완료된 품의서 5건을 표시합니다.</p>
+        <div className="table-responsive">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>품의서 제목</th>
+                <th>계약 유형</th>
+                <th>계약금액</th>
+                <th>결재완료일</th>
+                <th>작성자</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentProposals.length > 0 ? (
+                recentProposals.map(proposal => (
+                  <tr key={proposal.id}>
+                    <td>{proposal.title || proposal.purpose}</td>
+                    <td>
+                      <span className="contract-type-badge">
+                        {getContractTypeText(proposal.contractType)}
+                      </span>
+                    </td>
+                    <td className="amount-cell">{formatCurrency(proposal.totalAmount)}</td>
+                    <td>{proposal.approvalDate ? new Date(proposal.approvalDate).toLocaleDateString('ko-KR') : '-'}</td>
+                    <td>{proposal.createdBy || '-'}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" style={{ textAlign: 'center', color: '#666', fontStyle: 'italic' }}>
+                    결재완료된 품의서가 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 그래프 그리드 - 월별 결재완료와 외주인력 지출 나란히 */}
+      <div className="charts-grid">
+        {/* 월별 결재완료 통계 그래프 */}
+        <div className="card">
         <h2>월별 결재완료 품의서 현황</h2>
         <p className="stats-description">최근 12개월간 결재완료된 품의서의 건수와 금액을 보여줍니다.</p>
         {monthlyStats.length > 0 ? (
           <div className="line-chart-container">
-            <svg className="line-chart" viewBox="0 0 1000 350" preserveAspectRatio="xMidYMid meet">
+            <svg className="line-chart" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet">
               {/* 정의: 그라데이션 및 필터 */}
               <defs>
                 {/* 금액 그라데이션 */}
@@ -477,9 +578,9 @@ const Dashboard = () => {
                 <line
                   key={`grid-${i}`}
                   x1="50"
-                  y1={50 + i * 50}
+                  y1={50 + i * 70}
                   x2="950"
-                  y2={50 + i * 50}
+                  y2={50 + i * 70}
                   stroke="#e5e7eb"
                   strokeWidth="1"
                   strokeDasharray="5,5"
@@ -488,17 +589,17 @@ const Dashboard = () => {
               ))}
               
               {/* Y축 레이블 (금액) - 왼쪽 */}
-              <text x="25" y="35" fontSize="12" fill="#10b981" fontWeight="600" textAnchor="middle">
+              <text x="25" y="35" fontSize="20" fill="#10b981" fontWeight="600" textAnchor="middle">
                 금액
               </text>
               
               {/* Y축 레이블 (건수) - 오른쪽 */}
-              <text x="975" y="35" fontSize="12" fill="#3b82f6" fontWeight="600" textAnchor="middle">
+              <text x="975" y="35" fontSize="20" fill="#3b82f6" fontWeight="600" textAnchor="middle">
                 건수
               </text>
               
               {/* X축 레이블 */}
-              <text x="500" y="345" fontSize="12" fill="#666" fontWeight="600" textAnchor="middle">
+              <text x="500" y="480" fontSize="20" fill="#666" fontWeight="600" textAnchor="middle">
                 월
               </text>
               
@@ -506,41 +607,41 @@ const Dashboard = () => {
                 const maxAmount = Math.max(...monthlyStats.map(m => m.amount));
                 const maxCount = Math.max(...monthlyStats.map(m => m.count));
                 const chartWidth = 900;
-                const chartHeight = 250;
+                const chartHeight = 350;
                 const stepX = chartWidth / (monthlyStats.length - 1 || 1);
                 
                 // 금액 선 경로 생성
                 const amountPath = monthlyStats.map((month, index) => {
                   const x = 50 + index * stepX;
-                  const y = 300 - (month.amount / maxAmount) * chartHeight;
+                  const y = 400 - (month.amount / maxAmount) * chartHeight;
                   return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
                 }).join(' ');
                 
                 // 금액 영역 경로 생성 (area fill)
-                const amountAreaPath = `${amountPath} L ${50 + (monthlyStats.length - 1) * stepX} 300 L 50 300 Z`;
+                const amountAreaPath = `${amountPath} L ${50 + (monthlyStats.length - 1) * stepX} 400 L 50 400 Z`;
                 
                 // 건수 선 경로 생성
                 const countPath = monthlyStats.map((month, index) => {
                   const x = 50 + index * stepX;
-                  const y = 300 - (month.count / maxCount) * chartHeight;
+                  const y = 400 - (month.count / maxCount) * chartHeight;
                   return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
                 }).join(' ');
                 
                 // 건수 영역 경로 생성 (area fill)
-                const countAreaPath = `${countPath} L ${50 + (monthlyStats.length - 1) * stepX} 300 L 50 300 Z`;
+                const countAreaPath = `${countPath} L ${50 + (monthlyStats.length - 1) * stepX} 400 L 50 400 Z`;
                 
                 return (
                   <>
                     {/* Y축 눈금 값 (금액 - 왼쪽) */}
                     {[0, 1, 2, 3, 4, 5].map(i => {
                       const value = (maxAmount / 5) * (5 - i);
-                      const y = 50 + i * 50;
+                      const y = 50 + i * 70;
                       return (
                         <text
                           key={`amount-tick-${i}`}
                           x="45"
                           y={y + 4}
-                          fontSize="10"
+                          fontSize="18"
                           fill="#10b981"
                           textAnchor="end"
                           fontWeight="500"
@@ -553,13 +654,13 @@ const Dashboard = () => {
                     {/* Y축 눈금 값 (건수 - 오른쪽) */}
                     {[0, 1, 2, 3, 4, 5].map(i => {
                       const value = Math.round((maxCount / 5) * (5 - i));
-                      const y = 50 + i * 50;
+                      const y = 50 + i * 70;
                       return (
                         <text
                           key={`count-tick-${i}`}
                           x="955"
                           y={y + 4}
-                          fontSize="10"
+                          fontSize="18"
                           fill="#3b82f6"
                           textAnchor="start"
                           fontWeight="500"
@@ -608,7 +709,7 @@ const Dashboard = () => {
                     {/* 금액 데이터 포인트 */}
                     {monthlyStats.map((month, index) => {
                       const x = 50 + index * stepX;
-                      const y = 300 - (month.amount / maxAmount) * chartHeight;
+                      const y = 400 - (month.amount / maxAmount) * chartHeight;
                       return (
                         <g key={`amount-point-${index}`} className="data-point">
                           <circle
@@ -632,7 +733,7 @@ const Dashboard = () => {
                     {/* 건수 데이터 포인트 */}
                     {monthlyStats.map((month, index) => {
                       const x = 50 + index * stepX;
-                      const y = 300 - (month.count / maxCount) * chartHeight;
+                      const y = 400 - (month.count / maxCount) * chartHeight;
                       return (
                         <g key={`count-point-${index}`} className="data-point">
                           <circle
@@ -660,8 +761,8 @@ const Dashboard = () => {
                         <text
                           key={`label-${index}`}
                           x={x}
-                          y="330"
-                          fontSize="11"
+                          y="450"
+                          fontSize="19"
                           fill="#666"
                           textAnchor="middle"
                         >
@@ -691,55 +792,13 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* 최근 품의서 현황 */}
-      <div className="card">
-        <h2>최근 결재완료 품의서</h2>
-        <p className="stats-description">최근 결재완료된 품의서 10건을 표시합니다.</p>
-        <div className="table-responsive">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>품의서 제목</th>
-                <th>계약 유형</th>
-                <th>계약금액</th>
-                <th>결재완료일</th>
-                <th>작성자</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentProposals.length > 0 ? (
-                recentProposals.map(proposal => (
-                  <tr key={proposal.id}>
-                    <td>{proposal.title || proposal.purpose}</td>
-                    <td>
-                      <span className="contract-type-badge">
-                        {getContractTypeText(proposal.contractType)}
-                      </span>
-                    </td>
-                    <td className="amount-cell">{formatCurrency(proposal.totalAmount)}</td>
-                    <td>{proposal.approvalDate ? new Date(proposal.approvalDate).toLocaleDateString('ko-KR') : '-'}</td>
-                    <td>{proposal.createdBy || '-'}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', color: '#666', fontStyle: 'italic' }}>
-                    결재완료된 품의서가 없습니다.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       {/* 월별 외주 인력 지출 현황 */}
       <div className="card">
         <h2>월별 외주 인력 지출 현황</h2>
         <p className="stats-description">과거 6개월부터 향후 6개월까지 외주 인력의 월별 지출 금액과 인원 수를 보여줍니다.</p>
         {monthlyPersonnelCost.length > 0 && monthlyPersonnelCost.some(m => (m.cost && m.cost > 0) || (m.count && m.count > 0)) ? (
           <div className="line-chart-container">
-            <svg className="line-chart" viewBox="0 0 1000 350" preserveAspectRatio="xMidYMid meet">
+            <svg className="line-chart" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet">
               <defs>
                 <linearGradient id="personnelCostGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                   <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3" />
@@ -766,9 +825,9 @@ const Dashboard = () => {
                 <line
                   key={`grid-${i}`}
                   x1="50"
-                  y1={50 + i * 50}
+                  y1={50 + i * 70}
                   x2="950"
-                  y2={50 + i * 50}
+                  y2={50 + i * 70}
                   stroke="#e5e7eb"
                   strokeWidth="1"
                   strokeDasharray="5,5"
@@ -776,13 +835,13 @@ const Dashboard = () => {
                 />
               ))}
               
-              <text x="25" y="35" fontSize="12" fill="#f59e0b" fontWeight="600" textAnchor="middle">
+              <text x="25" y="35" fontSize="20" fill="#f59e0b" fontWeight="600" textAnchor="middle">
                 금액
               </text>
-              <text x="975" y="35" fontSize="12" fill="#8b5cf6" fontWeight="600" textAnchor="middle">
+              <text x="975" y="35" fontSize="20" fill="#8b5cf6" fontWeight="600" textAnchor="middle">
                 인원
               </text>
-              <text x="500" y="345" fontSize="12" fill="#666" fontWeight="600" textAnchor="middle">
+              <text x="500" y="480" fontSize="20" fill="#666" fontWeight="600" textAnchor="middle">
                 월
               </text>
               
@@ -796,7 +855,7 @@ const Dashboard = () => {
                 const maxCount = actualMaxCount > 0 ? actualMaxCount : 1;
                 
                 const chartWidth = 900;
-                const chartHeight = 250;
+                const chartHeight = 350;
                 const stepX = chartWidth / (monthlyPersonnelCost.length - 1 || 1);
                 
                 console.log('📊 그래프 데이터:', {
@@ -811,30 +870,30 @@ const Dashboard = () => {
                 const costPath = monthlyPersonnelCost.map((month, index) => {
                   const x = 50 + index * stepX;
                   const ratio = month.cost && maxCost > 0 ? month.cost / maxCost : 0;
-                  const y = 300 - ratio * chartHeight;
+                  const y = 400 - ratio * chartHeight;
                   // NaN이나 Infinity 체크
-                  const safeY = isNaN(y) || !isFinite(y) ? 300 : y;
+                  const safeY = isNaN(y) || !isFinite(y) ? 400 : y;
                   return `${index === 0 ? 'M' : 'L'} ${x} ${safeY}`;
                 }).join(' ');
                 
-                const costAreaPath = `${costPath} L ${50 + (monthlyPersonnelCost.length - 1) * stepX} 300 L 50 300 Z`;
+                const costAreaPath = `${costPath} L ${50 + (monthlyPersonnelCost.length - 1) * stepX} 400 L 50 400 Z`;
                 
                 const countPath = monthlyPersonnelCost.map((month, index) => {
                   const x = 50 + index * stepX;
                   const ratio = month.count && maxCount > 0 ? month.count / maxCount : 0;
-                  const y = 300 - ratio * chartHeight;
+                  const y = 400 - ratio * chartHeight;
                   // NaN이나 Infinity 체크
-                  const safeY = isNaN(y) || !isFinite(y) ? 300 : y;
+                  const safeY = isNaN(y) || !isFinite(y) ? 400 : y;
                   return `${index === 0 ? 'M' : 'L'} ${x} ${safeY}`;
                 }).join(' ');
                 
-                const countAreaPath = `${countPath} L ${50 + (monthlyPersonnelCost.length - 1) * stepX} 300 L 50 300 Z`;
+                const countAreaPath = `${countPath} L ${50 + (monthlyPersonnelCost.length - 1) * stepX} 400 L 50 400 Z`;
                 
                 return (
                   <>
                     {[0, 1, 2, 3, 4, 5].map(i => {
                       const value = (maxCost / 5) * (5 - i);
-                      const y = 50 + i * 50;
+                      const y = 50 + i * 70;
                       let displayValue, unit;
                       
                       // 값이 유효하지 않으면 0으로 표시
@@ -864,7 +923,7 @@ const Dashboard = () => {
                           key={`cost-tick-${i}`}
                           x="45"
                           y={y + 4}
-                          fontSize="10"
+                          fontSize="18"
                           fill="#f59e0b"
                           textAnchor="end"
                           fontWeight="500"
@@ -877,13 +936,13 @@ const Dashboard = () => {
                     {[0, 1, 2, 3, 4, 5].map(i => {
                       const value = Math.round((maxCount / 5) * (5 - i));
                       const displayValue = isNaN(value) ? 0 : value;
-                      const y = 50 + i * 50;
+                      const y = 50 + i * 70;
                       return (
                         <text
                           key={`count-tick-${i}`}
                           x="955"
                           y={y + 4}
-                          fontSize="10"
+                          fontSize="18"
                           fill="#8b5cf6"
                           textAnchor="start"
                           fontWeight="500"
@@ -901,7 +960,7 @@ const Dashboard = () => {
                     {monthlyPersonnelCost.map((month, index) => {
                       const x = 50 + index * stepX;
                       const ratio = month.cost && maxCost > 0 ? month.cost / maxCost : 0;
-                      const y = 300 - ratio * chartHeight;
+                      const y = 400 - ratio * chartHeight;
                       
                       // y 좌표가 유효하지 않으면 건너뛰기
                       if (isNaN(y) || !isFinite(y)) return null;
@@ -917,7 +976,7 @@ const Dashboard = () => {
                     {monthlyPersonnelCost.map((month, index) => {
                       const x = 50 + index * stepX;
                       const ratio = month.count && maxCount > 0 ? month.count / maxCount : 0;
-                      const y = 300 - ratio * chartHeight;
+                      const y = 400 - ratio * chartHeight;
                       
                       // y 좌표가 유효하지 않으면 건너뛰기
                       if (isNaN(y) || !isFinite(y)) return null;
@@ -945,7 +1004,7 @@ const Dashboard = () => {
                                 x1={x}
                                 y1="50"
                                 x2={x}
-                                y2="300"
+                                y2="400"
                                 stroke="#f59e0b"
                                 strokeWidth="2"
                                 strokeDasharray="5,5"
@@ -954,7 +1013,7 @@ const Dashboard = () => {
                               <text
                                 x={x}
                                 y="40"
-                                fontSize="10"
+                                fontSize="18"
                                 fill="#f59e0b"
                                 fontWeight="bold"
                                 textAnchor="middle"
@@ -965,8 +1024,8 @@ const Dashboard = () => {
                           )}
                           <text 
                             x={x} 
-                            y="330" 
-                            fontSize="11" 
+                            y="450" 
+                            fontSize="19" 
                             fill={isCurrentMonth ? "#f59e0b" : "#666"}
                             fontWeight={isCurrentMonth ? "bold" : "normal"}
                             textAnchor="middle"
@@ -997,6 +1056,7 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+      </div>
 
       {/* 외주인력 현황 */}
       <div className="card">
@@ -1013,13 +1073,13 @@ const Dashboard = () => {
               )}/월
             </p>
           </div>
-          {sortConfig.key && (
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button 
-              onClick={resetSort}
-              className="reset-sort-btn"
+              onClick={handleExcelDownload}
+              className="excel-download-btn"
               style={{
                 padding: '0.5rem 1rem',
-                backgroundColor: '#6c757d',
+                backgroundColor: '#10b981',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -1031,12 +1091,36 @@ const Dashboard = () => {
                 alignItems: 'center',
                 gap: '0.5rem'
               }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#5a6268'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#6c757d'}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
             >
-              🔄 정렬 초기화
+              📊 엑셀 다운로드
             </button>
-          )}
+            {sortConfig.key && (
+              <button 
+                onClick={resetSort}
+                className="reset-sort-btn"
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: '500',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#5a6268'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#6c757d'}
+              >
+                🔄 정렬 초기화
+              </button>
+            )}
+          </div>
         </div>
         <div className="table-responsive-personnel">
           <table className="outsourcing-table">
@@ -1196,6 +1280,13 @@ const Dashboard = () => {
           margin-bottom: 2rem;
         }
 
+        .charts-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+
         .stat-card {
           display: flex;
           align-items: center;
@@ -1256,7 +1347,7 @@ const Dashboard = () => {
 
         .card {
           background: white;
-          padding: 2rem;
+          padding: 1rem 1.5rem;
           border-radius: 12px;
           margin-bottom: 2rem;
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -1271,7 +1362,7 @@ const Dashboard = () => {
         .stats-description {
           color: #666;
           font-size: 0.9rem;
-          margin-bottom: 1.5rem;
+          margin-bottom: 0.75rem;
         }
 
         .monthly-chart {
@@ -1403,7 +1494,7 @@ const Dashboard = () => {
         
         .line-chart-container {
           background: linear-gradient(to bottom, #f8fafc 0%, #ffffff 100%);
-          padding: 1.5rem;
+          padding: 0.5rem;
           border-radius: 12px;
           box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
         }
@@ -1596,6 +1687,10 @@ const Dashboard = () => {
         @media (max-width: 768px) {
           .stats-grid {
             grid-template-columns: repeat(2, 1fr);
+          }
+
+          .charts-grid {
+            grid-template-columns: 1fr;
           }
           
           .dashboard h1 {

@@ -50,7 +50,8 @@
     "styled-jsx": "^5.1.7",
     "web-vitals": "^2.1.4",
     "webpack": "^5.101.3",
-    "webpack-cli": "^6.0.1"
+    "webpack-cli": "^6.0.1",
+    "xlsx": "^0.18.5"
   },
   "proxy": "http://localhost:3002",
   "scripts": {

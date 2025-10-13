@@ -2033,6 +2033,79 @@ const ContractList = () => {
           margin: 0 auto;
         }
 
+        .personnel-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+
+        .personnel-stat-card {
+          display: flex;
+          align-items: center;
+          gap: 1.5rem;
+          padding: 1.5rem 2rem;
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          transition: transform 0.2s, box-shadow 0.2s;
+          border-left: 4px solid;
+        }
+
+        .personnel-stat-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .personnel-stat-card.active {
+          border-left-color: #10b981;
+          background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+        }
+
+        .personnel-stat-card.expiring {
+          border-left-color: #f59e0b;
+          background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+        }
+
+        .personnel-stat-card .stat-icon {
+          font-size: 3rem;
+          min-width: 60px;
+          text-align: center;
+        }
+
+        .personnel-stat-card .stat-content {
+          flex: 1;
+        }
+
+        .personnel-stat-card .stat-number {
+          font-size: 2.5rem;
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 0.3rem;
+          line-height: 1;
+        }
+
+        .personnel-stat-card .stat-label {
+          color: #666;
+          font-size: 1rem;
+          font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+          .personnel-stats-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .personnel-stat-card .stat-number {
+            font-size: 2rem;
+          }
+
+          .personnel-stat-card .stat-icon {
+            font-size: 2.5rem;
+            min-width: 50px;
+          }
+        }
+
         .filter-section {
           background: white;
           padding: 2rem;
