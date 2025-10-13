@@ -10,6 +10,7 @@ import DraftList from './components/DraftList';
 import ApprovalLine from './components/ApprovalLine';
 import ProposalForm from './components/ProposalForm';
 import AIAssistant from './components/AIAssistant';
+import AIAssistantPage from './components/AIAssistantPage';
 
 
 
@@ -103,6 +104,11 @@ function App() {
                   </div>
                 )}
               </div>
+
+              <Link to="/ai-assistant" className="nav-link">
+                <span className="nav-icon">🤖</span>
+                AI 어시스턴트
+              </Link>
             </nav>
           </aside>
           
@@ -117,6 +123,7 @@ function App() {
              <Route path="/draft-list" element={<DraftList />} />
              <Route path="/proposal" element={<ProposalForm />} />
              <Route path="/approval-line" element={<ApprovalLine />} />
+             <Route path="/ai-assistant" element={<AIAssistantPage />} />
            </Routes>
           </main>
         </div>
