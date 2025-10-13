@@ -13,6 +13,7 @@ app.use(express.json());
 // 정적 파일 제공
 app.use(express.static('public'));
 app.use(express.static('.'));
+app.use(express.static('build')); // React 빌드 파일 서빙
 
 // 사업예산 확정집행액 동기화 함수 (결재완료된 품의서 기준)
 // 확정집행액은 JOIN으로 실시간 계산하므로 별도 동기화 함수 불필요
@@ -2931,6 +2932,19 @@ app.get('/api/budget-history', async (req, res) => {
   }
 });
 
+// React 앱 라우팅 처리 (모든 API 라우트 이후에 위치)
+const path = require('path');
+
+// SPA를 위한 폴백 라우트 (API 라우트가 아닌 모든 요청)
+app.use((req, res, next) => {
+  // API 요청이거나 정적 파일 요청이면 다음 미들웨어로
+  if (req.path.startsWith('/api') || req.path.match(/\.[a-zA-Z0-9]+$/)) {
+    return next();
+  }
+  // 그 외의 경우 React 앱 제공
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
 // 서버 시작
 app.listen(PORT, '0.0.0.0', async () => {
   try {
@@ -2941,9 +2955,10 @@ app.listen(PORT, '0.0.0.0', async () => {
     await updateDatabaseSchema();
     
     console.log(`🚀 API 서버가 포트 ${PORT}에서 실행 중입니다.`);
-    console.log(`🌐 로컬 접근: http://localhost:${PORT}/api`);
-    console.log(`🌐 네트워크 접근: http://[본인IP]:${PORT}/api`);
-    console.log('💡 다른 기기에서 접근하려면 방화벽에서 포트 3001을 허용해주세요.');
+    console.log(`🌐 로컬 접근: http://localhost:${PORT}`);
+    console.log(`🌐 네트워크 접근: http://172.22.32.200:${PORT}`);
+    console.log(`📱 React 앱: http://172.22.32.200:${PORT}`);
+    console.log('💡 다른 기기에서 접근하려면 방화벽에서 포트 3002를 허용해주세요.');
   } catch (error) {
     console.error('❌ 데이터베이스 연결 실패:', error.message);
   }
