@@ -1100,6 +1100,9 @@ const Dashboard = () => {
                 <th rowSpan="2" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', minWidth: '200px' }}>
                   사업명
                 </th>
+                <th rowSpan="2" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', minWidth: '100px', backgroundColor: '#fce4ec' }}>
+                  상태
+                </th>
                 <th colSpan="3" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', backgroundColor: '#e3f2fd' }}>
                   추진품의서
                 </th>
@@ -1134,7 +1137,7 @@ const Dashboard = () => {
                 if (businessBudgets.length === 0) {
                   return (
                     <tr>
-                      <td colSpan="11" style={{ border: '1px solid #dee2e6', padding: '2rem', textAlign: 'center', color: '#666' }}>
+                      <td colSpan="12" style={{ border: '1px solid #dee2e6', padding: '2rem', textAlign: 'center', color: '#666' }}>
                         등록된 사업예산이 없습니다.
                       </td>
                     </tr>
@@ -1165,12 +1168,13 @@ const Dashboard = () => {
                   const budgetId = budget.id;
                   const budgetYear = budget.budget_year;
                   const projectName = budget.project_name;
-                  const budgetAmount = budget.budget_amount;
+                  const budgetAmount = budget.budget_amount || budget.budgetAmount || 0;
+                  const budgetStatus = budget.status || '미지정';
                   
                   // 해당 사업예산에 연결된 품의서들 찾기
                   const relatedProposals = allApprovedProposals.filter(p => p.budgetId === budgetId);
                   
-                  console.log(`📋 ${projectName} (${budgetYear}년) - 연결된 품의서: ${relatedProposals.length}건`);
+                  console.log(`📋 ${projectName} (${budgetYear}년) - 예산: ${budgetAmount}원 - 연결된 품의서: ${relatedProposals.length}건`);
                   
                   // 품의서 분류
                   let 추진품의서 = null;
@@ -1208,6 +1212,19 @@ const Dashboard = () => {
                     }
                   });
                   
+                  // 상태별 색상
+                  const getStatusColor = (status) => {
+                    switch(status) {
+                      case '진행중': return { bg: '#e8f5e9', text: '#2e7d32' };
+                      case '완료': return { bg: '#e3f2fd', text: '#1565c0' };
+                      case '보류': return { bg: '#fff3e0', text: '#e65100' };
+                      case '취소': return { bg: '#ffebee', text: '#c62828' };
+                      default: return { bg: '#f5f5f5', text: '#757575' };
+                    }
+                  };
+                  
+                  const statusColor = getStatusColor(budgetStatus);
+                  
                   return (
                     <tr key={budget.id}>
                       <td style={{ border: '1px solid #dee2e6', padding: '12px', fontWeight: '500' }}>
@@ -1227,8 +1244,23 @@ const Dashboard = () => {
                           {projectName}
                         </div>
                         <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>
-                          예산: {new Intl.NumberFormat('ko-KR').format(budgetAmount)}원
+                          예산: {budgetAmount ? new Intl.NumberFormat('ko-KR').format(budgetAmount) : '0'}원
                         </div>
+                      </td>
+                      
+                      {/* 상태 */}
+                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '4px 12px',
+                          backgroundColor: statusColor.bg,
+                          color: statusColor.text,
+                          borderRadius: '12px',
+                          fontSize: '0.85rem',
+                          fontWeight: '600'
+                        }}>
+                          {budgetStatus}
+                        </span>
                       </td>
                       
                       {/* 추진품의서 */}
