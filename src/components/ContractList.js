@@ -207,6 +207,7 @@ const ContractList = () => {
     type: 'all',
     department: 'all',
     author: 'all',
+    authorInput: '', // 직접 입력 필드
     dateRange: 'all',
     amountRange: 'all',
     keyword: ''
@@ -487,6 +488,7 @@ const ContractList = () => {
            filters.type !== 'all' ||
            filters.department !== 'all' ||
            filters.author !== 'all' ||
+           (filters.author === 'direct' && filters.authorInput.trim() !== '') ||
            filters.dateRange !== 'all' ||
            filters.amountRange !== 'all';
   };
@@ -521,8 +523,13 @@ const ContractList = () => {
     }
 
     // 작성자 필터
-    if (filters.author !== 'all') {
+    if (filters.author !== 'all' && filters.author !== 'direct') {
       filtered = filtered.filter(contract => contract.author === filters.author);
+    } else if (filters.author === 'direct' && filters.authorInput.trim() !== '') {
+      // 직접 입력한 작성자로 필터링 (부분 일치)
+      filtered = filtered.filter(contract => 
+        contract.author && contract.author.toLowerCase().includes(filters.authorInput.toLowerCase())
+      );
     }
 
     // 날짜 범위 필터
@@ -617,6 +624,7 @@ const ContractList = () => {
       type: 'all',
       department: 'all',
       author: 'all',
+      authorInput: '',
       dateRange: 'all',
       amountRange: 'all',
       keyword: ''
@@ -1352,14 +1360,34 @@ const ContractList = () => {
             <label>작성자:</label>
             <select 
               value={filters.author} 
-              onChange={(e) => setFilters({...filters, author: e.target.value})}
+              onChange={(e) => {
+                setFilters({...filters, author: e.target.value, authorInput: e.target.value === 'direct' ? filters.authorInput : ''});
+              }}
             >
               {authorOptions.map(option => (
                 <option key={option} value={option === '전체' ? 'all' : option}>
                   {option}
                 </option>
               ))}
+              <option value="direct">직접입력</option>
             </select>
+            {filters.author === 'direct' && (
+              <input
+                type="text"
+                placeholder="작성자명 입력..."
+                value={filters.authorInput}
+                onChange={(e) => setFilters({...filters, authorInput: e.target.value})}
+                style={{ 
+                  marginTop: '0.5rem',
+                  width: '100%',
+                  padding: '0.5rem', 
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px',
+                  fontSize: '0.9rem',
+                  boxSizing: 'border-box'
+                }}
+              />
+            )}
           </div>
           
           <div className="filter-group">
