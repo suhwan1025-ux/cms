@@ -25,6 +25,10 @@ const Dashboard = () => {
   const [showContractPopup, setShowContractPopup] = useState(false);
   const [selectedContracts, setSelectedContracts] = useState([]);
   const [selectedProjectInfo, setSelectedProjectInfo] = useState({});
+  
+  // 사업예산 필터
+  const [budgetStatusFilter, setBudgetStatusFilter] = useState('전체');
+  const [budgetYearFilter, setBudgetYearFilter] = useState('전체');
 
   useEffect(() => {
     fetchDashboardData();
@@ -1093,11 +1097,67 @@ const Dashboard = () => {
       <div className="card">
         <h2>사업별 계약 진행 현황</h2>
         <p className="stats-description">각 사업의 품의서 작성 및 결재 진행 상황을 확인할 수 있습니다.</p>
-        <div className="table-responsive">
+        
+        {/* 필터 영역 */}
+        <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* 연도 필터 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label style={{ fontWeight: '600', color: '#333', minWidth: '80px' }}>연도 필터:</label>
+            <select 
+              value={budgetYearFilter} 
+              onChange={(e) => setBudgetYearFilter(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #dee2e6',
+                borderRadius: '6px',
+                fontSize: '0.9rem',
+                backgroundColor: 'white',
+                cursor: 'pointer',
+                minWidth: '120px',
+                outline: 'none'
+              }}
+            >
+              <option value="전체">전체</option>
+              {(() => {
+                const years = [...new Set(businessBudgets.map(b => b.budget_year))].sort((a, b) => b - a);
+                return years.map(year => (
+                  <option key={year} value={year}>{year}년</option>
+                ));
+              })()}
+            </select>
+          </div>
+          
+          {/* 상태 필터 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label style={{ fontWeight: '600', color: '#333', minWidth: '80px' }}>상태 필터:</label>
+            <select 
+              value={budgetStatusFilter} 
+              onChange={(e) => setBudgetStatusFilter(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #dee2e6',
+                borderRadius: '6px',
+                fontSize: '0.9rem',
+                backgroundColor: 'white',
+                cursor: 'pointer',
+                minWidth: '150px',
+                outline: 'none'
+              }}
+            >
+              <option value="전체">전체</option>
+              <option value="대기">대기</option>
+              <option value="진행중">진행중</option>
+              <option value="완료(적기)">완료(적기)</option>
+              <option value="완료(지연)">완료(지연)</option>
+            </select>
+          </div>
+        </div>
+        
+        <div className="table-responsive" style={{ maxHeight: '600px', overflowY: 'auto', position: 'relative' }}>
           <table className="contract-progress-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f8f9fa' }}>
-                <th rowSpan="2" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', minWidth: '200px' }}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+              <tr style={{ backgroundColor: '#f8f9fa', position: 'sticky', top: 0, zIndex: 10 }}>
+                <th rowSpan="2" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', minWidth: '200px', backgroundColor: '#f8f9fa' }}>
                   사업명
                 </th>
                 <th rowSpan="2" style={{ border: '1px solid #dee2e6', padding: '12px', textAlign: 'center', fontWeight: '600', minWidth: '100px', backgroundColor: '#fce4ec' }}>
@@ -1116,7 +1176,7 @@ const Dashboard = () => {
                   구매/용역/변경/연장 계약
                 </th>
               </tr>
-              <tr style={{ backgroundColor: '#f8f9fa' }}>
+              <tr style={{ backgroundColor: '#f8f9fa', position: 'sticky', top: '49px', zIndex: 10 }}>
                 <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#e3f2fd' }}>작성여부</th>
                 <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#e3f2fd' }}>작성일자</th>
                 <th style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem', backgroundColor: '#e3f2fd' }}>결재일자</th>
@@ -1156,12 +1216,38 @@ const Dashboard = () => {
                 };
                 
                 // 사업예산을 연도순, 사업명순으로 정렬
-                const sortedBudgets = [...businessBudgets].sort((a, b) => {
+                let sortedBudgets = [...businessBudgets].sort((a, b) => {
                   if (a.budget_year !== b.budget_year) {
                     return b.budget_year - a.budget_year; // 연도 내림차순
                   }
                   return (a.project_name || '').localeCompare(b.project_name || ''); // 사업명 오름차순
                 });
+                
+                // 연도 필터 적용
+                if (budgetYearFilter !== '전체') {
+                  sortedBudgets = sortedBudgets.filter(budget => {
+                    return budget.budget_year === parseInt(budgetYearFilter);
+                  });
+                }
+                
+                // 상태 필터 적용
+                if (budgetStatusFilter !== '전체') {
+                  sortedBudgets = sortedBudgets.filter(budget => {
+                    const status = budget.status || '미지정';
+                    return status === budgetStatusFilter;
+                  });
+                }
+                
+                // 필터링 후 사업예산이 없는 경우
+                if (sortedBudgets.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan="12" style={{ border: '1px solid #dee2e6', padding: '2rem', textAlign: 'center', color: '#666' }}>
+                        조건에 맞는 사업예산이 없습니다.
+                      </td>
+                    </tr>
+                  );
+                }
                 
                 // 각 사업예산별로 관련 품의서 찾기
                 return sortedBudgets.map((budget) => {
@@ -1175,6 +1261,13 @@ const Dashboard = () => {
                   const relatedProposals = allApprovedProposals.filter(p => p.budgetId === budgetId);
                   
                   console.log(`📋 ${projectName} (${budgetYear}년) - 예산: ${budgetAmount}원 - 연결된 품의서: ${relatedProposals.length}건`);
+                  console.log(`   품의서 목록:`, relatedProposals.map(p => ({
+                    id: p.id,
+                    title: p.title,
+                    type: p.contractType,
+                    method: p.contractMethod,
+                    amount: p.totalAmount || p.total_amount
+                  })));
                   
                   // 품의서 분류
                   let 추진품의서 = null;
@@ -1201,24 +1294,29 @@ const Dashboard = () => {
                     
                     // 구매/용역/변경/연장 계약 (일반 계약)
                     if (['purchase', 'service', 'change', 'extension'].includes(contractType)) {
+                      // totalAmount를 숫자로 변환 (다양한 필드명 지원)
+                      const amount = parseFloat(proposal.totalAmount || proposal.total_amount || 0);
+                      
                       일반계약목록.push({
                         id: proposal.id,
                         type: contractType,
                         title: proposal.title,
-                        totalAmount: proposal.totalAmount,
+                        totalAmount: amount,
                         createdAt: proposal.createdAt,
                         approvalDate: proposal.approvalDate
                       });
+                      
+                      console.log(`  ➡️ ${contractType} 계약: ${proposal.title} - ${amount}원`);
                     }
                   });
                   
                   // 상태별 색상
                   const getStatusColor = (status) => {
                     switch(status) {
+                      case '대기': return { bg: '#fff3e0', text: '#e65100' };
                       case '진행중': return { bg: '#e8f5e9', text: '#2e7d32' };
-                      case '완료': return { bg: '#e3f2fd', text: '#1565c0' };
-                      case '보류': return { bg: '#fff3e0', text: '#e65100' };
-                      case '취소': return { bg: '#ffebee', text: '#c62828' };
+                      case '완료(적기)': return { bg: '#e3f2fd', text: '#1565c0' };
+                      case '완료(지연)': return { bg: '#f3e5f5', text: '#6a1b9a' };
                       default: return { bg: '#f5f5f5', text: '#757575' };
                     }
                   };
@@ -1310,44 +1408,58 @@ const Dashboard = () => {
                       
                       {/* 구매/용역/변경/연장 계약 요약 */}
                       <td style={{ border: '1px solid #dee2e6', padding: '12px', backgroundColor: '#f9fbe7', textAlign: 'center' }}>
-                        {일반계약목록.length > 0 ? (
-                          <div 
-                            onClick={() => handleOpenContractPopup(일반계약목록, {
-                              year: budgetYear,
-                              projectName: projectName,
-                              budgetAmount: budgetAmount
-                            })}
-                            style={{
-                              cursor: 'pointer',
-                              padding: '8px',
-                              borderRadius: '6px',
-                              transition: 'all 0.2s',
-                              backgroundColor: '#fff'
-                            }}
-                            onMouseOver={(e) => {
-                              e.currentTarget.style.backgroundColor = '#e8f5e9';
-                              e.currentTarget.style.transform = 'scale(1.02)';
-                            }}
-                            onMouseOut={(e) => {
-                              e.currentTarget.style.backgroundColor = '#fff';
-                              e.currentTarget.style.transform = 'scale(1)';
-                            }}
-                          >
-                            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#4CAF50', marginBottom: '4px' }}>
-                              {일반계약목록.length}건
+                        {(() => {
+                          if (일반계약목록.length === 0) {
+                            return <span style={{ color: '#999' }}>-</span>;
+                          }
+                          
+                          // 총액 계산
+                          const totalAmount = 일반계약목록.reduce((sum, c) => {
+                            const amount = parseFloat(c.totalAmount) || 0;
+                            return sum + amount;
+                          }, 0);
+                          
+                          console.log(`💰 ${projectName} 일반계약 총액:`, {
+                            count: 일반계약목록.length,
+                            contracts: 일반계약목록,
+                            total: totalAmount
+                          });
+                          
+                          return (
+                            <div 
+                              onClick={() => handleOpenContractPopup(일반계약목록, {
+                                year: budgetYear,
+                                projectName: projectName,
+                                budgetAmount: budgetAmount
+                              })}
+                              style={{
+                                cursor: 'pointer',
+                                padding: '8px',
+                                borderRadius: '6px',
+                                transition: 'all 0.2s',
+                                backgroundColor: '#fff'
+                              }}
+                              onMouseOver={(e) => {
+                                e.currentTarget.style.backgroundColor = '#e8f5e9';
+                                e.currentTarget.style.transform = 'scale(1.02)';
+                              }}
+                              onMouseOut={(e) => {
+                                e.currentTarget.style.backgroundColor = '#fff';
+                                e.currentTarget.style.transform = 'scale(1)';
+                              }}
+                            >
+                              <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#4CAF50', marginBottom: '4px' }}>
+                                {일반계약목록.length}건
+                              </div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#333' }}>
+                                {new Intl.NumberFormat('ko-KR').format(totalAmount)}원
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '4px' }}>
+                                📋 클릭하여 상세보기
+                              </div>
                             </div>
-                            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#333' }}>
-                              {new Intl.NumberFormat('ko-KR').format(
-                                일반계약목록.reduce((sum, c) => sum + (c.totalAmount || 0), 0)
-                              )}원
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '4px' }}>
-                              📋 클릭하여 상세보기
-                            </div>
-                          </div>
-                        ) : (
-                          <span style={{ color: '#999' }}>-</span>
-                        )}
+                          );
+                        })()}
                       </td>
                     </tr>
                   );
