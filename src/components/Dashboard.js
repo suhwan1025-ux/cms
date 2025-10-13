@@ -546,7 +546,12 @@ const Dashboard = () => {
       {/* 최근 품의서 현황 */}
       <div className="card">
         <h2>최근 결재완료 품의서</h2>
-        <p className="stats-description">최근 1년 내 결재완료된 품의서 중 최근 5건을 표시합니다.</p>
+        <p className="stats-description">
+          최근 1년 내 결재완료된 품의서 중 최근 5건을 표시합니다. 
+          <span style={{ color: '#667eea', fontWeight: '500', marginLeft: '0.5rem' }}>
+            📄 클릭하면 품의서 상세 내용을 확인할 수 있습니다.
+          </span>
+        </p>
         <div className="table-responsive">
           <table className="table">
             <thead>
@@ -561,7 +566,12 @@ const Dashboard = () => {
             <tbody>
               {recentProposals.length > 0 ? (
                 recentProposals.map(proposal => (
-                  <tr key={proposal.id}>
+                  <tr 
+                    key={proposal.id}
+                    onClick={() => handlePersonnelClick(proposal.id)}
+                    style={{ cursor: 'pointer' }}
+                    className="clickable-row"
+                  >
                     <td>{proposal.title || proposal.purpose}</td>
                     <td>
                       <span className="contract-type-badge">
@@ -1110,7 +1120,12 @@ const Dashboard = () => {
       {/* 사업별 계약 진행 현황 */}
       <div className="card">
         <h2>사업별 계약 진행 현황</h2>
-        <p className="stats-description">각 사업의 품의서 작성 및 결재 진행 상황을 확인할 수 있습니다.</p>
+        <p className="stats-description">
+          각 사업의 품의서 작성 및 결재 진행 상황을 확인할 수 있습니다. 
+          <span style={{ color: '#667eea', fontWeight: '500', marginLeft: '0.5rem' }}>
+            📄 품의서 정보를 클릭하면 상세 내용을 확인할 수 있습니다.
+          </span>
+        </p>
         
         {/* 필터 영역 */}
         <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1376,47 +1391,152 @@ const Dashboard = () => {
                       </td>
                       
                       {/* 추진품의서 */}
-                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center' }}>
+                      <td 
+                        style={{ 
+                          border: '1px solid #dee2e6', 
+                          padding: '8px', 
+                          textAlign: 'center',
+                          cursor: 추진품의서 ? 'pointer' : 'default',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onClick={() => 추진품의서 && handlePersonnelClick(추진품의서.id)}
+                        onMouseEnter={(e) => 추진품의서 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
                         {추진품의서 ? (
                           <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
                         ) : (
                           <span style={{ color: '#e5e7eb', fontSize: '1.2rem' }}>-</span>
                         )}
                       </td>
-                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                      <td 
+                        style={{ 
+                          border: '1px solid #dee2e6', 
+                          padding: '8px', 
+                          textAlign: 'center', 
+                          fontSize: '0.85rem',
+                          cursor: 추진품의서 ? 'pointer' : 'default',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onClick={() => 추진품의서 && handlePersonnelClick(추진품의서.id)}
+                        onMouseEnter={(e) => 추진품의서 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
                         {추진품의서?.createdAt ? new Date(추진품의서.createdAt).toLocaleDateString('ko-KR') : '-'}
                       </td>
-                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                      <td 
+                        style={{ 
+                          border: '1px solid #dee2e6', 
+                          padding: '8px', 
+                          textAlign: 'center', 
+                          fontSize: '0.85rem',
+                          cursor: 추진품의서 ? 'pointer' : 'default',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onClick={() => 추진품의서 && handlePersonnelClick(추진품의서.id)}
+                        onMouseEnter={(e) => 추진품의서 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
                         {추진품의서?.approvalDate ? new Date(추진품의서.approvalDate).toLocaleDateString('ko-KR') : '-'}
                       </td>
                       
                       {/* 입찰실시 품의서 */}
-                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center' }}>
+                      <td 
+                        style={{ 
+                          border: '1px solid #dee2e6', 
+                          padding: '8px', 
+                          textAlign: 'center',
+                          cursor: 입찰실시품의서 ? 'pointer' : 'default',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onClick={() => 입찰실시품의서 && handlePersonnelClick(입찰실시품의서.id)}
+                        onMouseEnter={(e) => 입찰실시품의서 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
                         {입찰실시품의서 ? (
                           <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
                         ) : (
                           <span style={{ color: '#e5e7eb', fontSize: '1.2rem' }}>-</span>
                         )}
                       </td>
-                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                      <td 
+                        style={{ 
+                          border: '1px solid #dee2e6', 
+                          padding: '8px', 
+                          textAlign: 'center', 
+                          fontSize: '0.85rem',
+                          cursor: 입찰실시품의서 ? 'pointer' : 'default',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onClick={() => 입찰실시품의서 && handlePersonnelClick(입찰실시품의서.id)}
+                        onMouseEnter={(e) => 입찰실시품의서 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
                         {입찰실시품의서?.createdAt ? new Date(입찰실시품의서.createdAt).toLocaleDateString('ko-KR') : '-'}
                       </td>
-                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                      <td 
+                        style={{ 
+                          border: '1px solid #dee2e6', 
+                          padding: '8px', 
+                          textAlign: 'center', 
+                          fontSize: '0.85rem',
+                          cursor: 입찰실시품의서 ? 'pointer' : 'default',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onClick={() => 입찰실시품의서 && handlePersonnelClick(입찰실시품의서.id)}
+                        onMouseEnter={(e) => 입찰실시품의서 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
                         {입찰실시품의서?.approvalDate ? new Date(입찰실시품의서.approvalDate).toLocaleDateString('ko-KR') : '-'}
                       </td>
                       
                       {/* 입찰결과보고 품의 */}
-                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center' }}>
+                      <td 
+                        style={{ 
+                          border: '1px solid #dee2e6', 
+                          padding: '8px', 
+                          textAlign: 'center',
+                          cursor: 입찰결과보고품의 ? 'pointer' : 'default',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onClick={() => 입찰결과보고품의 && handlePersonnelClick(입찰결과보고품의.id)}
+                        onMouseEnter={(e) => 입찰결과보고품의 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
                         {입찰결과보고품의 ? (
                           <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
                         ) : (
                           <span style={{ color: '#e5e7eb', fontSize: '1.2rem' }}>-</span>
                         )}
                       </td>
-                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                      <td 
+                        style={{ 
+                          border: '1px solid #dee2e6', 
+                          padding: '8px', 
+                          textAlign: 'center', 
+                          fontSize: '0.85rem',
+                          cursor: 입찰결과보고품의 ? 'pointer' : 'default',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onClick={() => 입찰결과보고품의 && handlePersonnelClick(입찰결과보고품의.id)}
+                        onMouseEnter={(e) => 입찰결과보고품의 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
                         {입찰결과보고품의?.createdAt ? new Date(입찰결과보고품의.createdAt).toLocaleDateString('ko-KR') : '-'}
                       </td>
-                      <td style={{ border: '1px solid #dee2e6', padding: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
+                      <td 
+                        style={{ 
+                          border: '1px solid #dee2e6', 
+                          padding: '8px', 
+                          textAlign: 'center', 
+                          fontSize: '0.85rem',
+                          cursor: 입찰결과보고품의 ? 'pointer' : 'default',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onClick={() => 입찰결과보고품의 && handlePersonnelClick(입찰결과보고품의.id)}
+                        onMouseEnter={(e) => 입찰결과보고품의 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
                         {입찰결과보고품의?.approvalDate ? new Date(입찰결과보고품의.approvalDate).toLocaleDateString('ko-KR') : '-'}
                       </td>
                       
@@ -2128,6 +2248,19 @@ const Dashboard = () => {
           font-weight: 600;
           color: #333;
           font-size: 0.9rem;
+        }
+
+        .table tbody tr.clickable-row {
+          transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .table tbody tr.clickable-row:hover {
+          background: #e3f2fd;
+          transform: scale(1.001);
+        }
+
+        .table tbody tr.clickable-row:active {
+          background: #bbdefb;
         }
 
         .table tbody tr:hover {
