@@ -1,10 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const { Sequelize } = require('sequelize');
+const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+
+// AI 서버 설정
+const AI_SERVER_URL = process.env.AI_SERVER_URL || 'http://localhost:8000';
 
 // 미들웨어 설정
 app.use(cors());
@@ -2934,6 +2938,104 @@ app.get('/api/budget-history', async (req, res) => {
 
 // React 앱 라우팅 처리 (모든 API 라우트 이후에 위치)
 const path = require('path');
+
+// ========================================
+// AI 어시스턴트 API (프록시)
+// ========================================
+
+// AI 헬스 체크
+app.get('/api/ai/health', async (req, res) => {
+  try {
+    const response = await axios.get(`${AI_SERVER_URL}/health`, { timeout: 5000 });
+    res.json(response.data);
+  } catch (error) {
+    console.error('AI 서버 헬스 체크 실패:', error.message);
+    res.status(503).json({ 
+      status: 'unavailable',
+      message: 'AI 서버가 응답하지 않습니다. AI 서버가 실행 중인지 확인하세요.'
+    });
+  }
+});
+
+// AI 채팅
+app.post('/api/ai/chat', async (req, res) => {
+  try {
+    const { question, conversation_id, use_history } = req.body;
+    
+    if (!question) {
+      return res.status(400).json({ error: '질문을 입력해주세요.' });
+    }
+    
+    console.log('💬 AI 질문 전달:', question);
+    
+    const response = await axios.post(
+      `${AI_SERVER_URL}/chat`,
+      {
+        question,
+        conversation_id: conversation_id || null,
+        use_history: use_history !== false
+      },
+      { timeout: 60000 } // 60초 타임아웃
+    );
+    
+    console.log('✅ AI 답변 수신');
+    res.json(response.data);
+    
+  } catch (error) {
+    console.error('AI 채팅 오류:', error.message);
+    
+    if (error.code === 'ECONNREFUSED') {
+      return res.status(503).json({ 
+        error: 'AI 서버에 연결할 수 없습니다. AI 서버가 실행 중인지 확인하세요.' 
+      });
+    }
+    
+    if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+      return res.status(504).json({ 
+        error: 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.' 
+      });
+    }
+    
+    res.status(500).json({ 
+      error: error.response?.data?.detail || error.message || '알 수 없는 오류가 발생했습니다.' 
+    });
+  }
+});
+
+// AI 데이터 재인덱싱
+app.post('/api/ai/reindex', async (req, res) => {
+  try {
+    console.log('🔄 AI 데이터 재인덱싱 요청');
+    
+    const response = await axios.post(
+      `${AI_SERVER_URL}/reindex`,
+      {},
+      { timeout: 300000 } // 5분 타임아웃 (재인덱싱은 시간이 걸릴 수 있음)
+    );
+    
+    console.log('✅ 재인덱싱 완료');
+    res.json(response.data);
+    
+  } catch (error) {
+    console.error('AI 재인덱싱 오류:', error.message);
+    res.status(500).json({ 
+      error: error.response?.data?.detail || error.message 
+    });
+  }
+});
+
+// AI 통계 조회
+app.get('/api/ai/stats', async (req, res) => {
+  try {
+    const response = await axios.get(`${AI_SERVER_URL}/stats`, { timeout: 5000 });
+    res.json(response.data);
+  } catch (error) {
+    console.error('AI 통계 조회 오류:', error.message);
+    res.status(500).json({ 
+      error: error.response?.data?.detail || error.message 
+    });
+  }
+});
 
 // SPA를 위한 폴백 라우트 (API 라우트가 아닌 모든 요청)
 app.use((req, res, next) => {

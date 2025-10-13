@@ -1,659 +1,717 @@
-import React, { useState, useEffect } from 'react';
-import './AIAssistant.css';
+import React, { useState, useEffect, useRef } from 'react';
+import { getApiUrl } from '../config/api';
+
+const API_BASE_URL = getApiUrl();
 
 const AIAssistant = () => {
-  const [messages, setMessages] = useState([
-    {
-      type: 'assistant',
-      content: '안녕하세요! 계약관리시스템 AI 어시스턴트입니다. 품의서 검색, 요약, 현황 파악 등을 도와드릴 수 있습니다.',
-      timestamp: new Date()
-    }
-  ]);
-  const [inputMessage, setInputMessage] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [proposalData, setProposalData] = useState([]);
-  const [statistics, setStatistics] = useState({});
+  const [conversationId, setConversationId] = useState(null);
+  const [aiStatus, setAiStatus] = useState('checking');
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
-  // 컴포넌트 마운트 시 데이터 로드
-  useEffect(() => {
-    loadProposalData();
-    loadStatistics();
-  }, []);
-
-  // 품의서 데이터 로드
-  const loadProposalData = async () => {
-    try {
-      const response = await fetch('/api/proposals');
-      if (response.ok) {
-        const data = await response.json();
-        setProposalData(data);
-      }
-    } catch (error) {
-      console.error('품의서 데이터 로드 실패:', error);
-    }
+  // 자동 스크롤
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // 통계 데이터 로드
-  const loadStatistics = async () => {
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // AI 서버 상태 확인
+  useEffect(() => {
+    checkAIStatus();
+  }, [isOpen]);
+
+  const checkAIStatus = async () => {
     try {
-      console.log('통계 데이터 로드 시작');
-      const response = await fetch('/api/statistics/summary');
-      console.log('응답 상태:', response.status);
+      const response = await fetch(`${API_BASE_URL}/api/ai/health`, { timeout: 5000 });
+      const data = await response.json();
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('통계 데이터 로드 성공:', data);
-        setStatistics(data);
+      if (data.status === 'healthy' || data.status === 'degraded') {
+        setAiStatus('ready');
       } else {
-        console.error('응답 오류:', response.status, response.statusText);
-        const errorData = await response.json();
-        console.error('오류 데이터:', errorData);
-        // 오류가 있어도 기본 데이터 설정
-        setStatistics(errorData);
+        setAiStatus('unavailable');
       }
     } catch (error) {
-      console.error('통계 데이터 로드 실패:', error);
-      // 기본값 설정
-      setStatistics({
-        proposals: {
-          total_proposals: 0,
-          draft_count: 0,
-          submitted_count: 0,
-          approved_count: 0,
-          rejected_count: 0,
-          purchase_count: 0,
-          service_count: 0,
-          change_count: 0,
-          extension_count: 0,
-          bidding_count: 0,
-          total_contract_amount: 0
-        },
-        recentActivity: [],
-        budgets: {
-          total_budgets: 0,
-          total_budget_amount: 0,
-          total_executed_amount: 0
-        }
-      });
+      console.error('AI 상태 확인 실패:', error);
+      setAiStatus('unavailable');
     }
   };
 
   // 메시지 전송
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    if (!inputText.trim() || isLoading) return;
 
-    const userMessage = {
-      type: 'user',
-      content: inputMessage,
-      timestamp: new Date()
+    const userMessage = inputText.trim();
+    setInputText('');
+
+    // 사용자 메시지 추가
+    const newUserMessage = {
+      role: 'user',
+      content: userMessage,
+      timestamp: new Date().toISOString()
     };
+    setMessages(prev => [...prev, newUserMessage]);
 
-    setMessages(prev => [...prev, userMessage]);
+    // 로딩 시작
     setIsLoading(true);
 
     try {
-      const response = await processUserQuery(inputMessage);
-      const assistantMessage = {
-        type: 'assistant',
-        content: response,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      const errorMessage = {
-        type: 'assistant',
-        content: '죄송합니다. 처리 중 오류가 발생했습니다. 다시 시도해 주세요.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    }
-
-    setInputMessage('');
-    setIsLoading(false);
-  };
-
-  // 사용자 쿼리 처리 (로컬 AI 로직)
-  const processUserQuery = async (query) => {
-    const lowerQuery = query.toLowerCase();
-
-    // 품의서 검색
-    if (lowerQuery.includes('검색') || lowerQuery.includes('찾아') || lowerQuery.includes('조회')) {
-      return await searchProposals(query);
-    }
-
-    // 현황 파악
-    if (lowerQuery.includes('현황') || lowerQuery.includes('상태') || lowerQuery.includes('통계')) {
-      return await getStatusSummary();
-    }
-
-    // 요약 요청
-    if (lowerQuery.includes('요약') || lowerQuery.includes('정리')) {
-      return await getSummary(query);
-    }
-
-    // 도움말
-    if (lowerQuery.includes('도움') || lowerQuery.includes('help') || lowerQuery.includes('기능')) {
-      return getHelpMessage();
-    }
-
-    // 기본 응답
-    return await generateGeneralResponse(query);
-  };
-
-  // 품의서 검색
-  const searchProposals = async (query) => {
-    try {
-      const searchTerms = extractSearchTerms(query);
-      const searchQuery = searchTerms.join(' ');
-      
-      const response = await fetch('/api/ai/search', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: searchQuery,
-          filters: extractFilters(query)
-        }),
+          question: userMessage,
+          conversation_id: conversationId,
+          use_history: true
+        })
       });
 
       if (!response.ok) {
-        throw new Error('검색 요청 실패');
+        const errorData = await response.json();
+        throw new Error(errorData.error || '알 수 없는 오류가 발생했습니다.');
       }
 
       const data = await response.json();
-      const results = data.results || [];
 
-      if (results.length === 0) {
-        return '검색 조건에 맞는 품의서를 찾을 수 없습니다.';
+      // 대화 ID 저장
+      if (data.conversation_id && !conversationId) {
+        setConversationId(data.conversation_id);
       }
 
-      let responseText = `검색 결과 ${results.length}건의 품의서를 찾았습니다:\n\n`;
-      results.slice(0, 5).forEach((proposal, index) => {
-        responseText += `${index + 1}. ${proposal.purpose}\n`;
-        responseText += `   - 계약유형: ${getContractTypeText(proposal.contract_type)}\n`;
-        responseText += `   - 총액: ${formatCurrency(proposal.total_amount)}\n`;
-        responseText += `   - 상태: ${getStatusText(proposal.status)}\n`;
-        responseText += `   - 작성일: ${formatDate(proposal.created_at)}\n\n`;
-      });
+      // AI 응답 추가
+      const aiMessage = {
+        role: 'assistant',
+        content: data.answer,
+        sources: data.sources || [],
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, aiMessage]);
 
-      if (results.length > 5) {
-        responseText += `... 외 ${results.length - 5}건 더`;
-      }
-
-      return responseText;
     } catch (error) {
-      console.error('검색 실패:', error);
-      return '검색 중 오류가 발생했습니다. 다시 시도해 주세요.';
+      console.error('AI 채팅 오류:', error);
+      
+      // 에러 메시지 추가
+      const errorMessage = {
+        role: 'error',
+        content: error.message || 'AI 서버와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+      inputRef.current?.focus();
     }
   };
 
-  // 현황 요약
-  const getStatusSummary = async () => {
-    try {
-      console.log('현황 요약 요청 시작');
-      const response = await fetch('/api/statistics/summary');
-      console.log('현황 요약 응답 상태:', response.status);
-      
-      let data;
-      if (response.ok) {
-        data = await response.json();
-      } else {
-        // 오류 응답이라도 데이터가 있을 수 있음
-        data = await response.json();
-        console.log('오류 응답이지만 데이터 사용:', data);
-      }
-
-      const proposals = data.proposals || {};
-      const budgets = data.budgets || {};
-
-      let responseText = '📊 계약관리시스템 현황 요약\n\n';
-      responseText += `총 품의서 수: ${proposals.total_proposals || 0}건\n\n`;
-      
-      responseText += '📋 상태별 현황:\n';
-      responseText += `- 작성중: ${proposals.draft_count || 0}건\n`;
-      responseText += `- 제출됨: ${proposals.submitted_count || 0}건\n`;
-      responseText += `- 승인됨: ${proposals.approved_count || 0}건\n`;
-      responseText += `- 반려됨: ${proposals.rejected_count || 0}건\n`;
-
-      responseText += `\n💰 총 계약금액: ${formatCurrency(proposals.total_contract_amount || 0)}\n\n`;
-      
-      responseText += '📄 계약유형별 현황:\n';
-      responseText += `- 구매: ${proposals.purchase_count || 0}건\n`;
-      responseText += `- 용역: ${proposals.service_count || 0}건\n`;
-      responseText += `- 변경: ${proposals.change_count || 0}건\n`;
-      responseText += `- 연장: ${proposals.extension_count || 0}건\n`;
-      responseText += `- 입찰: ${proposals.bidding_count || 0}건\n`;
-
-      if (budgets && (budgets.total_budgets > 0 || budgets.total_budget_amount > 0)) {
-        responseText += `\n📊 예산 현황:\n`;
-        responseText += `- 총 예산: ${formatCurrency(budgets.total_budget_amount || 0)}\n`;
-        responseText += `- 집행액: ${formatCurrency(budgets.total_executed_amount || 0)}\n`;
-        const executionRate = budgets.total_budget_amount > 0 
-          ? ((budgets.total_executed_amount / budgets.total_budget_amount) * 100).toFixed(1)
-          : 0;
-        responseText += `- 집행률: ${executionRate}%`;
-      }
-
-      // 데이터가 모두 0인 경우 안내 메시지 추가
-      if (proposals.total_proposals === 0) {
-        responseText += `\n\n💡 현재 등록된 품의서가 없습니다.\n`;
-        responseText += `품의서를 작성하신 후 다시 확인해 주세요.`;
-      }
-
-      return responseText;
-    } catch (error) {
-      console.error('현황 요약 실패:', error);
-      return `현황 데이터를 가져오는 중 오류가 발생했습니다.\n\n오류 정보: ${error.message}\n\n서버가 실행 중인지 확인해 주세요.`;
+  // Enter 키 처리
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
-  // 요약 생성
-  const getSummary = async (query) => {
-    try {
-      let summaryType = 'recent';
-      
-      // 쿼리에서 요약 타입 추출
-      if (query.includes('대기') || query.includes('미결') || query.includes('처리중')) {
-        summaryType = 'pending';
-      } else if (query.includes('고액') || query.includes('큰 금액') || query.includes('100만')) {
-        summaryType = 'high-value';
-      }
-
-      const response = await fetch(`/api/ai/summary/${summaryType}?limit=10`);
-      if (!response.ok) {
-        throw new Error('요약 데이터 요청 실패');
-      }
-
-      const data = await response.json();
-      const results = data.results || [];
-
-      let responseText = '';
-      switch (summaryType) {
-        case 'pending':
-          responseText = '📝 처리 대기 중인 품의서 요약 (최대 10건)\n\n';
-          break;
-        case 'high-value':
-          responseText = '📝 고액 계약 품의서 요약 (100만원 이상, 최대 10건)\n\n';
-          break;
-        default:
-          responseText = '📝 최근 품의서 요약 (최근 10건)\n\n';
-      }
-      
-      if (results.length === 0) {
-        responseText += '해당하는 품의서가 없습니다.';
-        return responseText;
-      }
-
-      results.forEach((proposal, index) => {
-        responseText += `${index + 1}. ${proposal.purpose}\n`;
-        responseText += `   계약유형: ${getContractTypeText(proposal.contract_type)} | `;
-        responseText += `금액: ${formatCurrency(proposal.total_amount)} | `;
-        responseText += `상태: ${getStatusText(proposal.status)}\n\n`;
-      });
-
-      return responseText;
-    } catch (error) {
-      console.error('요약 생성 실패:', error);
-      return '요약 데이터를 가져오는 중 오류가 발생했습니다. 다시 시도해 주세요.';
+  // 대화 초기화
+  const handleClearChat = () => {
+    if (window.confirm('대화 내역을 모두 삭제하시겠습니까?')) {
+      setMessages([]);
+      setConversationId(null);
     }
   };
 
-  // 도움말 메시지
-  const getHelpMessage = () => {
-    return `🤖 AI 어시스턴트 사용 가능한 기능:\n\n
-🔍 품의서 검색:
-- "구매 품의서 검색해줘"
-- "소프트웨어 관련 품의서 찾아줘"
-- "100만원 이상 계약 검색"
-- "승인된 용역 계약 찾아줘"
+  // 예시 질문
+  const exampleQuestions = [
+    '2025년 IT팀 예산 현황은?',
+    '최근 1개월 결재완료된 용역계약 목록 보여줘',
+    '외주인력 중 종료 예정인 사람은?',
+    '입찰 진행 중인 사업은?'
+  ];
 
-📊 현황 파악:
-- "전체 현황 알려줘"
-- "품의서 상태 현황"
-- "계약유형별 통계"
-
-📝 요약:
-- "최근 품의서 요약해줘"
-- "처리 대기 중인 품의서 요약"
-- "고액 계약 요약해줘"
-
-📈 고급 분석:
-- "분석해줘" - 승인률, 계약 패턴 분석
-- "추천해줘" - 프로세스 개선 제안
-- "비교해줘" - 현재 상태 비교 분석
-
-💡 팁: 구체적인 키워드를 포함해서 질문하시면 더 정확한 답변을 받을 수 있습니다.`;
-  };
-
-  // 일반 응답 생성
-  const generateGeneralResponse = async (query) => {
-    // 패턴 기반 응답 생성
-    if (query.includes('분석') || query.includes('추세') || query.includes('트렌드')) {
-      return await getAnalysis();
-    }
-    
-    if (query.includes('추천') || query.includes('제안')) {
-      return await getRecommendations();
-    }
-    
-    if (query.includes('비교') || query.includes('대비')) {
-      return await getComparison();
-    }
-
-    const responses = [
-      '더 구체적인 질문을 해주시면 도움을 드릴 수 있습니다.',
-      '품의서 검색, 현황 파악, 요약 기능을 사용해보세요.',
-      '"도움말"을 입력하시면 사용 가능한 기능을 확인할 수 있습니다.',
-      '예시: "구매 품의서 검색", "전체 현황", "최근 요약", "분석", "추천" 등'
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
-
-  // 분석 기능
-  const getAnalysis = async () => {
-    try {
-      const response = await fetch('/api/statistics/summary');
-      if (!response.ok) throw new Error('분석 데이터 요청 실패');
-
-      const data = await response.json();
-      const { proposals } = data;
-
-      let analysisText = '📈 계약 관리 분석 리포트\n\n';
-      
-      const totalProposals = proposals.total_proposals || 0;
-      const approvedRate = totalProposals > 0 
-        ? ((proposals.approved_count / totalProposals) * 100).toFixed(1)
-        : 0;
-
-      analysisText += `🎯 승인률 분석: ${approvedRate}%\n`;
-      analysisText += `💰 평균 계약금액: ${formatCurrency((proposals.total_contract_amount || 0) / Math.max(totalProposals, 1))}\n`;
-      analysisText += `📊 주요 계약유형: 구매(${proposals.purchase_count || 0}건), 용역(${proposals.service_count || 0}건)\n\n`;
-      
-      if (approvedRate > 80) {
-        analysisText += `✅ 평가: 우수한 승인률을 보이고 있습니다.`;
-      } else if (approvedRate > 60) {
-        analysisText += `⚠️ 평가: 양호한 승인률이나 개선 여지가 있습니다.`;
-      } else {
-        analysisText += `🔴 평가: 승인률 개선이 필요합니다.`;
-      }
-
-      return analysisText;
-    } catch (error) {
-      console.error('분석 실패:', error);
-      return '분석 데이터를 생성하는 중 오류가 발생했습니다.';
-    }
-  };
-
-  // 추천 기능
-  const getRecommendations = async () => {
-    try {
-      const response = await fetch('/api/statistics/summary');
-      if (!response.ok) throw new Error('추천 데이터 요청 실패');
-
-      const data = await response.json();
-      const { proposals } = data;
-
-      let recommendText = '💡 AI 추천 사항\n\n';
-      
-      const totalProposals = proposals.total_proposals || 0;
-      const rejectionRate = totalProposals > 0 
-        ? ((proposals.rejected_count / totalProposals) * 100)
-        : 0;
-
-      recommendText += `📋 프로세스 개선 추천:\n`;
-      
-      if (rejectionRate > 20) {
-        recommendText += `- 반려율 개선: 품의서 작성 가이드라인 검토 필요\n`;
-      }
-      
-      if (proposals.draft_count > proposals.submitted_count) {
-        recommendText += `- 작성 지원: 미완료 품의서 작성 완료 독려\n`;
-      }
-      
-      recommendText += `- 정기 모니터링을 통한 효율성 개선\n`;
-      recommendText += `- 자주 사용되는 계약 유형 템플릿 활용\n`;
-      recommendText += `- 결재라인 최적화를 통한 처리시간 단축`;
-
-      return recommendText;
-    } catch (error) {
-      console.error('추천 생성 실패:', error);
-      return '추천 사항을 생성하는 중 오류가 발생했습니다.';
-    }
-  };
-
-  // 비교 분석
-  const getComparison = async () => {
-    try {
-      const response = await fetch('/api/statistics/summary');
-      if (!response.ok) throw new Error('비교 데이터 요청 실패');
-
-      const data = await response.json();
-      const { proposals } = data;
-      
-      let comparisonText = '📊 현재 상태 비교 분석\n\n';
-      
-      comparisonText += `📈 처리 현황:\n`;
-      comparisonText += `- 완료: ${proposals.approved_count || 0}건\n`;
-      comparisonText += `- 대기: ${(proposals.draft_count || 0) + (proposals.submitted_count || 0)}건\n`;
-      comparisonText += `- 반려: ${proposals.rejected_count || 0}건\n\n`;
-      
-      comparisonText += `💼 계약 유형 분포:\n`;
-      comparisonText += `- 구매: ${proposals.purchase_count || 0}건\n`;
-      comparisonText += `- 용역: ${proposals.service_count || 0}건\n`;
-      comparisonText += `- 기타: ${(proposals.change_count || 0) + (proposals.extension_count || 0) + (proposals.bidding_count || 0)}건\n\n`;
-      
-      comparisonText += `📌 향후 개선점:\n`;
-      comparisonText += `- 월별/분기별 트렌드 분석 데이터 축적 필요\n`;
-      comparisonText += `- 정기적인 성과 지표 모니터링 권장`;
-
-      return comparisonText;
-    } catch (error) {
-      console.error('비교 분석 실패:', error);
-      return '비교 분석을 수행하는 중 오류가 발생했습니다.';
-    }
-  };
-
-  // 유틸리티 함수들
-  const extractSearchTerms = (query) => {
-    // 간단한 키워드 추출 로직
-    const terms = query.replace(/[검색해줘|찾아줘|조회해줘]/g, '').trim().split(' ');
-    return terms.filter(term => term.length > 1);
-  };
-
-  const extractFilters = (query) => {
-    const filters = {};
-    
-    // 계약 유형 필터
-    if (query.includes('구매')) filters.contractType = 'purchase';
-    if (query.includes('용역')) filters.contractType = 'service';
-    if (query.includes('변경')) filters.contractType = 'change';
-    if (query.includes('연장')) filters.contractType = 'extension';
-    if (query.includes('입찰')) filters.contractType = 'bidding';
-    
-    // 상태 필터
-    if (query.includes('작성중') || query.includes('초안')) filters.status = 'draft';
-    if (query.includes('제출') || query.includes('신청')) filters.status = 'submitted';
-    if (query.includes('승인') || query.includes('완료')) filters.status = 'approved';
-    if (query.includes('반려') || query.includes('거부')) filters.status = 'rejected';
-    
-    // 금액 필터
-    const amountMatch = query.match(/(\d+)만원?\s*(이상|이하|초과|미만)/);
-    if (amountMatch) {
-      const amount = parseInt(amountMatch[1]) * 10000;
-      if (amountMatch[2] === '이상' || amountMatch[2] === '초과') {
-        filters.minAmount = amount;
-      } else if (amountMatch[2] === '이하' || amountMatch[2] === '미만') {
-        filters.maxAmount = amount;
-      }
-    }
-    
-    return filters;
-  };
-
-  const getContractTypeText = (type) => {
-    const types = {
-      purchase: '구매',
-      change: '변경',
-      extension: '연장',
-      service: '용역',
-      bidding: '입찰'
-    };
-    return types[type] || type;
-  };
-
-  const getStatusText = (status) => {
-    const statuses = {
-      draft: '작성중',
-      submitted: '제출됨',
-      approved: '승인됨',
-      rejected: '반려됨'
-    };
-    return statuses[status] || status;
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('ko-KR', {
-      style: 'currency',
-      currency: 'KRW'
-    }).format(amount);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('ko-KR');
-  };
-
-  // 빠른 질문 버튼 클릭
-  const handleQuickQuestion = (question) => {
-    setInputMessage(question);
+  const handleExampleClick = (question) => {
+    setInputText(question);
+    inputRef.current?.focus();
   };
 
   return (
-    <div className="ai-assistant-container">
-      <div className="ai-header">
-        <div className="ai-title">
+    <>
+      {/* AI 어시스턴트 버튼 (플로팅) */}
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="ai-assistant-button"
+          title="AI 어시스턴트"
+        >
           <span className="ai-icon">🤖</span>
-          <h2>AI 어시스턴트</h2>
-        </div>
-        <div className="ai-subtitle">
-          품의서 검색, 요약, 현황 파악을 도와드립니다
-        </div>
-      </div>
+          <span className="ai-pulse"></span>
+        </button>
+      )}
 
-      <div className="chat-container">
-        <div className="messages-container">
-          {messages.map((message, index) => (
-            <div key={index} className={`message ${message.type}`}>
-              <div className="message-content">
-                <pre>{message.content}</pre>
-              </div>
-              <div className="message-time">
-                {message.timestamp.toLocaleTimeString('ko-KR', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
+      {/* AI 채팅 창 */}
+      {isOpen && (
+        <div className="ai-assistant-container">
+          {/* 헤더 */}
+          <div className="ai-header">
+            <div className="ai-header-left">
+              <span className="ai-icon">🤖</span>
+              <div>
+                <h3>AI 어시스턴트</h3>
+                <span className={`ai-status ai-status-${aiStatus}`}>
+                  {aiStatus === 'ready' && '● 준비됨'}
+                  {aiStatus === 'checking' && '○ 확인 중...'}
+                  {aiStatus === 'unavailable' && '○ 사용 불가'}
+                </span>
               </div>
             </div>
-          ))}
-          {isLoading && (
-            <div className="message assistant">
-              <div className="message-content loading">
-                <div className="typing-indicator">
-                  <span></span>
-                  <span></span>
-                  <span></span>
+            <div className="ai-header-actions">
+              {messages.length > 0 && (
+                <button onClick={handleClearChat} className="ai-clear-btn" title="대화 초기화">
+                  🗑️
+                </button>
+              )}
+              <button onClick={() => setIsOpen(false)} className="ai-close-btn" title="닫기">
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* 메시지 영역 */}
+          <div className="ai-messages">
+            {messages.length === 0 ? (
+              <div className="ai-welcome">
+                <div className="ai-welcome-icon">🤖</div>
+                <h4>안녕하세요! 계약 관리 시스템 AI 어시스턴트입니다.</h4>
+                <p>품의서, 계약서, 예산 등에 대해 궁금한 것을 물어보세요.</p>
+                
+                <div className="ai-examples">
+                  <p className="ai-examples-title">💡 예시 질문:</p>
+                  {exampleQuestions.map((question, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleExampleClick(question)}
+                      className="ai-example-btn"
+                    >
+                      {question}
+                    </button>
+                  ))}
                 </div>
-                처리 중입니다...
               </div>
+            ) : (
+              <>
+                {messages.map((message, index) => (
+                  <div key={index} className={`ai-message ai-message-${message.role}`}>
+                    <div className="ai-message-avatar">
+                      {message.role === 'user' ? '👤' : message.role === 'error' ? '⚠️' : '🤖'}
+                    </div>
+                    <div className="ai-message-content">
+                      <div className="ai-message-text">
+                        {message.content}
+                      </div>
+                      {message.sources && message.sources.length > 0 && (
+                        <div className="ai-message-sources">
+                          <details>
+                            <summary>📚 참조 데이터 ({message.sources.length}개)</summary>
+                            <ul>
+                              {message.sources.map((source, idx) => (
+                                <li key={idx}>
+                                  <strong>{source.metadata?.type === 'proposal' ? '품의서' : '사업예산'}</strong>
+                                  : {source.metadata?.title || source.metadata?.projectName || 'N/A'}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        </div>
+                      )}
+                      <div className="ai-message-time">
+                        {new Date(message.timestamp).toLocaleTimeString('ko-KR', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {isLoading && (
+                  <div className="ai-message ai-message-assistant">
+                    <div className="ai-message-avatar">🤖</div>
+                    <div className="ai-message-content">
+                      <div className="ai-typing">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* 입력 영역 */}
+          <div className="ai-input-container">
+            {aiStatus === 'unavailable' && (
+              <div className="ai-status-warning">
+                ⚠️ AI 서버가 실행되지 않았습니다. AI 서버를 시작한 후 사용해주세요.
+              </div>
+            )}
+            <div className="ai-input-wrapper">
+              <textarea
+                ref={inputRef}
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={aiStatus === 'ready' ? "질문을 입력하세요... (Shift+Enter: 줄바꿈)" : "AI 서버를 시작해주세요"}
+                className="ai-input"
+                disabled={isLoading || aiStatus !== 'ready'}
+                rows="1"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!inputText.trim() || isLoading || aiStatus !== 'ready'}
+                className="ai-send-btn"
+                title="전송"
+              >
+                {isLoading ? '⏳' : '📤'}
+              </button>
             </div>
-          )}
-        </div>
-
-        <div className="quick-questions">
-          <div className="quick-questions-title">빠른 질문:</div>
-          <div className="quick-buttons">
-            <button 
-              className="quick-btn"
-              onClick={() => handleQuickQuestion('전체 현황 알려줘')}
-            >
-              📊 전체 현황
-            </button>
-            <button 
-              className="quick-btn"
-              onClick={() => handleQuickQuestion('최근 품의서 요약해줘')}
-            >
-              📝 최근 요약
-            </button>
-            <button 
-              className="quick-btn"
-              onClick={() => handleQuickQuestion('구매 품의서 검색해줘')}
-            >
-              🔍 구매 검색
-            </button>
-            <button 
-              className="quick-btn"
-              onClick={() => handleQuickQuestion('분석해줘')}
-            >
-              📈 분석
-            </button>
-            <button 
-              className="quick-btn"
-              onClick={() => handleQuickQuestion('추천해줘')}
-            >
-              💡 추천
-            </button>
-            <button 
-              className="quick-btn"
-              onClick={() => handleQuickQuestion('도움말')}
-            >
-              ❓ 도움말
-            </button>
+            <div className="ai-input-hint">
+              Shift + Enter로 줄바꿈, Enter로 전송
+            </div>
           </div>
         </div>
+      )}
 
-        <div className="input-container">
-          <div className="input-wrapper">
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder="질문을 입력하세요... (예: 구매 품의서 검색해줘)"
-              disabled={isLoading}
-            />
-            <button 
-              className="send-btn"
-              onClick={handleSendMessage}
-              disabled={isLoading || !inputMessage.trim()}
-            >
-              전송
-            </button>
-          </div>
-        </div>
-      </div>
+      <style jsx="true">{`
+        /* 플로팅 버튼 */
+        .ai-assistant-button {
+          position: fixed;
+          bottom: 30px;
+          right: 30px;
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border: none;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+          z-index: 1000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+        }
 
-      <div className="ai-info">
-        <div className="info-section">
-          <h4>🔒 폐쇄망 AI 어시스턴트</h4>
-          <ul>
-            <li><strong>로컬 처리:</strong> 모든 데이터는 로컬에서 처리됩니다</li>
-            <li><strong>실시간 검색:</strong> 품의서 데이터베이스를 실시간으로 검색</li>
-            <li><strong>지능형 요약:</strong> 키워드 기반 스마트 요약 제공</li>
-            <li><strong>현황 분석:</strong> 계약 현황을 자동으로 분석하여 제공</li>
-          </ul>
-        </div>
-        <div className="info-section">
-          <h4>💡 사용 팁</h4>
-          <ul>
-            <li>구체적인 키워드를 포함해서 질문하세요</li>
-            <li>"검색", "현황", "요약" 키워드를 활용하세요</li>
-            <li>계약유형, 금액, 기간 등으로 세부 검색 가능</li>
-            <li>빠른 질문 버튼을 활용해보세요</li>
-          </ul>
-        </div>
-      </div>
-    </div>
+        .ai-assistant-button:hover {
+          transform: scale(1.1);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .ai-icon {
+          font-size: 28px;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+
+        .ai-pulse {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          background: inherit;
+          animation: pulse 2s infinite;
+          z-index: -1;
+        }
+
+        @keyframes pulse {
+          0% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1.5);
+            opacity: 0;
+          }
+        }
+
+        /* 채팅 컨테이너 */
+        .ai-assistant-container {
+          position: fixed;
+          bottom: 30px;
+          right: 30px;
+          width: 450px;
+          height: 650px;
+          background: white;
+          border-radius: 16px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+          display: flex;
+          flex-direction: column;
+          z-index: 1000;
+          overflow: hidden;
+        }
+
+        /* 헤더 */
+        .ai-header {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 1rem 1.25rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .ai-header-left {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .ai-header h3 {
+          margin: 0;
+          font-size: 1.1rem;
+          font-weight: 600;
+        }
+
+        .ai-status {
+          font-size: 0.75rem;
+          opacity: 0.9;
+        }
+
+        .ai-status-ready {
+          color: #10b981;
+        }
+
+        .ai-status-checking {
+          color: #fbbf24;
+        }
+
+        .ai-status-unavailable {
+          color: #ef4444;
+        }
+
+        .ai-header-actions {
+          display: flex;
+          gap: 0.5rem;
+        }
+
+        .ai-clear-btn,
+        .ai-close-btn {
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          color: white;
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+          transition: all 0.2s;
+        }
+
+        .ai-clear-btn:hover,
+        .ai-close-btn:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 메시지 영역 */
+        .ai-messages {
+          flex: 1;
+          overflow-y: auto;
+          padding: 1rem;
+          background: #f8f9fa;
+        }
+
+        .ai-welcome {
+          text-align: center;
+          padding: 2rem 1rem;
+        }
+
+        .ai-welcome-icon {
+          font-size: 4rem;
+          margin-bottom: 1rem;
+        }
+
+        .ai-welcome h4 {
+          margin: 0 0 0.5rem 0;
+          color: #333;
+          font-size: 1.1rem;
+        }
+
+        .ai-welcome p {
+          color: #666;
+          margin: 0 0 2rem 0;
+        }
+
+        .ai-examples {
+          text-align: left;
+        }
+
+        .ai-examples-title {
+          font-weight: 600;
+          color: #667eea;
+          margin-bottom: 0.75rem;
+        }
+
+        .ai-example-btn {
+          display: block;
+          width: 100%;
+          text-align: left;
+          padding: 0.75rem 1rem;
+          margin-bottom: 0.5rem;
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          cursor: pointer;
+          color: #333;
+          font-size: 0.9rem;
+          transition: all 0.2s;
+        }
+
+        .ai-example-btn:hover {
+          background: #f8f9fa;
+          border-color: #667eea;
+          transform: translateX(4px);
+        }
+
+        /* 메시지 */
+        .ai-message {
+          display: flex;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+          animation: messageSlideIn 0.3s ease;
+        }
+
+        @keyframes messageSlideIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .ai-message-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          flex-shrink: 0;
+          background: white;
+        }
+
+        .ai-message-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .ai-message-text {
+          background: white;
+          padding: 0.75rem 1rem;
+          border-radius: 12px;
+          color: #333;
+          line-height: 1.5;
+          word-wrap: break-word;
+          white-space: pre-wrap;
+        }
+
+        .ai-message-user .ai-message-text {
+          background: #667eea;
+          color: white;
+        }
+
+        .ai-message-error .ai-message-text {
+          background: #fee2e2;
+          color: #991b1b;
+          border: 1px solid #fecaca;
+        }
+
+        .ai-message-sources {
+          margin-top: 0.5rem;
+          font-size: 0.85rem;
+        }
+
+        .ai-message-sources details {
+          background: #f8f9fa;
+          padding: 0.5rem;
+          border-radius: 6px;
+        }
+
+        .ai-message-sources summary {
+          cursor: pointer;
+          color: #667eea;
+          font-weight: 500;
+        }
+
+        .ai-message-sources ul {
+          margin: 0.5rem 0 0 0;
+          padding-left: 1.5rem;
+        }
+
+        .ai-message-sources li {
+          margin: 0.25rem 0;
+          color: #666;
+        }
+
+        .ai-message-time {
+          font-size: 0.7rem;
+          color: #999;
+          margin-top: 0.25rem;
+        }
+
+        /* 타이핑 인디케이터 */
+        .ai-typing {
+          display: flex;
+          gap: 4px;
+          padding: 1rem;
+        }
+
+        .ai-typing span {
+          width: 8px;
+          height: 8px;
+          background: #667eea;
+          border-radius: 50%;
+          animation: typing 1.4s infinite;
+        }
+
+        .ai-typing span:nth-child(2) {
+          animation-delay: 0.2s;
+        }
+
+        .ai-typing span:nth-child(3) {
+          animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+          0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: 0.5;
+          }
+          30% {
+            transform: translateY(-10px);
+            opacity: 1;
+          }
+        }
+
+        /* 입력 영역 */
+        .ai-input-container {
+          border-top: 1px solid #e2e8f0;
+          padding: 1rem;
+          background: white;
+        }
+
+        .ai-status-warning {
+          background: #fef3c7;
+          color: #92400e;
+          padding: 0.75rem;
+          border-radius: 8px;
+          font-size: 0.85rem;
+          margin-bottom: 0.75rem;
+          text-align: center;
+        }
+
+        .ai-input-wrapper {
+          display: flex;
+          gap: 0.5rem;
+          align-items: flex-end;
+        }
+
+        .ai-input {
+          flex: 1;
+          padding: 0.75rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          font-size: 0.9rem;
+          resize: none;
+          max-height: 100px;
+          font-family: inherit;
+        }
+
+        .ai-input:focus {
+          outline: none;
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .ai-input:disabled {
+          background: #f8f9fa;
+          cursor: not-allowed;
+        }
+
+        .ai-send-btn {
+          width: 40px;
+          height: 40px;
+          border-radius: 8px;
+          border: none;
+          background: #667eea;
+          color: white;
+          cursor: pointer;
+          font-size: 18px;
+          transition: all 0.2s;
+          flex-shrink: 0;
+        }
+
+        .ai-send-btn:hover:not(:disabled) {
+          background: #5a67d8;
+          transform: translateY(-2px);
+        }
+
+        .ai-send-btn:disabled {
+          background: #cbd5e0;
+          cursor: not-allowed;
+        }
+
+        .ai-input-hint {
+          font-size: 0.7rem;
+          color: #999;
+          margin-top: 0.5rem;
+          text-align: center;
+        }
+
+        /* 스크롤바 스타일 */
+        .ai-messages::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .ai-messages::-webkit-scrollbar-track {
+          background: #f1f1f1;
+        }
+
+        .ai-messages::-webkit-scrollbar-thumb {
+          background: #cbd5e0;
+          border-radius: 3px;
+        }
+
+        .ai-messages::-webkit-scrollbar-thumb:hover {
+          background: #a0aec0;
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+          .ai-assistant-container {
+            width: calc(100vw - 20px);
+            height: calc(100vh - 20px);
+            bottom: 10px;
+            right: 10px;
+          }
+
+          .ai-assistant-button {
+            bottom: 20px;
+            right: 20px;
+          }
+        }
+      `}</style>
+    </>
   );
 };
 
-export default AIAssistant; 
+export default AIAssistant;

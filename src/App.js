@@ -9,6 +9,7 @@ import ContractList from './components/ContractList';
 import DraftList from './components/DraftList';
 import ApprovalLine from './components/ApprovalLine';
 import ProposalForm from './components/ProposalForm';
+import AIAssistant from './components/AIAssistant';
 
 
 
@@ -119,6 +120,9 @@ function App() {
            </Routes>
           </main>
         </div>
+        
+        {/* AI 어시스턴트 플로팅 버튼 */}
+        <AIAssistant />
       </div>
     </Router>
   );
