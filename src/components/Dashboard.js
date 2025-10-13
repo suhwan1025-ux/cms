@@ -53,8 +53,22 @@ const Dashboard = () => {
       const proposals = Array.isArray(proposalsData) ? proposalsData : [];
       console.log('대시보드 proposals 데이터:', proposals);
       
-      // 결재완료된 품의서만 필터링
-      const approvedProposals = proposals.filter(p => p.status === 'approved');
+      // 결재완료된 품의서만 필터링 (최근 1년)
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      
+      const allApprovedProposals = proposals.filter(p => p.status === 'approved');
+      const approvedProposals = allApprovedProposals.filter(p => {
+        if (p.approvalDate) {
+          const approvalDate = new Date(p.approvalDate);
+          return approvalDate >= oneYearAgo;
+        }
+        return false; // 결재일이 없는 경우 제외
+      });
+      
+      console.log('📊 전체 결재완료 품의서:', allApprovedProposals.length);
+      console.log('📊 최근 1년 결재완료 품의서:', approvedProposals.length);
+      
       const draftProposals = proposals.filter(p => p.status === 'draft' || p.isDraft === true);
       
       // 월별 통계 계산 (결재완료일 기준)
@@ -187,8 +201,8 @@ const Dashboard = () => {
         draftProposals: draftProposals.length
       });
       
-      // 모든 결재완료 품의서 저장
-      setAllApprovedProposals(approvedProposals);
+      // 모든 결재완료 품의서 저장 (사업별 계약 진행 현황 테이블용)
+      setAllApprovedProposals(allApprovedProposals);
       
       // 최근 결재완료 순서로 정렬 (결재일 기준 내림차순)
       const sortedByApprovalDate = [...approvedProposals].sort((a, b) => {
@@ -493,7 +507,7 @@ const Dashboard = () => {
           <div className="stat-icon">✅</div>
           <div className="stat-content">
             <div className="stat-number">{stats.approvedProposals}</div>
-            <div className="stat-label">결재완료 품의서</div>
+            <div className="stat-label">결재완료 품의서 (최근 1년)</div>
           </div>
         </div>
         <div className="stat-card draft">
@@ -532,7 +546,7 @@ const Dashboard = () => {
       {/* 최근 품의서 현황 */}
       <div className="card">
         <h2>최근 결재완료 품의서</h2>
-        <p className="stats-description">최근 결재완료된 품의서 5건을 표시합니다.</p>
+        <p className="stats-description">최근 1년 내 결재완료된 품의서 중 최근 5건을 표시합니다.</p>
         <div className="table-responsive">
           <table className="table">
             <thead>
@@ -576,7 +590,7 @@ const Dashboard = () => {
         {/* 월별 결재완료 통계 그래프 */}
         <div className="card">
         <h2>월별 결재완료 품의서 현황</h2>
-        <p className="stats-description">최근 12개월간 결재완료된 품의서의 건수와 금액을 보여줍니다.</p>
+        <p className="stats-description">최근 1년간 결재완료된 품의서의 건수와 금액을 보여줍니다 (최대 12개월).</p>
         {monthlyStats.length > 0 ? (
           <div className="line-chart-container">
             <svg className="line-chart" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet">
@@ -1639,6 +1653,9 @@ const Dashboard = () => {
               전체 외주인력 현황을 표시합니다. 
               (전체 {outsourcingPersonnel.length}명 / 재직중 {getActivePersonnel().length}명 / 종료 {outsourcingPersonnel.length - getActivePersonnel().length}명)
             </p>
+            <p className="stats-description" style={{ marginTop: '0.25rem', color: '#856404', fontWeight: '500' }}>
+              ⚠️ 노란색 배경은 종료 1개월 전인 인력입니다.
+            </p>
             <p className="stats-description" style={{ marginTop: '0.5rem', fontSize: '1rem', fontWeight: '600', color: '#667eea' }}>
               💰 재직중 인력 월 단가 합계: {formatCurrency(
                 getActivePersonnel().reduce((sum, person) => sum + parseFloat(person.monthlyRate || 0), 0)
@@ -1775,11 +1792,20 @@ const Dashboard = () => {
               {getSortedPersonnel().length > 0 ? (
                 getSortedPersonnel().map((person, index) => {
                   const skillColor = getSkillLevelColor(person.skillLevel);
+                  
+                  // 종료 1개월 전 체크
+                  const oneMonthLater = new Date();
+                  oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+                  const isExpiringSoon = person.isCurrentlyWorking && person.endDate && person.endDate <= oneMonthLater;
+                  
                   return (
                     <tr 
                       key={index}
                       onClick={() => handlePersonnelClick(person.proposalId)}
-                      style={{ cursor: 'pointer' }}
+                      className={isExpiringSoon ? 'expiring-soon' : ''}
+                      style={{ 
+                        cursor: 'pointer'
+                      }}
                     >
                       <td style={{ textAlign: 'center' }}>{index + 1}</td>
                       <td>
@@ -2149,13 +2175,25 @@ const Dashboard = () => {
           cursor: pointer;
         }
 
+        .outsourcing-table tbody tr.expiring-soon {
+          background-color: #fff3cd;
+        }
+
         .outsourcing-table tbody tr:hover {
           background: #e3f2fd;
           transform: scale(1.002);
         }
 
+        .outsourcing-table tbody tr.expiring-soon:hover {
+          background-color: #ffe69c;
+        }
+
         .outsourcing-table tbody tr:active {
           background: #bbdefb;
+        }
+        
+        .outsourcing-table tbody tr.expiring-soon:active {
+          background-color: #ffc107;
         }
 
         .sortable-header {
