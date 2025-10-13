@@ -8,9 +8,7 @@ import BudgetHistory from './components/BudgetHistory';
 import ContractList from './components/ContractList';
 import DraftList from './components/DraftList';
 import ApprovalLine from './components/ApprovalLine';
-import TeamManagement from './components/TeamManagement';
 import ProposalForm from './components/ProposalForm';
-import EditorTest from './components/EditorTest';
 
 
 
@@ -104,16 +102,6 @@ function App() {
                   </div>
                 )}
               </div>
-              
-              <Link to="/team" className="nav-link">
-                <span className="nav-icon">👥</span>
-                팀 관리
-              </Link>
-              
-              <Link to="/editor-test" className="nav-link">
-                <span className="nav-icon">🧪</span>
-                에디터 테스트
-              </Link>
             </nav>
           </aside>
           
@@ -128,9 +116,6 @@ function App() {
              <Route path="/draft-list" element={<DraftList />} />
              <Route path="/proposal" element={<ProposalForm />} />
              <Route path="/approval-line" element={<ApprovalLine />} />
-             
-             <Route path="/team" element={<TeamManagement />} />
-             <Route path="/editor-test" element={<EditorTest />} />
            </Routes>
           </main>
         </div>
