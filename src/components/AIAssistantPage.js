@@ -283,12 +283,36 @@ const AIAssistantPage = () => {
                           <details>
                             <summary>📚 참조 데이터 ({message.sources.length}개)</summary>
                             <ul>
-                              {message.sources.map((source, idx) => (
-                                <li key={idx}>
-                                  <strong>{source.metadata?.type === 'proposal' ? '품의서' : '사업예산'}</strong>
-                                  : {source.metadata?.title || source.metadata?.projectName || 'N/A'}
-                                </li>
-                              ))}
+                              {message.sources.map((source, idx) => {
+                                const typeLabels = {
+                                  'proposals': '품의서',
+                                  'budgets': '사업예산',
+                                  'departments': '부서',
+                                  'purchase_items': '구매품목',
+                                  'service_items': '용역',
+                                  'suppliers': '공급업체',
+                                  'contract_method_statistics': '계약방식 통계',
+                                  'contract_method_details': '계약방식 상세',
+                                  'project_purposes': '프로젝트 목적',
+                                  'monthly_statistics': '월별 통계',
+                                  'status_statistics': '상태별 통계',
+                                  'budget_execution': '예산집행',
+                                  'budget_range': '예산범위',
+                                  'amount_range_statistics': '금액범위 통계',
+                                  'extreme_budgets': '최대최소 예산',
+                                  'statistics': '시스템 통계'
+                                };
+                                
+                                const typeLabel = typeLabels[source.type] || source.type;
+                                const count = Array.isArray(source.data) ? source.data.length : 1;
+                                
+                                return (
+                                  <li key={idx}>
+                                    <strong>{typeLabel}</strong>
+                                    : {count}건
+                                  </li>
+                                );
+                              })}
                             </ul>
                           </details>
                         </div>
