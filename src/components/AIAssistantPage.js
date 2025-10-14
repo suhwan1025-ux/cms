@@ -227,16 +227,20 @@ const AIAssistantPage = () => {
               <h3>📊 시스템 정보</h3>
               <div className="info-items">
                 <div className="info-item">
-                  <span className="info-label">벡터 DB:</span>
-                  <span className="info-value">{stats.vector_db_count}개</span>
+                  <span className="info-label">전체 품의서:</span>
+                  <span className="info-value">{stats.total_proposals || 0}건</span>
                 </div>
                 <div className="info-item">
-                  <span className="info-label">품의서:</span>
-                  <span className="info-value">{stats.db_proposals_count}개</span>
+                  <span className="info-label">승인된 품의서:</span>
+                  <span className="info-value">{stats.approved_proposals || 0}건</span>
                 </div>
                 <div className="info-item">
                   <span className="info-label">사업예산:</span>
-                  <span className="info-value">{stats.db_budgets_count}개</span>
+                  <span className="info-value">{stats.total_budgets || 0}건</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">부서:</span>
+                  <span className="info-value">{stats.total_departments || 0}개</span>
                 </div>
               </div>
             </div>
