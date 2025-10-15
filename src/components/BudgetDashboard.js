@@ -484,10 +484,10 @@ const BudgetDashboard = () => {
           <div className="card-icon">⚠️</div>
           <div className="card-content">
             <h3>예산초과액</h3>
-            <p className="amount" style={{ color: stats.totalBudgetExcess > 0 ? '#dc3545' : '#2c3e50' }}>
+            <p className="amount">
               {formatBillionWon(stats.totalBudgetExcess)}
             </p>
-            <p className="sub-amount" style={{ color: stats.totalBudgetExcess > 0 ? '#dc3545' : '#6c757d' }}>
+            <p className="sub-amount">
               {formatCurrency(stats.totalBudgetExcess)}
             </p>
             <p className="sub-text">기집행 - (예산 + 추가예산)</p>
@@ -650,7 +650,12 @@ const BudgetDashboard = () => {
                 >
                   예산 구분{getSortIcon('budgetCategory')}
                 </th>
-                <th style={{ textAlign: 'center' }}>사업목적</th>
+                <th 
+                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  onClick={() => handleSort('projectPurposeCode')}
+                >
+                  사업목적{getSortIcon('projectPurposeCode')}
+                </th>
                 <th 
                   style={{ cursor: 'pointer', textAlign: 'center' }} 
                   onClick={() => handleSort('budgetAmount')}

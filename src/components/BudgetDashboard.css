@@ -104,13 +104,7 @@
 }
 
 .summary-card.excess .card-icon {
-  background: #fff3cd;
-  border: 2px solid #ffc107;
-}
-
-.summary-card.excess {
-  border: 2px solid #dc3545;
-  background: #fff5f5;
+  background: #fff3e0;
 }
 
 .summary-card .card-content {

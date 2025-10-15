@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '../config/api';
 import './BudgetRegistrationAPI.css';
+import * as XLSX from 'xlsx';
 
 // API 베이스 URL 설정
 const API_BASE_URL = getApiUrl();
@@ -215,6 +216,84 @@ const BudgetRegistrationAPI = () => {
     });
     setFilteredBudgets(filtered);
   }, [budgets, searchFilters]);
+
+  // 엑셀 다운로드 함수
+  const handleExcelDownload = () => {
+    try {
+      console.log(`📊 ${filteredBudgets.length}건의 사업예산 데이터를 엑셀로 변환합니다.`);
+      
+      // 엑셀 형식으로 변환
+      const excelData = filteredBudgets.map((budget, index) => ({
+        '번호': index + 1,
+        '예산년도': budget.budgetYear || '-',
+        '사업명': budget.projectName || '-',
+        '발의부서': budget.initiatorDepartment || '-',
+        '추진부서': budget.executorDepartment || '-',
+        '예산분류': budget.budgetCategory || '-',
+        '예산액': budget.budgetAmount || 0,
+        '기집행': budget.executedAmount || 0,
+        '집행대기': budget.pendingAmount || 0,
+        '확정집행액': budget.confirmedExecutionAmount || 0,
+        '미집행액': budget.unexecutedAmount || 0,
+        '예산초과액': budget.budgetExcessAmount || 0,
+        '추가예산': budget.additionalBudget || 0,
+        '상태': budget.status || '-',
+        '필수사업여부': budget.isEssential || '-',
+        '사업목적': budget.projectPurpose || '-',
+        '사업기간': budget.startDate && budget.endDate 
+          ? `${budget.startDate} ~ ${budget.endDate}` 
+          : '-',
+        'IT계획서보고': budget.itPlanReported ? 'Y' : 'N',
+        '보류취소사유': budget.holdCancelReason || '-',
+        '비고': budget.notes || '-'
+      }));
+
+      // 워크시트 생성
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      
+      // 컬럼 너비 설정
+      const columnWidths = [
+        { wch: 8 },  // 번호
+        { wch: 10 }, // 예산년도
+        { wch: 30 }, // 사업명
+        { wch: 15 }, // 발의부서
+        { wch: 15 }, // 추진부서
+        { wch: 12 }, // 예산분류
+        { wch: 15 }, // 예산액
+        { wch: 15 }, // 기집행
+        { wch: 15 }, // 집행대기
+        { wch: 15 }, // 확정집행액
+        { wch: 15 }, // 미집행액
+        { wch: 15 }, // 예산초과액
+        { wch: 15 }, // 추가예산
+        { wch: 10 }, // 상태
+        { wch: 12 }, // 필수사업여부
+        { wch: 15 }, // 사업목적
+        { wch: 25 }, // 사업기간
+        { wch: 12 }, // IT계획서보고
+        { wch: 20 }, // 보류취소사유
+        { wch: 30 }  // 비고
+      ];
+      worksheet['!cols'] = columnWidths;
+
+      // 워크북 생성
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, '사업예산 목록');
+
+      // 파일명 생성 (날짜 포함)
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+      const filename = `사업예산_목록_${dateStr}.xlsx`;
+
+      // 엑셀 파일 다운로드
+      XLSX.writeFile(workbook, filename);
+      
+      alert(`${filteredBudgets.length}건의 사업예산 데이터를 엑셀로 다운로드했습니다.`);
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드에 실패했습니다: ' + error.message);
+    }
+  };
 
   // 필터 초기화
   const handleResetFilters = () => {
@@ -1495,7 +1574,7 @@ const BudgetRegistrationAPI = () => {
             </div>
           </div>
 
-          <div style={{ textAlign: 'right' }}>
+          <div style={{ textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
             <button
               onClick={handleResetFilters}
               style={{
@@ -1510,6 +1589,20 @@ const BudgetRegistrationAPI = () => {
             >
               필터 초기화
             </button>
+            <button
+              onClick={handleExcelDownload}
+              style={{
+                padding: '0.4rem 1rem',
+                background: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.85rem'
+              }}
+            >
+              📥 엑셀 다운로드
+            </button>
           </div>
         </div>
 
@@ -1517,17 +1610,18 @@ const BudgetRegistrationAPI = () => {
         <div className="budget-list-section">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0 }}>조회 결과: {filteredBudgets.length}건</h3>
-            {sortConfigs.length > 0 && (
-              <button
-                onClick={handleResetSort}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {sortConfigs.length > 0 && (
+                <button
+                  onClick={handleResetSort}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.3rem'
@@ -1537,7 +1631,27 @@ const BudgetRegistrationAPI = () => {
               >
                 🔄 정렬 초기화
               </button>
-            )}
+              )}
+              <button
+                onClick={handleExcelDownload}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+                onMouseEnter={(e) => e.target.style.background = '#218838'}
+                onMouseLeave={(e) => e.target.style.background = '#28a745'}
+              >
+                📥 엑셀 다운로드
+              </button>
+            </div>
           </div>
           <div className="table-responsive">
             <table className="budget-list-table">

@@ -2,6 +2,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { generatePreviewHTML } from '../utils/previewGenerator';
 import { getApiUrl } from '../config/api';
+import * as XLSX from 'xlsx';
 
 // API 베이스 URL 설정
 const API_BASE_URL = getApiUrl();
@@ -631,6 +632,153 @@ const ContractList = () => {
       keyword: ''
     });
     setSortConfigs([]);
+  };
+
+  // 엑셀 다운로드 함수
+  const handleExcelDownload = async () => {
+    try {
+      // 로딩 메시지 표시
+      const loadingMsg = '전체 데이터를 가져오는 중...';
+      console.log(loadingMsg);
+      
+      // 서버에서 전체 데이터 가져오기 (isDraft=false, 필터 없이 모든 데이터)
+      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=false`);
+      
+      if (!response.ok) {
+        throw new Error('데이터 조회 실패');
+      }
+      
+      const data = await response.json();
+      const allProposals = data.proposals || data;
+      
+      console.log(`📥 전체 ${allProposals.length}건의 데이터를 가져왔습니다.`);
+      
+      // API 데이터를 화면과 동일한 형식으로 변환
+      const formattedProposals = allProposals.map(proposal => ({
+        id: proposal.id,
+        title: proposal.title || '품의서',
+        contractType: proposal.contractType === 'purchase' ? '구매계약' :
+                     proposal.contractType === 'service' ? '용역계약' :
+                     proposal.contractType === 'change' ? '변경계약' :
+                     proposal.contractType === 'extension' ? '연장계약' :
+                     proposal.contractType === 'bidding' ? '입찰계약' :
+                     proposal.contractType === 'freeform' ? 
+                       (proposal.contractMethod && 
+                        /[가-힣]/.test(proposal.contractMethod) && 
+                        !proposal.contractMethod.includes('_')) ? 
+                         proposal.contractMethod : '기타' : 
+                     '기타',
+        department: proposal.requestDepartments?.[0] ? 
+          (typeof proposal.requestDepartments[0] === 'string' ? 
+            proposal.requestDepartments[0] : 
+            proposal.requestDepartments[0].department || proposal.requestDepartments[0].name || proposal.requestDepartments[0]
+          ) : '미지정',
+        requestDepartments: proposal.requestDepartments || [],
+        contractor: proposal.purchaseItems?.[0]?.supplier || proposal.serviceItems?.[0]?.supplier || '미지정',
+        amount: proposal.totalAmount || 0,
+        status: (proposal.status === 'approved' || proposal.status === '결재완료') ? '결재완료' : 
+                (proposal.status === 'submitted' || proposal.status === '결재대기') ? '결재대기' : 
+                proposal.status,
+        contractPeriod: proposal.contractPeriod || '-',
+        contractMethod: proposal.contractMethod || '-',
+        createdAt: proposal.createdAt,
+        updatedAt: proposal.updatedAt,
+        purpose: proposal.purpose || '-',
+        basis: proposal.basis || '-'
+      }));
+      
+      // 현재 필터 조건 적용
+      let dataToExport = formattedProposals;
+      
+      // 키워드 필터
+      if (filters.keyword) {
+        dataToExport = dataToExport.filter(contract => 
+          contract.title.toLowerCase().includes(filters.keyword.toLowerCase()) ||
+          (contract.contractor && contract.contractor.toLowerCase().includes(filters.keyword.toLowerCase())) ||
+          (contract.purpose && contract.purpose.toLowerCase().includes(filters.keyword.toLowerCase()))
+        );
+      }
+      
+      // 상태 필터
+      if (filters.status !== 'all') {
+        dataToExport = dataToExport.filter(contract => contract.status === filters.status);
+      }
+      
+      // 계약 유형 필터
+      if (filters.type !== 'all') {
+        dataToExport = dataToExport.filter(contract => contract.contractType === filters.type);
+      }
+      
+      // 부서 필터
+      if (filters.department !== 'all') {
+        dataToExport = dataToExport.filter(contract => 
+          contract.department === filters.department ||
+          (Array.isArray(contract.requestDepartments) && 
+           contract.requestDepartments.some(d => 
+             (typeof d === 'string' ? d : d.department || d.name) === filters.department
+           ))
+        );
+      }
+      
+      console.log(`📊 필터링 후 ${dataToExport.length}건의 데이터를 엑셀로 변환합니다.`);
+      
+      // 엑셀 형식으로 변환
+      const excelData = dataToExport.map((contract, index) => ({
+        '번호': index + 1,
+        '품의서명': contract.title || '-',
+        '계약유형': contract.contractType || '-',
+        '요청부서': Array.isArray(contract.requestDepartments) 
+          ? contract.requestDepartments.map(d => (typeof d === 'string' ? d : d.department || d.name || d)).join(', ')
+          : (contract.department || '-'),
+        '계약업체': contract.contractor || '-',
+        '계약금액': contract.amount || 0,
+        '상태': contract.status || '-',
+        '계약기간': contract.contractPeriod || '-',
+        '계약방법': contract.contractMethod || '-',
+        '작성일': contract.createdAt ? new Date(contract.createdAt).toLocaleDateString('ko-KR') : '-',
+        '수정일': contract.updatedAt ? new Date(contract.updatedAt).toLocaleDateString('ko-KR') : '-',
+        '목적': contract.purpose || '-',
+        '근거': contract.basis || '-'
+      }));
+
+      // 워크시트 생성
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      
+      // 컬럼 너비 설정
+      const columnWidths = [
+        { wch: 8 },  // 번호
+        { wch: 30 }, // 품의서명
+        { wch: 12 }, // 계약유형
+        { wch: 15 }, // 요청부서
+        { wch: 20 }, // 계약업체
+        { wch: 15 }, // 계약금액
+        { wch: 10 }, // 상태
+        { wch: 20 }, // 계약기간
+        { wch: 15 }, // 계약방법
+        { wch: 12 }, // 작성일
+        { wch: 12 }, // 수정일
+        { wch: 30 }, // 목적
+        { wch: 30 }  // 근거
+      ];
+      worksheet['!cols'] = columnWidths;
+
+      // 워크북 생성
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, '품의서 목록');
+
+      // 파일명 생성 (날짜 포함)
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+      const filename = `품의서_목록_${dateStr}.xlsx`;
+
+      // 엑셀 파일 다운로드
+      XLSX.writeFile(workbook, filename);
+      
+      alert(`${dataToExport.length}건의 품의서 데이터를 엑셀로 다운로드했습니다.`);
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드에 실패했습니다: ' + error.message);
+    }
   };
 
   // 다중정렬 함수
@@ -1586,9 +1734,14 @@ const ContractList = () => {
         </div>
         
         <div className="filter-actions">
-          <button className="reset-btn" onClick={resetFilters}>
-            🔄 필터 초기화
-          </button>
+          <div className="action-buttons-left">
+            <button className="reset-btn" onClick={resetFilters}>
+              🔄 필터 초기화
+            </button>
+            <button className="excel-download-btn" onClick={handleExcelDownload}>
+              📥 엑셀 다운로드
+            </button>
+          </div>
           <div className="result-info">
             <span className="result-count">
               검색 결과: {filteredContracts.length}건
@@ -2351,7 +2504,13 @@ const ContractList = () => {
           border-top: 1px solid #e1e5e9;
         }
 
-        .reset-btn {
+        .action-buttons-left {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+        }
+
+        .reset-btn, .excel-download-btn {
           background: #6c757d;
           color: white;
           border: none;
@@ -2364,6 +2523,15 @@ const ContractList = () => {
 
         .reset-btn:hover {
           background: #5a6268;
+          transform: translateY(-2px);
+        }
+
+        .excel-download-btn {
+          background: #28a745 !important;
+        }
+
+        .excel-download-btn:hover {
+          background: #218838 !important;
           transform: translateY(-2px);
         }
 

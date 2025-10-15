@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- 배경 원 -->
+  <circle cx="50" cy="50" r="48" fill="#667eea" stroke="#5a67d8" stroke-width="2"/>
+  
+  <!-- 문서 아이콘 -->
+  <rect x="30" y="25" width="40" height="50" rx="3" fill="white" opacity="0.95"/>
+  
+  <!-- 문서 상단 접힌 부분 -->
+  <path d="M 62 25 L 70 33 L 70 25 Z" fill="#e0e0e0"/>
+  <path d="M 62 25 L 70 33 L 62 33 Z" fill="white"/>
+  
+  <!-- 문서 내용 라인들 -->
+  <line x1="37" y1="38" x2="58" y2="38" stroke="#667eea" stroke-width="2" stroke-linecap="round"/>
+  <line x1="37" y1="45" x2="63" y2="45" stroke="#667eea" stroke-width="2" stroke-linecap="round"/>
+  <line x1="37" y1="52" x2="55" y2="52" stroke="#667eea" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- 체크마크 (승인/계약 완료 상징) -->
+  <circle cx="50" cy="62" r="12" fill="#10b981" stroke="white" stroke-width="2"/>
+  <path d="M 44 62 L 48 66 L 56 58" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
