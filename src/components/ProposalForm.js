@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import CKEditorComponent from './CKEditorComponent';
 import DocumentTemplates from './DocumentTemplates';
@@ -11,6 +11,7 @@ const API_BASE_URL = getApiUrl();
 
 const ProposalForm = () => {
   const originalNavigate = useNavigate();
+  const location = useLocation();
 
   // 템플릿 선택 핸들러
   const handleTemplateSelect = (template) => {
@@ -544,14 +545,6 @@ const ProposalForm = () => {
 
   // API 데이터 로드 및 편집 모드 확인
   useEffect(() => {
-    // 컴포넌트 마운트 시 편집모드 상태 초기화 (다른 화면에서 돌아온 경우 대비)
-    console.log('ProposalForm 마운트 - 편집모드 상태 초기화');
-    setIsEditMode(false);
-    setEditingProposalId(null);
-    setProposalId(null);
-    setHasUnsavedChanges(false);
-    setInitialFormData(null);
-
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -625,6 +618,72 @@ const ProposalForm = () => {
           // URL에서 품의서 ID가 있으면 서버에서 데이터 가져오기
           console.log('=== URL에서 품의서 ID 발견, 서버에서 데이터 로드 ===');
           await loadProposalFromServer(proposalIdFromUrl);
+        } else if (location.state?.isEdit && location.state?.proposal) {
+          // 수정 모드 (navigate로 전달된 경우)
+          console.log('=== 수정 모드 감지 (location.state), 수정 데이터 로드 ===');
+          const editData = location.state.proposal;
+          console.log('🔍 수정 데이터:', editData);
+          console.log('🔍 수정 데이터 키들:', Object.keys(editData));
+          
+          // 품의서 ID 및 편집 모드 설정
+          if (editData.id) {
+            setProposalId(editData.id);
+            setEditingProposalId(editData.id);
+            setIsEditMode(true);
+            console.log('품의서 ID 설정:', editData.id);
+            console.log('편집 모드 활성화');
+          }
+          
+          // 계약 유형 설정
+          const contractTypeValue = editData.contractType || 'purchase';
+          console.log('🔍 설정할 계약 유형:', contractTypeValue);
+          setContractType(contractTypeValue);
+          
+          // 폼 데이터 설정
+          const newFormData = {
+            title: editData.title || '',
+            purpose: editData.purpose || '',
+            basis: editData.basis || '',
+            budget: editData.budget || '',
+            contractMethod: editData.contractMethod || '',
+            accountSubject: editData.accountSubject || '',
+            requestDepartments: (editData.requestDepartments || []).map(dept => 
+              typeof dept === 'string' ? dept : dept.department || dept.name || dept
+            ),
+            purchaseItems: editData.purchaseItems || [],
+            suppliers: editData.suppliers || [],
+            changeReason: editData.changeReason || '',
+            extensionReason: editData.extensionReason || '',
+            beforeItems: editData.beforeItems || [],
+            afterItems: editData.afterItems || [],
+            serviceItems: editData.serviceItems || [],
+            contractPeriod: editData.contractPeriod || '',
+            contractStartDate: editData.contractStartDate || '',
+            contractEndDate: editData.contractEndDate || '',
+            paymentMethod: editData.paymentMethod || '',
+            biddingType: editData.biddingType || '',
+            qualificationRequirements: editData.qualificationRequirements || '',
+            evaluationCriteria: editData.evaluationCriteria || '',
+            priceComparison: editData.priceComparison || [],
+            wysiwygContent: editData.wysiwygContent || '',
+            other: editData.other || ''
+          };
+          
+          console.log('🔍 설정할 폼 데이터:', newFormData);
+          console.log('🔍 구매품목 개수:', newFormData.purchaseItems.length);
+          console.log('🔍 용역항목 개수:', newFormData.serviceItems.length);
+          
+          setFormData(newFormData);
+          
+          // 변경사항 없음으로 표시 (기존 데이터 로드)
+          setHasUnsavedChanges(false);
+          
+          // 템플릿 선택 화면 건너뛰기
+          setShowTemplates(false);
+          
+          console.log('✅ 수정 데이터 복원 완료');
+          console.log('복원된 제목:', newFormData.title);
+          console.log('복원된 목적:', newFormData.purpose);
         } else if (isRecycleMode && recycleProposal) {
           // 재활용 모드인 경우
           console.log('=== 재활용 모드 감지, 재활용 데이터 로드 ===');

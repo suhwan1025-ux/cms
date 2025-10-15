@@ -1,8 +1,124 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { getApiUrl } from '../config/api';
 import './DocumentTemplates.css';
 
-// 문서 템플릿 데이터
-export const documentTemplates = {
+const API_BASE_URL = getApiUrl();
+
+// 하위 호환성을 위한 더미 export (필요시 제거 가능)
+export const documentTemplates = {};
+
+// 템플릿 선택 컴포넌트
+const DocumentTemplates = ({ onSelectTemplate, selectedTemplate }) => {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // DB에서 템플릿 목록 조회
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${API_BASE_URL}/api/document-templates`);
+        
+        if (!response.ok) {
+          throw new Error('템플릿 목록을 불러오는데 실패했습니다.');
+        }
+        
+        const data = await response.json();
+        setTemplates(data);
+        setError(null);
+      } catch (err) {
+        console.error('템플릿 로드 오류:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTemplates();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="document-templates">
+        <h4>📋 문서 템플릿 선택</h4>
+        <p>템플릿을 불러오는 중...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="document-templates">
+        <h4>📋 문서 템플릿 선택</h4>
+        <p className="error-message">⚠️ {error}</p>
+      </div>
+    );
+  }
+
+  if (templates.length === 0) {
+    return (
+      <div className="document-templates">
+        <h4>📋 문서 템플릿 선택</h4>
+        <p>등록된 템플릿이 없습니다. 템플릿 관리에서 템플릿을 추가해주세요.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="document-templates">
+      <h4>📋 문서 템플릿 선택</h4>
+      <p>미리 작성된 템플릿을 선택하여 빠르게 문서를 작성하세요.</p>
+      
+      <div className="template-grid">
+        {templates.map((template) => (
+          <div 
+            key={template.id}
+            className={`template-card ${selectedTemplate === template.id ? 'selected' : ''}`}
+            onClick={() => onSelectTemplate(template)}
+          >
+            <div className="template-header">
+              <h5>{template.name}</h5>
+              {selectedTemplate === template.id && (
+                <span className="selected-badge">✓ 선택됨</span>
+              )}
+            </div>
+            <p className="template-description">{template.description}</p>
+            <button 
+              className="template-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectTemplate(template);
+              }}
+            >
+              이 템플릿 사용
+            </button>
+          </div>
+        ))}
+      </div>
+      
+      <div className="template-actions">
+        <button 
+          className="clear-template-button"
+          onClick={() => onSelectTemplate(null)}
+        >
+          🗑️ 템플릿 초기화 (빈 문서로 시작)
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default DocumentTemplates;
+
+/* 
+ * 아래는 하드코딩된 기존 템플릿 데이터입니다.
+ * 이미 DB로 마이그레이션되었으므로 참고용으로만 남겨둡니다.
+ * 
+ * OLD HARDCODED TEMPLATES:
+ */
+ 
+const OLD_TEMPLATES_FOR_REFERENCE = {
   promotion: {
     id: 'promotion',
     name: '추진품의',
@@ -372,52 +488,4 @@ export const documentTemplates = {
       <p>위와 같이 입찰을 실시한 결과 [낙찰업체명]을 낙찰자로 선정하였으니 검토 후 계약 체결을 승인하여 주시기 바랍니다.</p>
     `
   }
-};
-
-// 템플릿 선택 컴포넌트
-const DocumentTemplates = ({ onSelectTemplate, selectedTemplate }) => {
-  return (
-    <div className="document-templates">
-      <h4>📋 문서 템플릿 선택</h4>
-      <p>미리 작성된 템플릿을 선택하여 빠르게 문서를 작성하세요.</p>
-      
-      <div className="template-grid">
-        {Object.values(documentTemplates).map((template) => (
-          <div 
-            key={template.id}
-            className={`template-card ${selectedTemplate === template.id ? 'selected' : ''}`}
-            onClick={() => onSelectTemplate(template)}
-          >
-            <div className="template-header">
-              <h5>{template.name}</h5>
-              {selectedTemplate === template.id && (
-                <span className="selected-badge">✓ 선택됨</span>
-              )}
-            </div>
-            <p className="template-description">{template.description}</p>
-            <button 
-              className="template-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectTemplate(template);
-              }}
-            >
-              이 템플릿 사용
-            </button>
-          </div>
-        ))}
-      </div>
-      
-      <div className="template-actions">
-        <button 
-          className="clear-template-button"
-          onClick={() => onSelectTemplate(null)}
-        >
-          🗑️ 템플릿 초기화 (빈 문서로 시작)
-        </button>
-      </div>
-    </div>
-  );
-};
-
-export default DocumentTemplates; 
+}; 

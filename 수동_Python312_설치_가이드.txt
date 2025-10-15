@@ -1,0 +1,83 @@
+====================================
+Python 3.12 수동 설치 가이드
+====================================
+
+1단계: Python 3.14 제거
+-----------------------
+1. Windows 설정 열기 (Win + I)
+2. "앱 및 기능" 또는 "앱" 선택
+3. "Python 3.14" 검색
+4. 클릭 후 "제거" 버튼 클릭
+
+
+2단계: Python 3.12.8 다운로드
+-----------------------------
+1. 브라우저에서 이 링크 열기:
+   https://www.python.org/downloads/release/python-3128/
+
+2. 페이지 하단 "Files" 섹션에서 선택:
+   "Windows installer (64-bit)" 다운로드
+   
+   또는 직접 다운로드:
+   https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe
+
+
+3단계: Python 3.12.8 설치
+-----------------------
+1. 다운로드한 python-3.12.8-amd64.exe 실행
+
+2. ⚠️ 중요! 설치 화면 하단에 있는 체크박스 선택:
+   ☑ Add Python 3.12 to PATH
+   
+3. "Install Now" 클릭
+
+4. 설치 완료까지 대기 (약 1-2분)
+
+5. "Close" 클릭
+
+
+4단계: 설치 확인
+--------------
+1. 새 PowerShell 창 열기 (Win + X -> Windows PowerShell)
+
+2. 다음 명령어 입력:
+   python --version
+   
+   출력: Python 3.12.8
+
+3. 또는 전체 경로로 확인:
+   C:\Users\USER\AppData\Local\Programs\Python\Python312\python.exe --version
+
+
+5단계: AI 서버 패키지 설치
+------------------------
+1. PowerShell에서 프로젝트 폴더로 이동:
+   cd D:\CMS_NEW\ai_server
+
+2. 패키지 설치:
+   python -m pip install -r requirements.txt
+
+3. 설치 완료 후 AI 서버 실행:
+   python main.py
+
+
+문제 해결
+--------
+Q: python --version 명령어가 작동하지 않아요
+A: PowerShell을 완전히 닫고 새로 열어보세요. 
+   또는 전체 경로를 사용하세요:
+   C:\Users\USER\AppData\Local\Programs\Python\Python312\python.exe --version
+
+Q: 설치 후에도 Python 3.14가 보여요
+A: 환경변수에서 Python314 경로를 제거해야 합니다:
+   1. Win + X -> 시스템
+   2. 고급 시스템 설정
+   3. 환경 변수
+   4. 사용자 변수의 Path 편집
+   5. Python314 관련 항목 삭제
+   6. 확인
+
+
+완료!
+====================================
+

@@ -1,0 +1,251 @@
+========================================
+  Windows 환경변수 추가 가이드
+========================================
+
+Python 또는 Ollama를 PATH에 추가하는 방법
+
+========================================
+방법 1: GUI로 추가하기 (가장 쉬움)
+========================================
+
+1단계: 시스템 환경 변수 창 열기
+---------------------------------
+방법 A) 검색으로 열기:
+   - 시작 메뉴 열기 (Windows 키)
+   - "환경 변수" 검색
+   - "시스템 환경 변수 편집" 클릭
+
+방법 B) 제어판으로 열기:
+   - 제어판 열기
+   - 시스템 및 보안 > 시스템
+   - 왼쪽 메뉴 "고급 시스템 설정"
+   - "환경 변수" 버튼 클릭
+
+방법 C) 빠른 실행:
+   - Windows 키 + R
+   - "sysdm.cpl" 입력 후 엔터
+   - "고급" 탭 > "환경 변수" 버튼
+
+2단계: Path 변수 수정
+---------------------------------
+   - "사용자 변수" 또는 "시스템 변수" 섹션에서
+   - "Path" 찾아서 선택
+   - "편집" 버튼 클릭
+
+3단계: 새 경로 추가
+---------------------------------
+   - "새로 만들기" 버튼 클릭
+   - 아래 경로 중 필요한 것을 입력:
+
+   🐍 Python 경로:
+   ---------------------------
+   C:\Users\USER\AppData\Local\Programs\Python\Python312
+   C:\Users\USER\AppData\Local\Programs\Python\Python312\Scripts
+
+   (USER는 실제 사용자명으로 바꾸세요)
+
+   또는 다음 경로일 수도 있음:
+   C:\Python312
+   C:\Python312\Scripts
+
+   🤖 Ollama 경로:
+   ---------------------------
+   C:\Program Files\Ollama
+   C:\Users\USER\AppData\Local\Programs\Ollama
+
+4단계: 저장 및 적용
+---------------------------------
+   - "확인" 클릭 (3번)
+   - 모든 창 닫기
+   - ⚠️ PowerShell/CMD 새로 열기 (필수!)
+
+========================================
+방법 2: PowerShell로 추가하기 (빠름)
+========================================
+
+관리자 권한으로 PowerShell 열기:
+   - 시작 메뉴 > PowerShell 우클릭
+   - "관리자 권한으로 실행"
+
+🐍 Python PATH 추가:
+---------------------------------
+# 현재 사용자용
+$pythonPath = "C:\Users\$env:USERNAME\AppData\Local\Programs\Python\Python312"
+$scriptsPath = "$pythonPath\Scripts"
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$pythonPath;$scriptsPath", "User")
+
+# 또는 시스템 전체용 (관리자 필요)
+$pythonPath = "C:\Python312"
+$scriptsPath = "$pythonPath\Scripts"
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$pythonPath;$scriptsPath", "Machine")
+
+🤖 Ollama PATH 추가:
+---------------------------------
+# 시스템 전체용 (관리자 필요)
+$ollamaPath = "C:\Program Files\Ollama"
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$ollamaPath", "Machine")
+
+실행 후:
+   - PowerShell 닫기
+   - 새 PowerShell 열기
+   - 확인: python --version
+   - 확인: ollama --version
+
+========================================
+방법 3: Python 설치 파일로 다시 설치
+========================================
+
+Python PATH를 놓쳤다면:
+---------------------------------
+1. Python 설치 파일 다시 실행
+   (python-3.12.x-amd64.exe)
+
+2. "Modify" 선택
+
+3. "Next" 클릭
+
+4. "Add Python to environment variables" 체크
+
+5. "Install" 클릭
+
+6. PowerShell 새로 열기
+
+========================================
+Python/Ollama 설치 위치 찾기
+========================================
+
+🔍 Python 설치 위치 찾기:
+---------------------------------
+PowerShell에서:
+
+# 방법 1
+where.exe python
+
+# 방법 2
+Get-Command python | Select-Object Source
+
+# 방법 3
+$env:LOCALAPPDATA\Programs\Python 폴더 확인
+
+🔍 Ollama 설치 위치 찾기:
+---------------------------------
+PowerShell에서:
+
+# 방법 1
+where.exe ollama
+
+# 방법 2
+Get-Command ollama | Select-Object Source
+
+# 방법 3
+"C:\Program Files\Ollama" 폴더 확인
+
+========================================
+환경변수 추가 후 확인
+========================================
+
+1. 새 PowerShell 창 열기 (중요!)
+
+2. Python 확인:
+   python --version
+   
+   출력 예시: Python 3.12.0
+
+3. pip 확인:
+   pip --version
+   
+   출력 예시: pip 23.x.x
+
+4. Ollama 확인:
+   ollama --version
+   
+   출력 예시: ollama version is 0.x.x
+
+========================================
+문제 해결
+========================================
+
+Q: 환경변수 추가했는데 명령어가 안 먹혀요
+A: PowerShell/CMD를 완전히 닫고 새로 열어야 합니다!
+   심한 경우 PC 재부팅 필요할 수 있습니다.
+
+Q: Python 경로를 어떻게 찾나요?
+A: Python 설치 시 "Customize installation" 선택하면
+   설치 경로가 표시됩니다.
+   또는 설치 후:
+   - 시작 메뉴에서 Python 우클릭
+   - "파일 위치 열기" 클릭
+   - 바로가기 우클릭 > 속성
+   - "파일 위치 열기" 다시 클릭
+   - 주소창에 경로가 표시됨
+
+Q: Ollama가 설치되었는지 확인하려면?
+A: 파일 탐색기에서:
+   C:\Program Files\Ollama\ollama.exe
+   파일이 있는지 확인
+
+Q: 여러 Python 버전이 설치되어 있어요
+A: 원하는 버전의 경로를 Path 최상단에 배치하세요
+   (편집 창에서 위로 이동)
+
+========================================
+빠른 확인 스크립트
+========================================
+
+PowerShell에서 실행:
+
+# 현재 PATH 확인
+$env:Path -split ';'
+
+# Python 찾기
+where.exe python
+
+# Ollama 찾기
+where.exe ollama
+
+# Python 버전 확인 (있다면)
+python --version
+
+# Ollama 버전 확인 (있다면)
+ollama --version
+
+========================================
+자동으로 PATH 추가하는 스크립트
+========================================
+
+관리자 PowerShell에서:
+
+# Python 자동 찾기 및 추가
+$pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+if ($pythonCmd) {
+    $pythonPath = Split-Path $pythonCmd.Source
+    Write-Host "Python 경로: $pythonPath"
+} else {
+    Write-Host "Python이 설치되지 않았거나 PATH에 없습니다."
+}
+
+# Ollama 자동 찾기 및 추가
+$ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
+if ($ollamaCmd) {
+    $ollamaPath = Split-Path $ollamaCmd.Source
+    Write-Host "Ollama 경로: $ollamaPath"
+} else {
+    Write-Host "Ollama가 설치되지 않았거나 PATH에 없습니다."
+}
+
+========================================
+추가 도움말
+========================================
+
+환경변수 추가가 어려우시면:
+
+1. Python:
+   - 설치 파일을 다시 실행하여
+   - "Add Python to PATH" 옵션 체크
+
+2. Ollama:
+   - 설치 후 PC 재부팅
+   - 보통 자동으로 PATH에 추가됨
+
+궁금한 점이 있으면 문의하세요!
+

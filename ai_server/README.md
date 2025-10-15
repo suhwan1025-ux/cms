@@ -78,8 +78,8 @@ python main.py
 ```
 
 서버가 시작되면 다음 주소에서 접근 가능:
-- API: http://localhost:8000
-- API 문서: http://localhost:8000/docs
+- API: http://172.22.32.200:8000
+- API 문서: http://172.22.32.200:8000/docs
 
 ## 📡 API 엔드포인트
 

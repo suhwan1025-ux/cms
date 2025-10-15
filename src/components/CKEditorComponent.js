@@ -5,11 +5,14 @@ import './CKEditorComponent.css';
 
 const CKEditorComponent = ({ 
   value = '', 
+  data = '', // data prop도 지원 (하위 호환성)
   onChange, 
   placeholder = "문서 내용을 입력하세요...",
   height = "400px",
   disabled = false
 }) => {
+  // data prop이 전달되면 우선 사용
+  const editorContent = data || value;
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState(null);
 
@@ -43,7 +46,7 @@ const CKEditorComponent = ({
         >
           <CKEditor
             editor={ClassicEditor}
-            data={value}
+            data={editorContent}
             disabled={disabled}
             config={{
               licenseKey: 'GPL', // GPL 라이선스 사용
@@ -58,6 +61,8 @@ const CKEditorComponent = ({
                   'underline',
                   'strikethrough',
                   '|',
+                  'alignment',
+                  '|',
                   'link',
                   '|',
                   'bulletedList',
@@ -68,6 +73,9 @@ const CKEditorComponent = ({
                   'undo',
                   'redo'
                 ]
+              },
+              alignment: {
+                options: ['left', 'center', 'right', 'justify']
               },
               table: {
                 contentToolbar: [
@@ -91,6 +99,8 @@ const CKEditorComponent = ({
             }}
             onReady={(editor) => {
               console.log('✅ 커스텀 CKEditor5가 준비되었습니다!', editor);
+              console.log('📄 초기 데이터 길이:', editorContent?.length);
+              console.log('📄 초기 데이터 미리보기:', editorContent?.substring(0, 100));
               setIsReady(true);
               setError(null);
             }}
@@ -128,6 +138,7 @@ const CKEditorComponent = ({
             <span className="feature-item">🔗 링크</span>
             <span className="feature-item">📋 목록</span>
             <span className="feature-item">📑 제목</span>
+            <span className="feature-item">↔️ 정렬</span>
           </div>
         </div>
       </div>

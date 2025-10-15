@@ -12,6 +12,7 @@ import { Bold, Italic, Underline, Strikethrough } from '@ckeditor/ckeditor5-basi
 import { Heading } from '@ckeditor/ckeditor5-heading';
 import { List, ListProperties } from '@ckeditor/ckeditor5-list';
 import { Link } from '@ckeditor/ckeditor5-link';
+import { Alignment } from '@ckeditor/ckeditor5-alignment';
 
 // Table 전체 - 가장 강력한 표 기능
 import { Table, TableToolbar, TableProperties, TableCellProperties, TableColumnResize } from '@ckeditor/ckeditor5-table';
@@ -33,6 +34,7 @@ ClassicEditor.builtinPlugins = [
   List,
   ListProperties,
   Link,
+  Alignment,
   Table,
   TableToolbar,
   TableProperties,

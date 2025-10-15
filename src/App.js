@@ -11,6 +11,9 @@ import ApprovalLine from './components/ApprovalLine';
 import ProposalForm from './components/ProposalForm';
 import AIAssistant from './components/AIAssistant';
 import AIAssistantPage from './components/AIAssistantPage';
+import TaskManagement from './components/TaskManagement';
+import TemplateManagement from './components/TemplateManagement';
+import WorkReport from './components/WorkReport';
 
 
 
@@ -18,6 +21,7 @@ function App() {
   const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
   const [proposalMenuOpen, setProposalMenuOpen] = useState(false);
   const [budgetMenuOpen, setBudgetMenuOpen] = useState(false);
+  const [taskMenuOpen, setTaskMenuOpen] = useState(false);
 
   return (
     <Router>
@@ -105,6 +109,21 @@ function App() {
                 )}
               </div>
 
+              <Link to="/tasks" className="nav-link">
+                <span className="nav-icon">📋</span>
+                업무관리
+              </Link>
+              
+              <Link to="/templates" className="nav-link">
+                <span className="nav-icon">📝</span>
+                템플릿 관리
+              </Link>
+              
+              <Link to="/work-report" className="nav-link">
+                <span className="nav-icon">📊</span>
+                업무보고
+              </Link>
+
               <Link to="/ai-assistant" className="nav-link">
                 <span className="nav-icon">🤖</span>
                 AI 어시스턴트
@@ -123,6 +142,9 @@ function App() {
              <Route path="/draft-list" element={<DraftList />} />
              <Route path="/proposal" element={<ProposalForm />} />
              <Route path="/approval-line" element={<ApprovalLine />} />
+             <Route path="/tasks" element={<TaskManagement />} />
+             <Route path="/templates" element={<TemplateManagement />} />
+             <Route path="/work-report" element={<WorkReport />} />
              <Route path="/ai-assistant" element={<AIAssistantPage />} />
            </Routes>
           </main>

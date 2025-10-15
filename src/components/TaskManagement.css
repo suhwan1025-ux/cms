@@ -1,0 +1,496 @@
+.task-management {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.task-management .task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.task-management .task-header h1 {
+  margin: 0;
+  font-size: 28px;
+  color: #333;
+}
+
+/* 통계 카드 */
+.task-management .stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.task-management .stat-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.task-management .stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.task-management .stat-label {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.task-management .stat-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: #333;
+}
+
+.task-management .stat-active .stat-value {
+  color: #2196F3;
+}
+
+.task-management .stat-completed .stat-value {
+  color: #4CAF50;
+}
+
+.task-management .stat-pending .stat-value {
+  color: #FF9800;
+}
+
+.task-management .stat-priority .stat-value {
+  color: #F44336;
+}
+
+/* 필터 */
+.task-management .task-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.task-management .filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.task-management .filter-group label {
+  font-weight: 500;
+  color: #555;
+  flex-shrink: 0;
+}
+
+.task-management .filter-group select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 100px;
+}
+
+.task-management .filter-group-search {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+.task-management .filter-search-input {
+  padding: 8px 32px 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.task-management .filter-search-input:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+.task-management .clear-filter-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 16px;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.task-management .clear-filter-btn:hover {
+  background: #f0f0f0;
+  color: #666;
+}
+
+/* 업무 목록 */
+.task-management .task-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+}
+
+.task-management .task-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.task-management .task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.task-management .task-card-header {
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.task-management .task-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.task-management .task-title-row h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+  flex: 1;
+}
+
+.task-management .task-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.task-management .badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.task-management .badge-active {
+  background: #E3F2FD;
+  color: #1976D2;
+}
+
+.task-management .badge-completed {
+  background: #E8F5E9;
+  color: #388E3C;
+}
+
+.task-management .badge-pending {
+  background: #FFF3E0;
+  color: #F57C00;
+}
+
+.task-management .badge-priority-high {
+  background: #FFEBEE;
+  color: #C62828;
+}
+
+.task-management .badge-priority-medium {
+  background: #FFF9C4;
+  color: #F57F17;
+}
+
+.task-management .badge-priority-low {
+  background: #F1F8E9;
+  color: #689F38;
+}
+
+.task-management .task-card-body {
+  padding: 20px;
+}
+
+.task-management .task-description {
+  margin: 0 0 15px 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+.task-management .task-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-management .info-item {
+  display: flex;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.task-management .info-label {
+  font-weight: 500;
+  color: #666;
+  min-width: 100px;
+}
+
+.task-management .info-value {
+  color: #333;
+  flex: 1;
+  word-break: break-all;
+}
+
+.task-management .link-button {
+  background: none;
+  border: none;
+  color: #2196F3;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  text-align: left;
+}
+
+.task-management .link-button:hover {
+  color: #1565C0;
+}
+
+.task-management .text-muted {
+  color: #999;
+  font-style: italic;
+}
+
+.task-management .task-card-footer {
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* 버튼 */
+.task-management .btn-primary,
+.task-management .btn-secondary,
+.task-management .btn-danger {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.task-management .btn-primary {
+  background: #2196F3;
+  color: white;
+}
+
+.task-management .btn-primary:hover {
+  background: #1976D2;
+}
+
+.task-management .btn-secondary {
+  background: #757575;
+  color: white;
+}
+
+.task-management .btn-secondary:hover {
+  background: #616161;
+}
+
+.task-management .btn-danger {
+  background: #F44336;
+  color: white;
+}
+
+.task-management .btn-danger:hover {
+  background: #D32F2F;
+}
+
+.task-management .btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* 모달 */
+.task-management .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.task-management .modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.task-management .modal-header {
+  padding: 20px 25px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.task-management .modal-header h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #333;
+}
+
+.task-management .close-button {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  line-height: 1;
+}
+
+.task-management .close-button:hover {
+  color: #666;
+}
+
+.task-management .modal-body {
+  padding: 25px;
+}
+
+.task-management .form-group {
+  margin-bottom: 20px;
+}
+
+.task-management .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+}
+
+.task-management .required {
+  color: #F44336;
+  margin-left: 2px;
+}
+
+.task-management .help-text {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.task-management .person-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-right: 6px;
+  margin-bottom: 4px;
+  background: #E3F2FD;
+  color: #1976D2;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.task-management .form-group input,
+.task-management .form-group textarea,
+.task-management .form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.task-management .form-group input:focus,
+.task-management .form-group textarea:focus,
+.task-management .form-group select:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+.task-management .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.task-management .modal-footer {
+  padding: 15px 25px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 로딩 & 빈 데이터 */
+.task-management .loading,
+.task-management .no-data {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+  font-size: 16px;
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+  .task-management .task-list {
+    grid-template-columns: 1fr;
+  }
+  
+  .task-management .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .task-management .task-filters {
+    flex-direction: column;
+  }
+  
+  .task-management .stats-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

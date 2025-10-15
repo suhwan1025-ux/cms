@@ -45,6 +45,7 @@ const ContractList = () => {
   useEffect(() => {
     return () => {
       delete window.handleRecycleProposal;
+      delete window.handleEditProposal;
       delete window.setSelectedContract;
       delete window.openStatusUpdate;
     };
@@ -862,6 +863,37 @@ const ContractList = () => {
               }
             };
             
+            // 수정 버튼 추가 (결재대기 상태만)
+            const isWaitingApproval = enhancedContract.status === '결재대기' || 
+                                     enhancedContract.status === 'submitted' ||
+                                     enhancedContract.status === '임시저장' ||
+                                     enhancedContract.status === 'draft';
+            
+            if (isWaitingApproval) {
+              const editBtn = previewWindow.document.createElement('button');
+              editBtn.className = 'action-btn edit-btn';
+              editBtn.innerHTML = '✏️ 수정';
+              editBtn.style.background = '#FF9800';
+              editBtn.style.color = 'white';
+              editBtn.style.border = 'none';
+              editBtn.style.padding = '10px 20px';
+              editBtn.style.borderRadius = '5px';
+              editBtn.style.cursor = 'pointer';
+              editBtn.style.fontSize = '14px';
+              editBtn.style.minWidth = '100px';
+              editBtn.style.marginRight = '10px';
+              
+              editBtn.onclick = () => {
+                if (previewWindow.confirm('이 품의서를 수정하시겠습니까?')) {
+                  // 부모 창의 함수 호출
+                  window.handleEditProposal(enhancedContract);
+                  previewWindow.close();
+                }
+              };
+              
+              actionButtons.insertBefore(editBtn, actionButtons.firstChild);
+            }
+            
             // 상태변경 버튼 추가
             const statusBtn = previewWindow.document.createElement('button');
             statusBtn.className = 'action-btn status-btn';
@@ -955,6 +987,37 @@ const ContractList = () => {
                 previewWindow.close();
               }
             };
+            
+            // 수정 버튼 추가 (결재대기 상태만) - 기본 데이터
+            const isWaitingApproval2 = contract.status === '결재대기' || 
+                                      contract.status === 'submitted' ||
+                                      contract.status === '임시저장' ||
+                                      contract.status === 'draft';
+            
+            if (isWaitingApproval2) {
+              const editBtn = previewWindow.document.createElement('button');
+              editBtn.className = 'action-btn edit-btn';
+              editBtn.innerHTML = '✏️ 수정';
+              editBtn.style.background = '#FF9800';
+              editBtn.style.color = 'white';
+              editBtn.style.border = 'none';
+              editBtn.style.padding = '10px 20px';
+              editBtn.style.borderRadius = '5px';
+              editBtn.style.cursor = 'pointer';
+              editBtn.style.fontSize = '14px';
+              editBtn.style.minWidth = '100px';
+              editBtn.style.marginRight = '10px';
+              
+              editBtn.onclick = () => {
+                if (previewWindow.confirm('이 품의서를 수정하시겠습니까?')) {
+                  // 부모 창의 함수 호출
+                  window.handleEditProposal(contract);
+                  previewWindow.close();
+                }
+              };
+              
+              actionButtons.insertBefore(editBtn, actionButtons.firstChild);
+            }
             
             // 상태변경 버튼 추가
             const statusBtn = previewWindow.document.createElement('button');
@@ -1121,6 +1184,109 @@ const ContractList = () => {
 
   // 미리보기 창에서 접근할 수 있도록 전역으로 노출
   window.handleRecycleProposal = handleRecycleProposal;
+
+  // 품의서 수정 함수
+  const handleEditProposal = async (contract) => {
+    try {
+      console.log('품의서 수정 시작:', contract);
+      
+      // 서버에서 원본 품의서 데이터 조회
+      const response = await fetch(`${API_BASE_URL}/api/proposals/${contract.id}`);
+      
+      if (!response.ok) {
+        throw new Error('품의서 데이터 조회 실패');
+      }
+      
+      const originalData = await response.json();
+      console.log('🔍 수정할 품의서 데이터:', originalData);
+      
+      // 수정용 데이터 준비
+      const editData = {
+        id: originalData.id, // 수정 모드 표시
+        contractType: originalData.contractType,
+        title: originalData.title,
+        purpose: originalData.purpose,
+        basis: originalData.basis,
+        budget: originalData.budgetId || originalData.budget,
+        contractMethod: originalData.contractMethod,
+        accountSubject: originalData.accountSubject,
+        totalAmount: originalData.totalAmount,
+        changeReason: originalData.changeReason || '',
+        extensionReason: originalData.extensionReason || '',
+        contractPeriod: originalData.contractPeriod || '',
+        contractStartDate: originalData.contractStartDate,
+        contractEndDate: originalData.contractEndDate,
+        paymentMethod: originalData.paymentMethod,
+        wysiwygContent: originalData.wysiwygContent || '',
+        
+        // 구매품목
+        purchaseItems: originalData.purchaseItems?.map(item => ({
+          id: item.id,
+          item: item.item,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          amount: item.amount,
+          supplier: item.supplier,
+          contractPeriodType: item.contractPeriodType,
+          contractStartDate: item.contractStartDate,
+          contractEndDate: item.contractEndDate,
+          costAllocations: item.costAllocations?.map(alloc => ({
+            id: alloc.id,
+            department: alloc.department,
+            amount: alloc.amount,
+            ratio: alloc.ratio
+          })) || []
+        })) || [],
+        
+        // 용역항목
+        serviceItems: originalData.serviceItems?.map(item => ({
+          id: item.id,
+          item: item.item,
+          personnel: item.personnel,
+          skillLevel: item.skillLevel,
+          period: item.period,
+          monthlyRate: item.monthlyRate,
+          contractAmount: item.contractAmount,
+          supplier: item.supplier,
+          creditRating: item.creditRating,
+          name: item.name
+        })) || [],
+        
+        // 비용귀속부서
+        costDepartments: originalData.costDepartments?.map(dept => ({
+          id: dept.id,
+          department: dept.department,
+          amount: dept.amount,
+          ratio: dept.ratio
+        })) || [],
+        
+        // 요청부서
+        requestDepartments: originalData.requestDepartments?.map(dept => dept.department || dept) || [],
+        
+        // 기타 필드
+        other: originalData.other || '',
+        status: originalData.status
+      };
+      
+      console.log('✅ 수정용 데이터 준비 완료:', editData);
+      
+      // ProposalForm으로 이동하면서 데이터 전달
+      navigate('/proposal', { 
+        state: { 
+          proposal: editData,
+          isEdit: true
+        }
+      });
+      
+    } catch (error) {
+      console.error('품의서 수정 오류:', error);
+      alert('품의서 수정에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  // 미리보기 창에서 접근할 수 있도록 전역으로 노출
+  window.handleEditProposal = handleEditProposal;
 
   // 상태 업데이트 모달 열기
   const openStatusUpdate = (contract = null) => {

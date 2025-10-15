@@ -33,6 +33,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'proposalId',
         as: 'requestDepartments'
       });
+      
+      // 품의서와 예산의 관계
+      Proposal.belongsTo(models.Budget, {
+        foreignKey: 'budgetId',
+        as: 'budget'
+      });
     }
   }
   

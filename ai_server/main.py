@@ -44,7 +44,7 @@ app.add_middleware(
 
 # 전역 변수
 db_conn = None
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://172.22.32.200:11434")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
 
 # 요청/응답 모델
@@ -67,7 +67,7 @@ def get_db_connection():
     """PostgreSQL 연결"""
     try:
         conn = psycopg2.connect(
-            host=os.getenv("DB_HOST", "localhost"),
+            host=os.getenv("DB_HOST", "172.22.32.200"),
             port=int(os.getenv("DB_PORT", "5432")),
             database=os.getenv("DB_NAME", "contract_management"),
             user=os.getenv("DB_USER", "postgres"),

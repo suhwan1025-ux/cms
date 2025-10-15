@@ -1,7 +1,7 @@
 """
-AI 어시스턴트 서버 - FastAPI (Text-to-SQL 버전)
+AI 어시스턴트 서버 - FastAPI (Text-to-SQL + RAG)
 계약 관리 시스템과 연동하여 자연어 질의응답 제공
-PostgreSQL + Ollama LLM (동적 SQL 생성)
+PostgreSQL + Ollama LLM (동적 SQL 생성 + RAG 최적화)
 """
 
 from fastapi import FastAPI, HTTPException
@@ -16,6 +16,8 @@ from psycopg2.extras import RealDictCursor
 import requests
 import json
 import re
+from sentence_transformers import SentenceTransformer
+import numpy as np
 
 # 스키마 정보 import
 from db_schema import DB_SCHEMA, FEW_SHOT_EXAMPLES
@@ -32,9 +34,9 @@ logger = logging.getLogger(__name__)
 
 # FastAPI 앱 생성
 app = FastAPI(
-    title="CMS AI Assistant (Text-to-SQL)",
-    description="계약 관리 시스템 AI 어시스턴트 - 동적 SQL 생성 버전",
-    version="2.0.0"
+    title="CMS AI Assistant (Text-to-SQL + RAG)",
+    description="계약 관리 시스템 AI 어시스턴트 - RAG 최적화 버전",
+    version="2.1.0"
 )
 
 # CORS 설정
@@ -60,6 +62,12 @@ DB_CONFIG = {
     'password': os.getenv('DB_PASSWORD', 'meritz123!')
 }
 
+# RAG 설정
+embedder = None  # 전역 임베딩 모델
+example_questions = []  # 예시 질문 리스트
+example_sqls = []  # 예시 SQL 리스트
+example_vectors = None  # 예시 벡터
+
 # 요청/응답 모델
 class ChatRequest(BaseModel):
     message: str
@@ -67,7 +75,50 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     sources: Optional[List[dict]] = []
-    sql: Optional[str] = None  # 생성된 SQL도 함께 반환
+    sql: Optional[str] = None
+    selected_examples: Optional[int] = None  # RAG로 선택된 예시 개수
+
+# 임베딩 모델 초기화
+def initialize_embedder():
+    """임베딩 모델 및 예시 벡터 초기화"""
+    global embedder, example_questions, example_sqls, example_vectors
+    
+    try:
+        logger.info("임베딩 모델 로딩 중...")
+        
+        # 로컬 캐시 경로
+        from pathlib import Path
+        model_path = Path.home() / ".cache" / "huggingface" / "hub" / "models--sentence-transformers--all-MiniLM-L6-v2" / "snapshots" / "main"
+        
+        # 로컬 모델 로드 (오프라인 모드)
+        if model_path.exists():
+            logger.info(f"로컬 모델 사용: {model_path}")
+            embedder = SentenceTransformer(str(model_path), local_files_only=True)
+        else:
+            logger.info("로컬 모델 없음, 온라인에서 다운로드...")
+            embedder = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+        
+        # FEW_SHOT_EXAMPLES에서 질문-SQL 쌍 추출
+        lines = FEW_SHOT_EXAMPLES.strip().split('\n')
+        for i in range(len(lines)):
+            if lines[i].startswith('질문:'):
+                question = lines[i].replace('질문:', '').strip()
+                if i + 1 < len(lines) and lines[i + 1].startswith('SQL:'):
+                    sql = lines[i + 1].replace('SQL:', '').strip()
+                    example_questions.append(question)
+                    example_sqls.append(sql)
+        
+        # 예시들을 벡터로 변환
+        if example_questions:
+            logger.info(f"{len(example_questions)}개 예시를 벡터로 변환 중...")
+            example_vectors = embedder.encode(example_questions)
+            logger.info(f"✅ RAG 초기화 완료! {len(example_questions)}개 예시 준비됨")
+        else:
+            logger.warning("예시가 없습니다!")
+            
+    except Exception as e:
+        logger.error(f"임베딩 모델 초기화 오류: {e}")
+        embedder = None
 
 # DB 연결
 def get_db_connection():
@@ -79,16 +130,53 @@ def get_db_connection():
         logger.error(f"DB 연결 오류: {e}")
         return None
 
+# RAG: 유사한 예시 선택
+def select_relevant_examples(question: str, top_k: int = 5) -> str:
+    """질문과 유사한 예시만 선택"""
+    global embedder, example_questions, example_sqls, example_vectors
+    
+    if embedder is None or example_vectors is None:
+        # RAG 실패 시 모든 예시 반환
+        logger.warning("RAG 사용 불가, 전체 예시 사용")
+        return FEW_SHOT_EXAMPLES
+    
+    try:
+        # 질문을 벡터로 변환
+        question_vector = embedder.encode([question])
+        
+        # 코사인 유사도 계산
+        from sklearn.metrics.pairwise import cosine_similarity
+        similarities = cosine_similarity(question_vector, example_vectors)[0]
+        
+        # 상위 k개 선택
+        top_indices = similarities.argsort()[-top_k:][::-1]
+        
+        # 선택된 예시 포맷팅
+        selected_examples = "# SQL 생성 예시 (관련 예시만):\n\n"
+        for idx in top_indices:
+            selected_examples += f"질문: {example_questions[idx]}\n"
+            selected_examples += f"SQL: {example_sqls[idx]}\n\n"
+        
+        logger.info(f"RAG: {len(example_questions)}개 중 {top_k}개 예시 선택")
+        return selected_examples
+        
+    except Exception as e:
+        logger.error(f"RAG 선택 오류: {e}")
+        return FEW_SHOT_EXAMPLES
+
 # LLM을 사용한 SQL 생성
 def generate_sql_with_llm(question: str) -> str:
-    """질문으로부터 SQL을 생성"""
+    """질문으로부터 SQL을 생성 (RAG 사용)"""
     try:
+        # RAG: 관련 예시만 선택 (30개 → 5개)
+        relevant_examples = select_relevant_examples(question, top_k=5)
+        
         prompt = f"""당신은 PostgreSQL SQL 전문가입니다.
 사용자의 자연어 질문을 SQL 쿼리로 변환하세요.
 
 {DB_SCHEMA}
 
-{FEW_SHOT_EXAMPLES}
+{relevant_examples}
 
 중요 규칙:
 1. SELECT 쿼리만 생성하세요 (INSERT, UPDATE, DELETE 금지)
@@ -110,16 +198,16 @@ SQL:"""
                 "model": LLM_MODEL,
                 "prompt": prompt,
                 "stream": False,
-                "temperature": 0.1  # 더 정확한 SQL을 위해 낮은 temperature
+                "temperature": 0.1
             },
-            timeout=120  # 타임아웃 증가 (60초 → 120초)
+            timeout=120
         )
         
         if response.status_code == 200:
             result = response.json()
             sql = result.get("response", "").strip()
             
-            # SQL 정리 (불필요한 텍스트 제거)
+            # SQL 정리
             sql = clean_sql(sql)
             
             logger.info(f"생성된 SQL: {sql}")
@@ -144,12 +232,11 @@ def clean_sql(sql: str) -> str:
     # 앞뒤 공백 제거
     sql = sql.strip()
     
-    # "SQL:" 이후의 SQL만 추출 (프롬프트 형식 제거)
+    # "SQL:" 이후의 SQL만 추출
     if 'SQL:' in sql:
         sql = sql.split('SQL:')[-1].strip()
     
-    # 설명 텍스트 제거 (한글/영어)
-    # "질문에 대한...", "위의 SQL...", "이 쿼리는..." 같은 패턴 제거
+    # 설명 텍스트 제거
     lines = sql.split('\n')
     sql_lines = []
     for line in lines:
@@ -157,26 +244,24 @@ def clean_sql(sql: str) -> str:
         # SELECT로 시작하거나 SQL 키워드를 포함하는 줄만 유지
         if re.match(r'^\s*(SELECT|FROM|WHERE|JOIN|GROUP|ORDER|HAVING|LIMIT|AND|OR)\b', line, re.IGNORECASE):
             sql_lines.append(line)
-        elif sql_lines:  # 이미 SQL이 시작된 후의 줄들
+        elif sql_lines:
             sql_lines.append(line)
     
     if sql_lines:
         sql = ' '.join(sql_lines)
     
-    # Python 코드 제거 (변수 할당 등)
+    # Python 코드 제거
     if '=' in sql and 'SELECT' in sql:
-        # "변수 = """ SQL """ 패턴 제거
         sql = re.sub(r'^[^=]+=\s*["\']+"', '', sql)
         sql = re.sub(r'["\']+".*$', '', sql)
     
     # 여러 줄을 한 줄로
     sql = ' '.join(sql.split())
     
-    # 세미콜론으로 끝나지 않으면 추가
+    # 세미콜론
     if not sql.endswith(';'):
         sql += ';'
     
-    # 중복 세미콜론 제거
     sql = re.sub(r';+', ';', sql)
     
     return sql
@@ -231,11 +316,9 @@ def format_results_for_llm(results: List[dict], question: str) -> str:
     
     context = f"데이터베이스 조회 결과 ({len(results)}건):\n\n"
     
-    # 결과 포맷팅 (최대 10개)
     for i, row in enumerate(results[:10], 1):
         context += f"{i}. "
         for key, value in row.items():
-            # 값 포맷팅
             if value is None:
                 formatted_value = "N/A"
             elif isinstance(value, (int, float)):
@@ -266,15 +349,14 @@ def generate_answer_with_llm(question: str, data_context: str, sql: str) -> str:
 
 답변 작성 시 주의사항:
 1. 위 데이터를 기반으로 정확하게 답변하세요
-2. 구체적인 숫자와 통계를 포함하세요
+2. 데이터가 없으면 "해당 정보가 없습니다"라고 명확히 말하세요
 3. 한국어로 자연스럽게 답변하세요
-4. 데이터가 없으면 "해당 정보가 없습니다"라고 말하세요
-5. 가능하면 인사이트나 추가 정보를 제공하세요
+4. 가능한 구체적인 수치를 포함하세요
+5. 필요시 인사이트나 추가 정보를 제공하세요
 6. 간결하고 명확하게 답변하세요
 
 답변:"""
 
-        # Ollama API 호출
         response = requests.post(
             f"{OLLAMA_BASE_URL}/api/generate",
             json={
@@ -297,25 +379,32 @@ def generate_answer_with_llm(question: str, data_context: str, sql: str) -> str:
         return f"오류가 발생했습니다: {str(e)}"
 
 # API 엔드포인트
+@app.on_event("startup")
+async def startup_event():
+    """서버 시작 시 임베딩 모델 초기화"""
+    initialize_embedder()
+
 @app.get("/health")
 async def health_check():
     """헬스 체크"""
     return {
         "status": "ok",
-        "version": "2.0.0",
-        "mode": "Text-to-SQL",
-        "llm_model": LLM_MODEL
+        "version": "2.1.0",
+        "mode": "Text-to-SQL + RAG",
+        "llm_model": LLM_MODEL,
+        "rag_enabled": embedder is not None,
+        "rag_examples": len(example_questions) if example_questions else 0
     }
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """채팅 엔드포인트 (Text-to-SQL)"""
+    """채팅 엔드포인트 (Text-to-SQL + RAG)"""
     try:
         question = request.message
         
         logger.info(f"질문: {question}")
         
-        # 1단계: 질문으로부터 SQL 생성
+        # 1단계: 질문으로부터 SQL 생성 (RAG 적용)
         sql = generate_sql_with_llm(question)
         
         if not sql:
@@ -348,13 +437,14 @@ async def chat(request: ChatRequest):
             sources.append({
                 "type": "database_query",
                 "count": len(results),
-                "data": results[:5]  # 최대 5개만 포함
+                "data": results[:5]
             })
         
         return ChatResponse(
             answer=answer,
             sources=sources,
-            sql=sql  # 디버깅용으로 생성된 SQL도 반환
+            sql=sql,
+            selected_examples=5 if embedder else 30  # RAG 사용 시 5개, 아니면 30개
         )
         
     except Exception as e:
@@ -371,7 +461,6 @@ async def get_stats():
         
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # 기본 통계
         cursor.execute("SELECT COUNT(*) as count FROM proposals")
         total_proposals = cursor.fetchone()['count']
         
@@ -396,7 +485,9 @@ async def get_stats():
             "total_budgets": total_budgets,
             "total_departments": total_departments,
             "current_year_budget": float(current_year_budget),
-            "mode": "Text-to-SQL"
+            "mode": "Text-to-SQL + RAG",
+            "rag_enabled": embedder is not None,
+            "rag_examples": len(example_questions) if example_questions else 0
         }
         
     except Exception as e:

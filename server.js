@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { Sequelize } = require('sequelize');
+const { Sequelize, Op } = require('sequelize');
 const axios = require('axios');
 require('dotenv').config();
 
@@ -3034,6 +3034,446 @@ app.get('/api/ai/stats', async (req, res) => {
     res.status(500).json({ 
       error: error.response?.data?.detail || error.message 
     });
+  }
+});
+
+// ============================================
+// 업무 관리 API
+// ============================================
+
+// 업무 목록 조회
+app.get('/api/tasks', async (req, res) => {
+  try {
+    const { status, priority, assignedPerson, year } = req.query;
+    const where = { isActive: true };
+    
+    if (status) where.status = status;
+    if (priority) where.priority = priority;
+    if (assignedPerson) {
+      // 담당자 이름으로 부분 일치 검색 (여러명 중 한 명이라도 포함되면)
+      where.assignedPerson = {
+        [Op.iLike]: `%${assignedPerson}%`
+      };
+    }
+    if (year) {
+      // 연도별 필터링 (시작일 기준, null 제외)
+      where.startDate = {
+        [Op.and]: [
+          { [Op.ne]: null },  // null이 아닌 것만
+          { [Op.gte]: `${year}-01-01` },
+          { [Op.lte]: `${year}-12-31` }
+        ]
+      };
+    }
+    
+    const tasks = await models.Task.findAll({
+      where,
+      order: [
+        ['priority', 'DESC'],  // high -> medium -> low
+        ['startDate', 'ASC'],
+        ['id', 'DESC']
+      ]
+    });
+    
+    res.json(tasks);
+  } catch (error) {
+    console.error('업무 목록 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 업무 상세 조회
+app.get('/api/tasks/:id', async (req, res) => {
+  try {
+    const task = await models.Task.findByPk(req.params.id);
+    if (!task) {
+      return res.status(404).json({ error: '업무를 찾을 수 없습니다.' });
+    }
+    res.json(task);
+  } catch (error) {
+    console.error('업무 상세 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 업무 생성
+app.post('/api/tasks', async (req, res) => {
+  try {
+    const taskData = req.body;
+    const task = await models.Task.create(taskData);
+    res.status(201).json(task);
+  } catch (error) {
+    console.error('업무 생성 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 업무 수정
+app.put('/api/tasks/:id', async (req, res) => {
+  try {
+    const task = await models.Task.findByPk(req.params.id);
+    if (!task) {
+      return res.status(404).json({ error: '업무를 찾을 수 없습니다.' });
+    }
+    
+    await task.update(req.body);
+    res.json(task);
+  } catch (error) {
+    console.error('업무 수정 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 업무 삭제 (소프트 삭제)
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    const task = await models.Task.findByPk(req.params.id);
+    if (!task) {
+      return res.status(404).json({ error: '업무를 찾을 수 없습니다.' });
+    }
+    
+    await task.update({ isActive: false });
+    res.json({ message: '업무가 삭제되었습니다.' });
+  } catch (error) {
+    console.error('업무 삭제 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 업무 통계 조회
+app.get('/api/tasks/stats/summary', async (req, res) => {
+  try {
+    const [stats] = await sequelize.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE status = 'active') as active_count,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed_count,
+        COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
+        COUNT(*) FILTER (WHERE priority = 'high') as high_priority_count,
+        COUNT(*) as total_count
+      FROM tasks
+      WHERE is_active = true
+    `);
+    
+    res.json(stats[0]);
+  } catch (error) {
+    console.error('업무 통계 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// 업무보고 API
+// ============================================
+
+// 기간별 보고서 데이터 조회
+app.get('/api/work-reports', async (req, res) => {
+  try {
+    const { period, startDate, endDate } = req.query;
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: '시작일과 종료일을 입력해주세요.' });
+    }
+    
+    // 결재완료된 품의서만 조회 (status: 'approved', 결재일 기준)
+    const proposals = await models.Proposal.findAll({
+      where: {
+        status: 'approved',
+        [Op.or]: [
+          // approvalDate 필드가 있는 경우 (결재일 기준)
+          {
+            approvalDate: {
+              [Op.gte]: new Date(startDate),
+              [Op.lte]: new Date(endDate + ' 23:59:59')
+            }
+          },
+          // approvalDate가 없으면 updatedAt 사용 (결재 시 업데이트되므로)
+          {
+            approvalDate: null,
+            updatedAt: {
+              [Op.gte]: new Date(startDate),
+              [Op.lte]: new Date(endDate + ' 23:59:59')
+            }
+          }
+        ]
+      },
+      include: [
+        {
+          model: models.PurchaseItem,
+          as: 'purchaseItems',
+          required: false
+        },
+        {
+          model: models.ServiceItem,
+          as: 'serviceItems',
+          required: false
+        },
+        {
+          model: models.RequestDepartment,
+          as: 'requestDepartments',
+          required: false
+        },
+        {
+          model: models.Budget,
+          as: 'budget',
+          required: false
+        }
+      ],
+      order: [['approvalDate', 'DESC'], ['createdAt', 'DESC']]
+    });
+    
+    // 계약 유형별 집계
+    const contractTypeStats = {};
+    let totalAmount = 0;
+    let totalCount = proposals.length;
+    
+    proposals.forEach(proposal => {
+      const type = proposal.contractType || 'unknown';
+      if (!contractTypeStats[type]) {
+        contractTypeStats[type] = {
+          count: 0,
+          amount: 0
+        };
+      }
+      contractTypeStats[type].count++;
+      contractTypeStats[type].amount += parseFloat(proposal.totalAmount || 0);
+      totalAmount += parseFloat(proposal.totalAmount || 0);
+    });
+    
+    // 월별 집계 (결재일 기준)
+    const monthlyStats = {};
+    proposals.forEach(proposal => {
+      // 결재일 우선, 없으면 작성일 사용
+      const dateToUse = proposal.approvalDate || proposal.createdAt;
+      const month = new Date(dateToUse).toISOString().slice(0, 7); // YYYY-MM
+      if (!monthlyStats[month]) {
+        monthlyStats[month] = {
+          count: 0,
+          amount: 0
+        };
+      }
+      monthlyStats[month].count++;
+      monthlyStats[month].amount += parseFloat(proposal.totalAmount || 0);
+    });
+    
+    // 부서별 집계
+    const departmentStats = {};
+    proposals.forEach(proposal => {
+      if (proposal.requestDepartments && proposal.requestDepartments.length > 0) {
+        proposal.requestDepartments.forEach(dept => {
+          const deptName = dept.department || '미지정';
+          if (!departmentStats[deptName]) {
+            departmentStats[deptName] = {
+              count: 0,
+              amount: 0
+            };
+          }
+          departmentStats[deptName].count++;
+          departmentStats[deptName].amount += parseFloat(proposal.totalAmount || 0) / proposal.requestDepartments.length;
+        });
+      }
+    });
+    
+    // 사업예산 집행 현황 조회 (Budget 모델 사용)
+    const budgetStats = {};
+    let totalBudgetAmount = 0;
+    let totalExecutionAmount = 0;
+    
+    try {
+      // 품의서에서 사용된 예산 집계
+      const budgetUsage = {};
+      proposals.forEach(proposal => {
+        const budgetId = proposal.budgetId;
+        if (budgetId) {
+          if (!budgetUsage[budgetId]) {
+            budgetUsage[budgetId] = 0;
+          }
+          budgetUsage[budgetId] += parseFloat(proposal.totalAmount || 0);
+        }
+      });
+      
+      // Budget 모델에서 예산 조회
+      if (models.Budget) {
+        const allBudgets = await models.Budget.findAll({
+          where: {
+            year: {
+              [Op.in]: [
+                new Date(startDate).getFullYear(),
+                new Date(endDate).getFullYear()
+              ]
+            }
+          }
+        });
+        
+        // 예산별 집행률 계산
+        allBudgets.forEach(budget => {
+          const budgetName = budget.name || '미지정';
+          const budgetAmount = parseFloat(budget.totalAmount || budget.amount || 0);
+          const executionAmount = budgetUsage[budget.id] || 0;
+          
+          totalBudgetAmount += budgetAmount;
+          totalExecutionAmount += executionAmount;
+          
+          budgetStats[budgetName] = {
+            budgetId: budget.id,
+            budgetAmount,
+            executionAmount,
+            executionCount: 0,
+            executionRate: budgetAmount > 0 ? (executionAmount / budgetAmount) * 100 : 0
+          };
+        });
+      }
+    } catch (error) {
+      console.error('예산 집행 현황 조회 오류:', error);
+      // 오류가 발생해도 계속 진행
+    }
+    
+    res.json({
+      period,
+      startDate,
+      endDate,
+      summary: {
+        totalCount,
+        totalAmount,
+        avgAmount: totalCount > 0 ? totalAmount / totalCount : 0,
+        totalBudgetAmount,
+        totalExecutionAmount,
+        totalExecutionRate: totalBudgetAmount > 0 ? (totalExecutionAmount / totalBudgetAmount) * 100 : 0
+      },
+      contractTypeStats,
+      monthlyStats,
+      departmentStats,
+      budgetStats,
+      proposals: proposals.map(p => ({
+        id: p.id,
+        title: p.title,
+        contractType: p.contractType,
+        totalAmount: p.totalAmount,
+        createdAt: p.createdAt,
+        approvalDate: p.approvalDate,
+        createdBy: p.createdBy,
+        budgetId: p.budgetId,
+        budgetName: p.budget?.name || '-',
+        budgetAmount: p.budget?.totalAmount || 0,
+        requestDepartments: p.requestDepartments?.map(d => d.department) || []
+      }))
+    });
+  } catch (error) {
+    console.error('업무보고 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// 문서 템플릿 관리 API
+// ============================================
+
+// 템플릿 목록 조회 (활성화된 템플릿만)
+app.get('/api/document-templates', async (req, res) => {
+  try {
+    const { category } = req.query;
+    const where = { isActive: true };
+    
+    if (category) {
+      where.category = category;
+    }
+    
+    const templates = await models.DocumentTemplate.findAll({
+      where,
+      order: [
+        ['displayOrder', 'ASC'],
+        ['createdAt', 'DESC']
+      ]
+    });
+    
+    res.json(templates);
+  } catch (error) {
+    console.error('템플릿 목록 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 템플릿 상세 조회
+app.get('/api/document-templates/:id', async (req, res) => {
+  try {
+    const template = await models.DocumentTemplate.findByPk(req.params.id);
+    if (!template) {
+      return res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
+    }
+    res.json(template);
+  } catch (error) {
+    console.error('템플릿 상세 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 템플릿 생성
+app.post('/api/document-templates', async (req, res) => {
+  try {
+    const { name, description, content, category, displayOrder } = req.body;
+    
+    if (!name || !content) {
+      return res.status(400).json({ error: '템플릿 이름과 내용은 필수입니다.' });
+    }
+    
+    const template = await models.DocumentTemplate.create({
+      name,
+      description,
+      content,
+      category: category || 'general',
+      displayOrder: displayOrder || 0,
+      createdBy: '사용자1', // 실제로는 로그인한 사용자 정보 사용
+      isActive: true
+    });
+    
+    res.status(201).json(template);
+  } catch (error) {
+    console.error('템플릿 생성 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 템플릿 수정
+app.put('/api/document-templates/:id', async (req, res) => {
+  try {
+    const template = await models.DocumentTemplate.findByPk(req.params.id);
+    
+    if (!template) {
+      return res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
+    }
+    
+    const { name, description, content, category, displayOrder, isActive } = req.body;
+    
+    await template.update({
+      name: name !== undefined ? name : template.name,
+      description: description !== undefined ? description : template.description,
+      content: content !== undefined ? content : template.content,
+      category: category !== undefined ? category : template.category,
+      displayOrder: displayOrder !== undefined ? displayOrder : template.displayOrder,
+      isActive: isActive !== undefined ? isActive : template.isActive
+    });
+    
+    res.json(template);
+  } catch (error) {
+    console.error('템플릿 수정 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 템플릿 삭제 (논리 삭제)
+app.delete('/api/document-templates/:id', async (req, res) => {
+  try {
+    const template = await models.DocumentTemplate.findByPk(req.params.id);
+    
+    if (!template) {
+      return res.status(404).json({ error: '템플릿을 찾을 수 없습니다.' });
+    }
+    
+    await template.update({ isActive: false });
+    
+    res.json({ message: '템플릿이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('템플릿 삭제 오류:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

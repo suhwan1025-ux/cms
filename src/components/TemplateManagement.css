@@ -1,0 +1,378 @@
+.template-management {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.template-management .template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.template-management .template-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.template-management .btn-add {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.template-management .btn-add:hover {
+  background: #0056b3;
+}
+
+.template-management .template-filters {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.template-management .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.template-management .filter-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #555;
+}
+
+.template-management .filter-group select,
+.template-management .filter-group input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.template-management .template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.template-management .template-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.template-management .template-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.template-management .template-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.template-management .template-card-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+  flex: 1;
+}
+
+.template-management .category-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.template-management .category-badge.category-general {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.template-management .category-badge.category-bidding {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.template-management .category-badge.category-contract {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.template-management .template-description {
+  color: #666;
+  font-size: 14px;
+  margin: 10px 0;
+  line-height: 1.5;
+  min-height: 40px;
+}
+
+.template-management .template-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.template-management .template-actions button {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.template-management .btn-preview {
+  background: #28a745;
+  color: white;
+}
+
+.template-management .btn-preview:hover {
+  background: #218838;
+}
+
+.template-management .btn-edit {
+  background: #ffc107;
+  color: #333;
+}
+
+.template-management .btn-edit:hover {
+  background: #e0a800;
+}
+
+.template-management .btn-delete {
+  background: #dc3545;
+  color: white;
+}
+
+.template-management .btn-delete:hover {
+  background: #c82333;
+}
+
+.template-management .no-data {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-size: 16px;
+}
+
+/* 모달 스타일 */
+.template-management .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.template-management .modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 95%;
+  max-width: 1400px;
+  max-height: 95vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+.template-management .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  user-select: none;
+  background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+}
+
+.template-management .modal-header:active {
+  cursor: grabbing !important;
+}
+
+.template-management .modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.template-management .modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: #999;
+  line-height: 1;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.template-management .modal-close:hover {
+  color: #333;
+}
+
+.template-management .modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.template-management .form-group {
+  margin-bottom: 20px;
+}
+
+.template-management .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.template-management .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.template-management .form-group .required {
+  color: #dc3545;
+}
+
+.template-management .form-group input,
+.template-management .form-group select,
+.template-management .form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.template-management .form-group textarea {
+  resize: vertical;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+}
+
+.template-management .ckeditor-wrapper {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  min-height: 500px;
+}
+
+.template-management .ckeditor-wrapper .ck-editor {
+  width: 100%;
+}
+
+.template-management .ckeditor-wrapper .ck-editor__editable {
+  min-height: 500px;
+}
+
+.template-management .field-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+}
+
+.template-management .form-group input:focus,
+.template-management .form-group select:focus,
+.template-management .form-group textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.template-management .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.template-management .btn-cancel,
+.template-management .btn-save {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.template-management .btn-cancel {
+  background: #6c757d;
+  color: white;
+}
+
+.template-management .btn-cancel:hover {
+  background: #5a6268;
+}
+
+.template-management .btn-save {
+  background: #007bff;
+  color: white;
+}
+
+.template-management .btn-save:hover {
+  background: #0056b3;
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+  .template-management .template-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .template-management .template-filters {
+    flex-direction: column;
+  }
+  
+  .template-management .filter-group select,
+  .template-management .filter-group input {
+    min-width: 100%;
+  }
+  
+  .template-management .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
