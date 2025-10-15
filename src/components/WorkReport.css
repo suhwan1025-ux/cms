@@ -223,7 +223,7 @@
 .work-report .report-table th,
 .work-report .report-table td {
   padding: 12px;
-  text-align: left;
+  text-align: center;
   border: 1px solid #ddd;
 }
 
@@ -242,16 +242,6 @@
   font-weight: bold;
 }
 
-.work-report .report-table td:nth-child(3),
-.work-report .report-table td:nth-child(4) {
-  text-align: right;
-}
-
-.work-report .report-table th:nth-child(3),
-.work-report .report-table th:nth-child(4) {
-  text-align: right;
-}
-
 .work-report .report-table.detailed-table {
   font-size: 13px;
 }
@@ -259,17 +249,6 @@
 .work-report .report-table.detailed-table th,
 .work-report .report-table.detailed-table td {
   padding: 10px 8px;
-}
-
-.work-report .report-table.detailed-table td:nth-child(1) {
-  text-align: center;
-  font-weight: 500;
-}
-
-.work-report .report-table.detailed-table td:nth-child(4) {
-  text-align: right;
-  font-weight: 600;
-  color: #007bff;
 }
 
 /* 데이터 없음 */

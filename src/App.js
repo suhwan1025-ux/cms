@@ -116,7 +116,7 @@ function App() {
               
               <Link to="/templates" className="nav-link">
                 <span className="nav-icon">📝</span>
-                템플릿 관리
+                품의서 템플릿 관리
               </Link>
               
               <Link to="/work-report" className="nav-link">

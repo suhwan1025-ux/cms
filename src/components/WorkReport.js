@@ -205,22 +205,6 @@ const WorkReport = () => {
                 <div className="card-value">{formatAmount(reportData.summary.avgAmount)} 원</div>
               </div>
             </div>
-            
-            <h3 style={{ marginTop: '30px', marginBottom: '15px' }}>💰 예산 집행 현황</h3>
-            <div className="summary-cards">
-              <div className="summary-card budget-card">
-                <div className="card-label">총 예산</div>
-                <div className="card-value">{formatAmount(reportData.summary.totalBudgetAmount)} 원</div>
-              </div>
-              <div className="summary-card budget-card">
-                <div className="card-label">총 집행액</div>
-                <div className="card-value">{formatAmount(reportData.summary.totalExecutionAmount)} 원</div>
-              </div>
-              <div className="summary-card budget-card">
-                <div className="card-label">집행률</div>
-                <div className="card-value">{reportData.summary.totalExecutionRate?.toFixed(1)}%</div>
-              </div>
-            </div>
           </div>
 
           {/* 계약 유형별 현황 */}
@@ -261,7 +245,7 @@ const WorkReport = () => {
           {/* 월별 현황 */}
           {Object.keys(reportData.monthlyStats).length > 0 && (
             <div className="report-section">
-              <h2>📅 월별 현황</h2>
+              <h2>📅 월별 결재 완료 품의 현황</h2>
               <table className="report-table">
                 <thead>
                   <tr>
@@ -288,14 +272,16 @@ const WorkReport = () => {
           {/* 예산별 집행 현황 */}
           {reportData.budgetStats && Object.keys(reportData.budgetStats).length > 0 && (
             <div className="report-section">
-              <h2>💰 예산별 집행 현황</h2>
+              <h2>💰 예산별 집행 현황 (조회기간 내 사용된 예산만 표시)</h2>
               <table className="report-table">
                 <thead>
                   <tr>
                     <th>사업명</th>
                     <th>예산액</th>
-                    <th>집행액</th>
-                    <th>집행률</th>
+                    <th>확정집행액<br/>(조회기간)</th>
+                    <th>확정집행액<br/>(누적)</th>
+                    <th>집행률 증감<br/>(조회기간)</th>
+                    <th>집행률<br/>(누적기준)</th>
                     <th>잔액</th>
                   </tr>
                 </thead>
@@ -307,6 +293,17 @@ const WorkReport = () => {
                         <td>{budgetName}</td>
                         <td>{formatAmount(stats.budgetAmount)} 원</td>
                         <td>{formatAmount(stats.executionAmount)} 원</td>
+                        <td style={{ color: '#0066cc', fontWeight: '600' }}>
+                          {formatAmount(stats.confirmedExecutionAmount || 0)} 원
+                        </td>
+                        <td>
+                          <span style={{ 
+                            color: stats.executionRateChange > 0 ? '#dc3545' : '#666',
+                            fontWeight: stats.executionRateChange > 0 ? '600' : 'normal'
+                          }}>
+                            {stats.executionRateChange > 0 ? '+' : ''}{stats.executionRateChange?.toFixed(1)}%
+                          </span>
+                        </td>
                         <td>
                           <span style={{ 
                             color: stats.executionRate > 90 ? '#dc3545' : 
@@ -316,7 +313,7 @@ const WorkReport = () => {
                             {stats.executionRate?.toFixed(1)}%
                           </span>
                         </td>
-                        <td>{formatAmount(stats.budgetAmount - stats.executionAmount)} 원</td>
+                        <td>{formatAmount(stats.budgetAmount - stats.confirmedExecutionAmount)} 원</td>
                       </tr>
                     ))}
                 </tbody>
@@ -324,10 +321,10 @@ const WorkReport = () => {
             </div>
           )}
 
-          {/* 부서별 현황 */}
+          {/* 부서별 비용귀속 현황 */}
           {Object.keys(reportData.departmentStats).length > 0 && (
             <div className="report-section">
-              <h2>🏢 부서별 현황</h2>
+              <h2>🏢 부서별 비용귀속 현황</h2>
               <table className="report-table">
                 <thead>
                   <tr>

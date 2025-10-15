@@ -3213,13 +3213,35 @@ app.get('/api/work-reports', async (req, res) => {
           required: false
         },
         {
-          model: models.Budget,
-          as: 'budget',
+          model: models.CostDepartment,
+          as: 'costDepartments',
           required: false
         }
       ],
       order: [['approvalDate', 'DESC'], ['createdAt', 'DESC']]
     });
+    
+    // business_budgets 테이블에서 예산 정보 조회
+    const budgetIds = [...new Set(proposals.map(p => p.budgetId).filter(id => id !== null))];
+    let budgetMap = {};
+    
+    if (budgetIds.length > 0) {
+      const [budgetResults] = await sequelize.query(`
+        SELECT id, project_name, budget_amount, budget_year, initiator_department
+        FROM business_budgets
+        WHERE id IN (${budgetIds.join(',')})
+      `);
+      
+      budgetResults.forEach(b => {
+        budgetMap[b.id] = {
+          id: b.id,
+          name: b.project_name,
+          totalAmount: parseFloat(b.budget_amount || 0),
+          year: b.budget_year,
+          department: b.initiator_department
+        };
+      });
+    }
     
     // 계약 유형별 집계
     const contractTypeStats = {};
@@ -3255,11 +3277,11 @@ app.get('/api/work-reports', async (req, res) => {
       monthlyStats[month].amount += parseFloat(proposal.totalAmount || 0);
     });
     
-    // 부서별 집계
+    // 부서별 비용귀속 집계
     const departmentStats = {};
     proposals.forEach(proposal => {
-      if (proposal.requestDepartments && proposal.requestDepartments.length > 0) {
-        proposal.requestDepartments.forEach(dept => {
+      if (proposal.costDepartments && proposal.costDepartments.length > 0) {
+        proposal.costDepartments.forEach(dept => {
           const deptName = dept.department || '미지정';
           if (!departmentStats[deptName]) {
             departmentStats[deptName] = {
@@ -3267,19 +3289,34 @@ app.get('/api/work-reports', async (req, res) => {
               amount: 0
             };
           }
+          // 비용귀속부서는 ratio(비율)을 가지고 있음
+          const ratio = parseFloat(dept.ratio || 0) / 100; // 비율을 소수로 변환
+          const allocatedAmount = parseFloat(proposal.totalAmount || 0) * ratio;
+          
           departmentStats[deptName].count++;
-          departmentStats[deptName].amount += parseFloat(proposal.totalAmount || 0) / proposal.requestDepartments.length;
+          departmentStats[deptName].amount += allocatedAmount;
         });
+      } else {
+        // 비용귀속부서가 없는 경우 미지정으로 처리
+        const deptName = '미지정';
+        if (!departmentStats[deptName]) {
+          departmentStats[deptName] = {
+            count: 0,
+            amount: 0
+          };
+        }
+        departmentStats[deptName].count++;
+        departmentStats[deptName].amount += parseFloat(proposal.totalAmount || 0);
       }
     });
     
-    // 사업예산 집행 현황 조회 (Budget 모델 사용)
+    // 사업예산 집행 현황 조회 (business_budgets 테이블 사용)
     const budgetStats = {};
     let totalBudgetAmount = 0;
     let totalExecutionAmount = 0;
     
     try {
-      // 품의서에서 사용된 예산 집계
+      // 1. 조회기간 내 품의서에서 사용된 예산 집계
       const budgetUsage = {};
       proposals.forEach(proposal => {
         const budgetId = proposal.budgetId;
@@ -3291,24 +3328,44 @@ app.get('/api/work-reports', async (req, res) => {
         }
       });
       
-      // Budget 모델에서 예산 조회
-      if (models.Budget) {
-        const allBudgets = await models.Budget.findAll({
-          where: {
-            year: {
-              [Op.in]: [
-                new Date(startDate).getFullYear(),
-                new Date(endDate).getFullYear()
-              ]
-            }
-          }
+      // 실제 사용된 budgetId만 조회
+      const usedBudgetIds = Object.keys(budgetUsage);
+      
+      if (usedBudgetIds.length > 0) {
+        // 2. business_budgets 테이블에서 사용된 예산만 조회
+        const [usedBudgets] = await sequelize.query(`
+          SELECT id, project_name, budget_amount, budget_year, initiator_department
+          FROM business_budgets
+          WHERE id IN (${usedBudgetIds.join(',')})
+        `);
+        
+        // 3. 전체 기간의 누적 집행액 계산 (결재완료된 모든 품의서)
+        const [cumulativeExecution] = await sequelize.query(`
+          SELECT budget_id, SUM(total_amount) as cumulative_amount
+          FROM proposals
+          WHERE status = 'approved'
+          AND budget_id IN (${usedBudgetIds.join(',')})
+          GROUP BY budget_id
+        `);
+        
+        // 누적 집행액 맵 생성
+        const cumulativeMap = {};
+        cumulativeExecution.forEach(row => {
+          cumulativeMap[row.budget_id] = parseFloat(row.cumulative_amount || 0);
         });
         
-        // 예산별 집행률 계산
-        allBudgets.forEach(budget => {
-          const budgetName = budget.name || '미지정';
-          const budgetAmount = parseFloat(budget.totalAmount || budget.amount || 0);
-          const executionAmount = budgetUsage[budget.id] || 0;
+        // 4. 예산별 집행률 계산
+        usedBudgets.forEach(budget => {
+          const budgetName = budget.project_name || '미지정';
+          const budgetAmount = parseFloat(budget.budget_amount || 0);
+          const executionAmount = budgetUsage[budget.id] || 0; // 조회기간
+          const confirmedExecutionAmount = cumulativeMap[budget.id] || 0; // 누적
+          
+          // 집행률 = (확정집행액(누적) / 예산액) × 100
+          const executionRate = budgetAmount > 0 ? (confirmedExecutionAmount / budgetAmount) * 100 : 0;
+          
+          // 집행률 증감 = (확정집행액(조회기간) / 예산액) × 100
+          const executionRateChange = budgetAmount > 0 ? (executionAmount / budgetAmount) * 100 : 0;
           
           totalBudgetAmount += budgetAmount;
           totalExecutionAmount += executionAmount;
@@ -3316,9 +3373,11 @@ app.get('/api/work-reports', async (req, res) => {
           budgetStats[budgetName] = {
             budgetId: budget.id,
             budgetAmount,
-            executionAmount,
+            executionAmount, // 조회기간
+            confirmedExecutionAmount, // 누적 (실제 품의서 데이터 기반)
             executionCount: 0,
-            executionRate: budgetAmount > 0 ? (executionAmount / budgetAmount) * 100 : 0
+            executionRate, // 누적 기준 집행률
+            executionRateChange // 조회기간 동안의 증감률
           };
         });
       }
@@ -3343,19 +3402,22 @@ app.get('/api/work-reports', async (req, res) => {
       monthlyStats,
       departmentStats,
       budgetStats,
-      proposals: proposals.map(p => ({
-        id: p.id,
-        title: p.title,
-        contractType: p.contractType,
-        totalAmount: p.totalAmount,
-        createdAt: p.createdAt,
-        approvalDate: p.approvalDate,
-        createdBy: p.createdBy,
-        budgetId: p.budgetId,
-        budgetName: p.budget?.name || '-',
-        budgetAmount: p.budget?.totalAmount || 0,
-        requestDepartments: p.requestDepartments?.map(d => d.department) || []
-      }))
+      proposals: proposals.map(p => {
+        const budget = budgetMap[p.budgetId];
+        return {
+          id: p.id,
+          title: p.title,
+          contractType: p.contractType,
+          totalAmount: p.totalAmount,
+          createdAt: p.createdAt,
+          approvalDate: p.approvalDate,
+          createdBy: p.createdBy,
+          budgetId: p.budgetId,
+          budgetName: budget?.name || '-',
+          budgetAmount: budget?.totalAmount || 0,
+          requestDepartments: p.requestDepartments?.map(d => d.department) || []
+        };
+      })
     });
   } catch (error) {
     console.error('업무보고 조회 오류:', error);
