@@ -30,6 +30,7 @@ function App() {
           {/* 좌측 사이드바 */}
           <aside className="sidebar">
             <div className="sidebar-header">
+              <img src="/logo.svg" alt="Logo" className="sidebar-logo" />
               <h1>계약 관리시스템</h1>
             </div>
             <nav className="sidebar-nav">

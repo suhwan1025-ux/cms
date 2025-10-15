@@ -89,7 +89,7 @@ const WorkReport = () => {
   };
 
   // 계약 유형 한글명
-  const getContractTypeName = (type) => {
+  const getContractTypeName = (type, contractMethod) => {
     const types = {
       'purchase': '구매계약',
       'service': '용역계약',
@@ -98,6 +98,14 @@ const WorkReport = () => {
       'bidding': '입찰계약',
       'freeform': '자유양식'
     };
+    
+    // 자유양식일 때 contractMethod에 템플릿 이름(한글)이 있으면 표시
+    if (type === 'freeform' && contractMethod && 
+        /[가-힣]/.test(contractMethod) && 
+        !contractMethod.includes('_')) {
+      return contractMethod;
+    }
+    
     return types[type] || type;
   };
 
@@ -222,7 +230,7 @@ const WorkReport = () => {
               <tbody>
                 {Object.entries(reportData.contractTypeStats).map(([type, stats]) => (
                   <tr key={type}>
-                    <td>{getContractTypeName(type)}</td>
+                    <td>{getContractTypeName(type, stats.contractMethod)}</td>
                     <td>{stats.count} 건</td>
                     <td>{formatAmount(stats.amount)} 원</td>
                     <td>
@@ -370,7 +378,7 @@ const WorkReport = () => {
                   <tr key={proposal.id}>
                     <td>{index + 1}</td>
                     <td>{proposal.title || '제목없음'}</td>
-                    <td>{getContractTypeName(proposal.contractType)}</td>
+                    <td>{getContractTypeName(proposal.contractType, proposal.contractMethod)}</td>
                     <td>{formatAmount(proposal.totalAmount)} 원</td>
                     <td>{proposal.budgetName}</td>
                     <td>{proposal.requestDepartments.join(', ') || '-'}</td>

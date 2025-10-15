@@ -1589,20 +1589,6 @@ const BudgetRegistrationAPI = () => {
             >
               필터 초기화
             </button>
-            <button
-              onClick={handleExcelDownload}
-              style={{
-                padding: '0.4rem 1rem',
-                background: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '0.85rem'
-              }}
-            >
-              📥 엑셀 다운로드
-            </button>
           </div>
         </div>
 

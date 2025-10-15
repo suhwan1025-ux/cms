@@ -99,6 +99,9 @@ const ProposalForm = () => {
   // 템플릿 선택 관련 상태
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showTemplates, setShowTemplates] = useState(true);
+  
+  // 결재라인 상태 관리
+  const [approvalLine, setApprovalLine] = useState([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialFormData, setInitialFormData] = useState(null);
 
@@ -362,112 +365,182 @@ const ProposalForm = () => {
     return total;
   };
 
-  // 결재라인 추천
-  const getRecommendedApprovalLine = () => {
+  // 결재라인 추천 (데이터베이스 기반)
+  const getRecommendedApprovalLine = async () => {
     const totalAmount = calculateTotalAmount();
     if (totalAmount === 0 && contractType !== 'freeform') return [];
     
-    const line = [];
-    
-    // 기본 결재라인 (요청부서)
-    line.push({
-      step: 1,
-      name: '요청부서',
-      title: '담당자',
-      description: '품의서 작성 및 검토'
-    });
+    try {
+      // 결재라인 참고자료 조회
+      const [approversRes, referencesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/approval-approvers`),
+        fetch(`${API_BASE_URL}/api/approval-references`)
+      ]);
 
-    // 경영관리팀 결재자 추가 (2백만원 초과 시)
-    if (totalAmount > 2000000) {
-      let managementLevel = '담당자';
-      if (totalAmount > 2000000 && totalAmount <= 50000000) {
-        managementLevel = '경영관리팀장';
-      } else if (totalAmount > 50000000 && totalAmount <= 300000000) {
-        managementLevel = '경영지원본부장';
-      } else if (totalAmount > 300000000) {
-        managementLevel = '경영지원실장';
+      const approvers = await approversRes.json();
+      const references = await referencesRes.json();
+
+      const line = [];
+      
+      // 1. 기본 결재라인 (요청부서)
+      line.push({
+        step: 1,
+        name: '요청부서',
+        title: '담당자',
+        description: '품의서 작성 및 검토'
+      });
+
+      // 2. 금액 기준으로 적용 가능한 결재자 찾기
+      const applicableApprovers = approvers.filter(approver => {
+        // 조건 확인
+        if (!approver.conditions || approver.conditions.length === 0) {
+          return true; // 조건 없으면 항상 포함
+        }
+
+        // 금액 조건 확인
+        const hasAmountCondition = approver.conditions.some(cond => {
+          const condition = cond.toLowerCase();
+          
+          // 금액 범위 파싱
+          if (condition.includes('만원') || condition.includes('원')) {
+            const numbers = condition.match(/[\d,]+/g);
+            if (!numbers) return false;
+
+            const parseAmount = (str) => {
+              let amount = parseInt(str.replace(/,/g, ''));
+              if (condition.includes('만원')) {
+                amount *= 10000;
+              }
+              return amount;
+            };
+
+            if (condition.includes('초과') && numbers.length === 1) {
+              const minAmount = parseAmount(numbers[0]);
+              return totalAmount > minAmount;
+            } else if (condition.includes('이하') && numbers.length === 1) {
+              const maxAmount = parseAmount(numbers[0]);
+              return totalAmount <= maxAmount;
+            } else if (condition.includes('~') || condition.includes('-')) {
+              const minAmount = parseAmount(numbers[0]);
+              const maxAmount = parseAmount(numbers[1]);
+              return totalAmount > minAmount && totalAmount <= maxAmount;
+            }
+          }
+          
+          return false;
+        });
+
+        // 계약 유형 조건 확인
+        const hasContractTypeCondition = approver.conditions.some(cond => {
+          const condition = cond.toLowerCase();
+          if (condition.includes('용역') && contractType === 'service') return true;
+          if (condition.includes('구매') && contractType === 'purchase') return true;
+          if (condition.includes('자유양식') && contractType === 'freeform') return true;
+          return false;
+        });
+
+        return hasAmountCondition || hasContractTypeCondition;
+      });
+
+      // 3. 적용 가능한 결재자 추가
+      applicableApprovers.forEach(approver => {
+        line.push({
+          step: line.length + 1,
+          name: approver.name,
+          title: approver.title,
+          description: approver.description,
+          conditional: true
+        });
+      });
+
+      // 4. 금액별 최종 결재자 찾기 (참고자료 기반)
+      let finalApproverTitle = '팀장'; // 기본값
+      
+      for (const ref of references) {
+        const amountRange = ref.amount_range || '';
+        const numbers = amountRange.match(/[\d,]+/g);
+        
+        if (numbers) {
+          const parseAmount = (str) => {
+            let amount = parseInt(str.replace(/,/g, ''));
+            if (amountRange.includes('만원')) {
+              amount *= 10000;
+            } else if (amountRange.includes('억')) {
+              amount *= 100000000;
+            }
+            return amount;
+          };
+
+          let isInRange = false;
+          
+          if (amountRange.includes('미만') && numbers.length === 1) {
+            const maxAmount = parseAmount(numbers[0]);
+            isInRange = totalAmount < maxAmount;
+          } else if (amountRange.includes('초과') && numbers.length === 1) {
+            const minAmount = parseAmount(numbers[0]);
+            isInRange = totalAmount > minAmount;
+          } else if (amountRange.includes('~') || amountRange.includes('-')) {
+            const minAmount = parseAmount(numbers[0]);
+            const maxAmount = parseAmount(numbers[1]);
+            isInRange = totalAmount >= minAmount && totalAmount <= maxAmount;
+          }
+
+          if (isInRange && ref.final_approver) {
+            finalApproverTitle = ref.final_approver;
+            break;
+          }
+        }
       }
-      
+
+      // 5. 최종 결재자 추가
       line.push({
         step: line.length + 1,
-        name: '경영관리팀',
-        title: managementLevel,
-        description: '예산 및 경영 효율성 검토',
-        conditional: true
+        name: '최종결재자',
+        title: finalApproverTitle,
+        description: '최종 승인',
+        final: true
       });
+
+      return line;
+    } catch (error) {
+      console.error('결재라인 조회 실패:', error);
+      // 에러 시 기본 결재라인 반환
+      return [
+        {
+          step: 1,
+          name: '요청부서',
+          title: '담당자',
+          description: '품의서 작성 및 검토'
+        },
+        {
+          step: 2,
+          name: '최종결재자',
+          title: '팀장',
+          description: '최종 승인',
+          final: true
+        }
+      ];
     }
-
-    // 용역계약 시 준법감시인 추가
-    if (contractType === 'service') {
-      line.push({
-        step: line.length + 1,
-        name: '준법감시인',
-        title: '준법감시인',
-        description: '법적 준수성 검토',
-        conditional: true
-      });
-    }
-
-    // 자유양식 문서 시 문서 승인 라인
-    if (contractType === 'freeform') {
-      line.push({
-        step: line.length + 1,
-        name: '부서장',
-        title: '부서장',
-        description: '문서 내용 검토 및 승인'
-      });
-      
-      line.push({
-        step: line.length + 1,
-        name: '경영관리팀',
-        title: '경영관리팀장',
-        description: '문서 정책 및 규정 준수 검토',
-        conditional: true
-      });
-    }
-
-    // IT 내부감사인 추가 (1천만원 초과 ~ 3억원 이하)
-    if (totalAmount > 10000000 && totalAmount <= 300000000) {
-      line.push({
-        step: line.length + 1,
-        name: 'IT 내부감사인',
-        title: 'IT 내부감시인',
-        description: 'IT 시스템 및 보안 검토',
-        conditional: true
-      });
-    }
-
-    // 계약금액 5천만원 초과 시 감사본부장 추가
-    if (totalAmount > 50000000) {
-      line.push({
-        step: line.length + 1,
-        name: '감사본부장',
-        title: '감사본부장',
-        description: '감사 및 내부통제 검토',
-        conditional: true
-      });
-    }
-
-    // 최종 결재자
-    let finalApprover = '팀장';
-    if (totalAmount > 10000000 && totalAmount <= 300000000) {
-      finalApprover = '본부장';
-    } else if (totalAmount > 300000000) {
-      finalApprover = '대표이사';
-    }
-
-    line.push({
-      step: line.length + 1,
-      name: '최종결재자',
-      title: finalApprover,
-      description: '최종 승인',
-      final: true
-    });
-
-    return line;
   };
 
+  // 결재라인 실시간 업데이트
+  useEffect(() => {
+    const updateApprovalLine = async () => {
+      try {
+        const line = await getRecommendedApprovalLine();
+        setApprovalLine(line);
+      } catch (error) {
+        console.error('결재라인 업데이트 실패:', error);
+      }
+    };
 
+    // 금액이 변경되거나 계약 유형이 변경될 때마다 업데이트
+    const timer = setTimeout(() => {
+      updateApprovalLine();
+    }, 500); // 500ms 디바운스
+
+    return () => clearTimeout(timer);
+  }, [formData.purchaseItems, formData.serviceItems, contractType]);
 
   // 구매품목 추가 - 개선된 구조 (중복 호출 방지)
   const addPurchaseItem = useCallback(() => {
@@ -526,6 +599,11 @@ const ProposalForm = () => {
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedBudgetType, setSelectedBudgetType] = useState('');
   const [filteredBudgets, setFilteredBudgets] = useState([]);
+  
+  // 예산 팝업 드래그 상태
+  const [budgetPopupPosition, setBudgetPopupPosition] = useState({ x: 0, y: 0 });
+  const [isDraggingBudget, setIsDraggingBudget] = useState(false);
+  const [dragStartBudget, setDragStartBudget] = useState({ x: 0, y: 0 });
 
   // 요청부서 선택 상태
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
@@ -1251,7 +1329,11 @@ const ProposalForm = () => {
     }
     
     if (selectedBudgetType && selectedBudgetType !== '') {
-      filtered = filtered.filter(budget => budget.budget_type === selectedBudgetType);
+      // 한글로 선택된 경우 영어와도 매칭되도록
+      filtered = filtered.filter(budget => {
+        const budgetTypeKorean = getBudgetTypeKorean(budget.budget_type);
+        return budgetTypeKorean === selectedBudgetType || budget.budget_type === selectedBudgetType;
+      });
       console.log('유형 필터링 후:', filtered.length);
     }
     
@@ -1382,8 +1464,45 @@ const ProposalForm = () => {
     setSelectedYear('');
     setSelectedBudgetType('');
     setFilteredBudgets(businessBudgets);
+    setBudgetPopupPosition({ x: 0, y: 0 }); // 위치 초기화
     setShowBudgetPopup(true);
   };
+
+  // 예산 팝업 드래그 핸들러
+  const handleBudgetDragStart = (e) => {
+    if (e.target.closest('.popup-header')) {
+      setIsDraggingBudget(true);
+      setDragStartBudget({
+        x: e.clientX - budgetPopupPosition.x,
+        y: e.clientY - budgetPopupPosition.y
+      });
+    }
+  };
+
+  const handleBudgetDragMove = (e) => {
+    if (isDraggingBudget) {
+      setBudgetPopupPosition({
+        x: e.clientX - dragStartBudget.x,
+        y: e.clientY - dragStartBudget.y
+      });
+    }
+  };
+
+  const handleBudgetDragEnd = () => {
+    setIsDraggingBudget(false);
+  };
+
+  // 전역 마우스 이벤트 리스너
+  useEffect(() => {
+    if (isDraggingBudget) {
+      document.addEventListener('mousemove', handleBudgetDragMove);
+      document.addEventListener('mouseup', handleBudgetDragEnd);
+      return () => {
+        document.removeEventListener('mousemove', handleBudgetDragMove);
+        document.removeEventListener('mouseup', handleBudgetDragEnd);
+      };
+    }
+  }, [isDraggingBudget, dragStartBudget, budgetPopupPosition]);
 
   // 사업예산 선택
   const selectBudget = (budget) => {
@@ -1397,10 +1516,24 @@ const ProposalForm = () => {
     return years.sort((a, b) => b - a);
   };
 
-  // 예산 유형 목록 가져오기
+  // 예산 유형 한글 변환
+  const getBudgetTypeKorean = (type) => {
+    const typeMap = {
+      'capital': '자본예산',
+      'operational': '운영예산',
+      '자본예산': '자본예산',
+      '운영예산': '운영예산'
+    };
+    return typeMap[type] || type;
+  };
+
+  // 예산 유형 목록 가져오기 (한글로 변환 후 중복 제거)
   const getBudgetTypeList = () => {
-    const types = [...new Set(businessBudgets.map(budget => budget.budget_type))];
-    return types.sort();
+    const types = businessBudgets.map(budget => budget.budget_type);
+    // 영어를 한글로 변환한 후 중복 제거
+    const koreanTypes = types.map(type => getBudgetTypeKorean(type));
+    const uniqueTypes = [...new Set(koreanTypes)];
+    return uniqueTypes.sort();
   };
 
   // 부서 검색 및 필터링
@@ -3487,7 +3620,7 @@ const ProposalForm = () => {
     
     try {
       const totalAmount = calculateTotalAmount();
-      const approvalLine = getRecommendedApprovalLine();
+      const approvalLineData = await getRecommendedApprovalLine();
       
       // 필수 필드 검증 및 기본값 설정
       // contractType은 사용자가 선택한 계약 유형을 정확히 저장
@@ -3562,7 +3695,7 @@ const ProposalForm = () => {
           evaluationCriteria: formData.evaluationCriteria || '',
           priceComparison: formData.priceComparison || [],
           totalAmount: totalAmount || 0,
-          approvalLine: approvalLine || [],
+          approvalLine: approvalLineData || [],
           isDraft: false
         };
         
@@ -3606,7 +3739,7 @@ const ProposalForm = () => {
           evaluationCriteria: formData.evaluationCriteria || '',
           priceComparison: formData.priceComparison || [],
           totalAmount: totalAmount || 0,
-          approvalLine: approvalLine || [],
+          approvalLine: approvalLineData || [],
           isDraft: false
         };
         
@@ -4062,7 +4195,7 @@ const ProposalForm = () => {
                       (() => {
                         const selectedBudget = businessBudgets.find(b => b.id === formData.budget);
                         return selectedBudget ? 
-                          `${selectedBudget.project_name} (${selectedBudget.budget_year}년) - ${selectedBudget.budget_type}` :
+                          `${selectedBudget.project_name} (${selectedBudget.budget_year}년) - ${getBudgetTypeKorean(selectedBudget.budget_type)}` :
                           '사업예산을 선택하세요';
                       })() :
                       '사업예산을 선택하세요'
@@ -5620,11 +5753,11 @@ const ProposalForm = () => {
           )}
 
           {/* 결재라인 추천 - 자유양식 제외 */}
-          {calculateTotalAmount() > 0 && contractType !== 'freeform' && (
+          {calculateTotalAmount() > 0 && contractType !== 'freeform' && approvalLine.length > 0 && (
             <div className="form-section">
               <h3>📋 결재라인 추천</h3>
               <div className="approval-flow">
-                {getRecommendedApprovalLine().map((step, index) => (
+                {approvalLine.map((step, index) => (
                   <div key={index} className={`approval-step ${step.final ? 'final' : ''} ${step.conditional ? 'conditional' : ''}`}>
                     <div className="step-number">{step.step}</div>
                     <div className="step-content">
@@ -5635,7 +5768,7 @@ const ProposalForm = () => {
                         <div className="conditional-badge">조건부</div>
                       )}
                     </div>
-                    {index < getRecommendedApprovalLine().length - 1 && (
+                    {index < approvalLine.length - 1 && (
                       <div className="step-arrow">→</div>
                     )}
                   </div>
@@ -5718,9 +5851,19 @@ const ProposalForm = () => {
       {/* 사업예산 선택 팝업 */}
       {showBudgetPopup && (
         <div className="popup-overlay" onClick={() => setShowBudgetPopup(false)}>
-          <div className="budget-popup" onClick={(e) => e.stopPropagation()}>
-            <div className="popup-header">
-              <h3>사업예산 선택</h3>
+          <div 
+            className={`budget-popup draggable-popup ${isDraggingBudget ? 'dragging' : ''}`}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              transform: `translate(${budgetPopupPosition.x}px, ${budgetPopupPosition.y}px)`
+            }}
+          >
+            <div 
+              className="popup-header draggable-header"
+              onMouseDown={handleBudgetDragStart}
+              style={{ cursor: 'move' }}
+            >
+              <h3>사업예산 선택 (드래그하여 이동 가능)</h3>
               <button 
                 className="popup-close"
                 onClick={() => setShowBudgetPopup(false)}
@@ -5772,7 +5915,7 @@ const ProposalForm = () => {
                         <span className="budget-year">{budget.budget_year}년</span>
                       </div>
                       <div className="budget-details">
-                        <span className="budget-type">{budget.budget_type}</span>
+                        <span className="budget-type">{getBudgetTypeKorean(budget.budget_type)}</span>
                         <span className="budget-amount">총액: {formatCurrency(budget.budget_amount || 0)}</span>
                         <span className="budget-remaining">잔여: {formatCurrency(remainingAmount)}</span>
                       </div>
@@ -7091,11 +7234,54 @@ const ProposalForm = () => {
         .budget-popup {
           background: white;
           border-radius: 12px;
-          width: 90%;
-          max-width: 800px;
-          max-height: 80vh;
+          width: 95%;
+          max-width: 1400px;
+          height: 90vh;
+          max-height: 90vh;
           overflow: hidden;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+          position: relative;
+        }
+
+        .budget-popup.draggable-popup {
+          transition: none;
+        }
+
+        .budget-popup.dragging {
+          user-select: none;
+        }
+
+        .draggable-header {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 1rem 1.5rem;
+          cursor: move;
+          user-select: none;
+        }
+
+        .draggable-header h3 {
+          margin: 0;
+          font-size: 1.2rem;
+        }
+
+        .draggable-header .popup-close {
+          background: rgba(255, 255, 255, 0.2);
+          color: white;
+          border: none;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          font-size: 1.5rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+        }
+
+        .draggable-header .popup-close:hover {
+          background: rgba(255, 255, 255, 0.3);
+          transform: rotate(90deg);
         }
 
         .preview-popup {
@@ -7853,7 +8039,7 @@ const ProposalForm = () => {
         }
 
         .budget-list {
-          max-height: 400px;
+          height: calc(90vh - 200px);
           overflow-y: auto;
           padding: 1rem;
         }

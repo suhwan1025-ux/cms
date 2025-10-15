@@ -627,6 +627,228 @@ app.post('/api/business-budgets/:id/approve', async (req, res) => {
     }
   });
 
+  // === 결재자 CRUD ===
+  // 결재자 추가
+  app.post('/api/approval-approvers', async (req, res) => {
+    try {
+      const { name, title, department, description, conditions, basis } = req.body;
+      
+      const result = await sequelize.query(`
+        INSERT INTO approval_approvers (name, title, department, description, basis, is_active)
+        VALUES (?, ?, ?, ?, ?, true)
+        RETURNING id
+      `, {
+        replacements: [name, title, department, description, basis]
+      });
+      
+      const approverId = result[0][0].id;
+      
+      // 조건 추가
+      if (conditions && conditions.length > 0) {
+        for (const condition of conditions) {
+          if (condition.trim()) {
+            await sequelize.query(`
+              INSERT INTO approval_conditions (approver_id, condition_label)
+              VALUES (?, ?)
+            `, {
+              replacements: [approverId, condition.trim()]
+            });
+          }
+        }
+      }
+      
+      res.json({ success: true, id: approverId });
+    } catch (error) {
+      console.error('결재자 추가 실패:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 결재자 수정
+  app.put('/api/approval-approvers/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, title, department, description, conditions, basis } = req.body;
+      
+      await sequelize.query(`
+        UPDATE approval_approvers 
+        SET name = ?, title = ?, department = ?, description = ?, basis = ?
+        WHERE id = ?
+      `, {
+        replacements: [name, title, department, description, basis, id]
+      });
+      
+      // 기존 조건 삭제 후 재추가
+      await sequelize.query(`
+        DELETE FROM approval_conditions WHERE approver_id = ?
+      `, {
+        replacements: [id]
+      });
+      
+      if (conditions && conditions.length > 0) {
+        for (const condition of conditions) {
+          if (condition.trim()) {
+            await sequelize.query(`
+              INSERT INTO approval_conditions (approver_id, condition_label)
+              VALUES (?, ?)
+            `, {
+              replacements: [id, condition.trim()]
+            });
+          }
+        }
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('결재자 수정 실패:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 결재자 삭제 (소프트 삭제)
+  app.delete('/api/approval-approvers/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      await sequelize.query(`
+        UPDATE approval_approvers 
+        SET is_active = false 
+        WHERE id = ?
+      `, {
+        replacements: [id]
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('결재자 삭제 실패:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // === 결재라인 규칙 CRUD ===
+  // 규칙 추가
+  app.post('/api/approval-rules', async (req, res) => {
+    try {
+      const { rule_name, rule_content, basis } = req.body;
+      
+      const result = await sequelize.query(`
+        INSERT INTO approval_rules (rule_type, rule_name, rule_content, basis, is_active)
+        VALUES ('custom', ?, ?, ?, true)
+        RETURNING id
+      `, {
+        replacements: [rule_name, rule_content, basis]
+      });
+      
+      res.json({ success: true, id: result[0][0].id });
+    } catch (error) {
+      console.error('규칙 추가 실패:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 규칙 수정
+  app.put('/api/approval-rules/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { rule_name, rule_content, basis } = req.body;
+      
+      await sequelize.query(`
+        UPDATE approval_rules 
+        SET rule_name = ?, rule_content = ?, basis = ?
+        WHERE id = ?
+      `, {
+        replacements: [rule_name, rule_content, basis, id]
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('규칙 수정 실패:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 규칙 삭제 (소프트 삭제)
+  app.delete('/api/approval-rules/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      await sequelize.query(`
+        UPDATE approval_rules 
+        SET is_active = false 
+        WHERE id = ?
+      `, {
+        replacements: [id]
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('규칙 삭제 실패:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // === 결재라인 참고자료 CRUD ===
+  // 참고자료 추가
+  app.post('/api/approval-references', async (req, res) => {
+    try {
+      const { amount_range, included_approvers, final_approver } = req.body;
+      
+      const result = await sequelize.query(`
+        INSERT INTO approval_references (amount_range, included_approvers, final_approver, is_active)
+        VALUES (?, ?, ?, true)
+        RETURNING id
+      `, {
+        replacements: [amount_range, included_approvers, final_approver]
+      });
+      
+      res.json({ success: true, id: result[0][0].id });
+    } catch (error) {
+      console.error('참고자료 추가 실패:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 참고자료 수정
+  app.put('/api/approval-references/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { amount_range, included_approvers, final_approver } = req.body;
+      
+      await sequelize.query(`
+        UPDATE approval_references 
+        SET amount_range = ?, included_approvers = ?, final_approver = ?
+        WHERE id = ?
+      `, {
+        replacements: [amount_range, included_approvers, final_approver, id]
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('참고자료 수정 실패:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 참고자료 삭제 (소프트 삭제)
+  app.delete('/api/approval-references/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      await sequelize.query(`
+        UPDATE approval_references 
+        SET is_active = false 
+        WHERE id = ?
+      `, {
+        replacements: [id]
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('참고자료 삭제 실패:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // 8. 기존 구매 내역 조회 (추천용) - 품의서 작성완료된 정보만 (테스트 데이터 제외)
   app.get('/api/purchase-history', async (req, res) => {
     try {
@@ -3249,11 +3471,21 @@ app.get('/api/work-reports', async (req, res) => {
     let totalCount = proposals.length;
     
     proposals.forEach(proposal => {
-      const type = proposal.contractType || 'unknown';
+      let type = proposal.contractType || 'unknown';
+      let contractMethod = proposal.contractMethod;
+      
+      // 자유양식일 때 contractMethod에 템플릿 이름(한글)이 있으면 템플릿명으로 집계
+      if (type === 'freeform' && contractMethod && 
+          /[가-힣]/.test(contractMethod) && 
+          !contractMethod.includes('_')) {
+        type = contractMethod; // 템플릿명을 키로 사용
+      }
+      
       if (!contractTypeStats[type]) {
         contractTypeStats[type] = {
           count: 0,
-          amount: 0
+          amount: 0,
+          contractMethod: type === contractMethod ? contractMethod : null
         };
       }
       contractTypeStats[type].count++;
@@ -3408,6 +3640,7 @@ app.get('/api/work-reports', async (req, res) => {
           id: p.id,
           title: p.title,
           contractType: p.contractType,
+          contractMethod: p.contractMethod,
           totalAmount: p.totalAmount,
           createdAt: p.createdAt,
           approvalDate: p.approvalDate,

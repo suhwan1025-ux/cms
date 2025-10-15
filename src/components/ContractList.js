@@ -208,8 +208,7 @@ const ContractList = () => {
     status: 'all',
     type: 'all',
     department: 'all',
-    author: 'all',
-    authorInput: '', // 직접 입력 필드
+    authorInput: '', // 작성자 직접 입력
     dateRange: 'all',
     amountRange: 'all',
     keyword: ''
@@ -222,7 +221,6 @@ const ContractList = () => {
   const statusOptions = ['전체', '결재대기', '결재완료'];
   const typeOptions = ['전체', '구매계약', '용역계약', '변경계약', '연장계약', '입찰계약'];
   const departmentOptions = ['전체', 'IT팀', '총무팀', '기획팀', '영업팀', '재무팀', '법무팀'];
-  const authorOptions = ['전체', '김철수', '이영희', '박민수', '정수진', '최지원'];
   const dateRangeOptions = ['전체', '최근 1개월', '최근 3개월', '최근 6개월', '최근 1년'];
   const amountRangeOptions = ['전체', '1천만원 미만', '1천만원~5천만원', '5천만원~1억원', '1억원 이상'];
 
@@ -489,14 +487,13 @@ const ContractList = () => {
            filters.status !== 'all' ||
            filters.type !== 'all' ||
            filters.department !== 'all' ||
-           filters.author !== 'all' ||
-           (filters.author === 'direct' && filters.authorInput.trim() !== '') ||
+           filters.authorInput.trim() !== '' ||
            filters.dateRange !== 'all' ||
            filters.amountRange !== 'all';
   };
 
   // 필터 적용 함수
-  const applyFilters = () => {
+  const applyFilters = React.useCallback(() => {
     let filtered = [...contracts];
 
     // 키워드 검색
@@ -524,11 +521,8 @@ const ContractList = () => {
       filtered = filtered.filter(contract => contract.department === filters.department);
     }
 
-    // 작성자 필터
-    if (filters.author !== 'all' && filters.author !== 'direct') {
-      filtered = filtered.filter(contract => contract.author === filters.author);
-    } else if (filters.author === 'direct' && filters.authorInput.trim() !== '') {
-      // 직접 입력한 작성자로 필터링 (부분 일치)
+    // 작성자 필터 (직접 입력 - 부분 일치, 최소 2글자 이상)
+    if (filters.authorInput && filters.authorInput.trim().length >= 2) {
       filtered = filtered.filter(contract => 
         contract.author && contract.author.toLowerCase().includes(filters.authorInput.toLowerCase())
       );
@@ -581,23 +575,30 @@ const ContractList = () => {
     // 정렬 적용
     const sortedData = getSortedData(filtered);
     setFilteredContracts(sortedData);
-  };
+  }, [contracts, filters, sortConfigs]);
 
-  // 필터 변경 시 전체 데이터 로드
+  // 필터 변경 시 전체 데이터 로드 (키워드, 작성자 제외)
   useEffect(() => {
-    if (hasActiveFilters()) {
-      // 필터가 활성화되면 전체 데이터를 로드
+    // 키워드와 작성자는 클라이언트 사이드 필터링이므로 서버 재조회 제외
+    const hasServerFilters = filters.status !== 'all' ||
+                              filters.type !== 'all' ||
+                              filters.department !== 'all' ||
+                              filters.dateRange !== 'all' ||
+                              filters.amountRange !== 'all';
+    
+    if (hasServerFilters) {
+      // 서버 필터가 활성화되면 전체 데이터를 로드
       fetchProposals(true, true);
     } else {
       // 필터가 없으면 페이지네이션 모드로 초기 로드
       fetchProposals(true, false);
     }
-  }, [filters]);
+  }, [filters.status, filters.type, filters.department, filters.dateRange, filters.amountRange]);
 
   // 필터 변경 시 자동 적용
   useEffect(() => {
     applyFilters();
-  }, [filters, contracts, sortConfigs]);
+  }, [applyFilters]);
 
   // filteredContracts가 변경될 때 displayedContracts 업데이트 (20개씩)
   useEffect(() => {
@@ -625,7 +626,6 @@ const ContractList = () => {
       status: 'all',
       type: 'all',
       department: 'all',
-      author: 'all',
       authorInput: '',
       dateRange: 'all',
       amountRange: 'all',
@@ -637,103 +637,34 @@ const ContractList = () => {
   // 엑셀 다운로드 함수
   const handleExcelDownload = async () => {
     try {
-      // 로딩 메시지 표시
-      const loadingMsg = '전체 데이터를 가져오는 중...';
-      console.log(loadingMsg);
+      // 화면에 표시된 필터링된 데이터를 그대로 사용
+      const dataToExport = filteredContracts;
       
-      // 서버에서 전체 데이터 가져오기 (isDraft=false, 필터 없이 모든 데이터)
-      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=false`);
-      
-      if (!response.ok) {
-        throw new Error('데이터 조회 실패');
-      }
-      
-      const data = await response.json();
-      const allProposals = data.proposals || data;
-      
-      console.log(`📥 전체 ${allProposals.length}건의 데이터를 가져왔습니다.`);
-      
-      // API 데이터를 화면과 동일한 형식으로 변환
-      const formattedProposals = allProposals.map(proposal => ({
-        id: proposal.id,
-        title: proposal.title || '품의서',
-        contractType: proposal.contractType === 'purchase' ? '구매계약' :
-                     proposal.contractType === 'service' ? '용역계약' :
-                     proposal.contractType === 'change' ? '변경계약' :
-                     proposal.contractType === 'extension' ? '연장계약' :
-                     proposal.contractType === 'bidding' ? '입찰계약' :
-                     proposal.contractType === 'freeform' ? 
-                       (proposal.contractMethod && 
-                        /[가-힣]/.test(proposal.contractMethod) && 
-                        !proposal.contractMethod.includes('_')) ? 
-                         proposal.contractMethod : '기타' : 
-                     '기타',
-        department: proposal.requestDepartments?.[0] ? 
-          (typeof proposal.requestDepartments[0] === 'string' ? 
-            proposal.requestDepartments[0] : 
-            proposal.requestDepartments[0].department || proposal.requestDepartments[0].name || proposal.requestDepartments[0]
-          ) : '미지정',
-        requestDepartments: proposal.requestDepartments || [],
-        contractor: proposal.purchaseItems?.[0]?.supplier || proposal.serviceItems?.[0]?.supplier || '미지정',
-        amount: proposal.totalAmount || 0,
-        status: (proposal.status === 'approved' || proposal.status === '결재완료') ? '결재완료' : 
-                (proposal.status === 'submitted' || proposal.status === '결재대기') ? '결재대기' : 
-                proposal.status,
-        contractPeriod: proposal.contractPeriod || '-',
-        contractMethod: proposal.contractMethod || '-',
-        createdAt: proposal.createdAt,
-        updatedAt: proposal.updatedAt,
-        purpose: proposal.purpose || '-',
-        basis: proposal.basis || '-'
-      }));
-      
-      // 현재 필터 조건 적용
-      let dataToExport = formattedProposals;
-      
-      // 키워드 필터
-      if (filters.keyword) {
-        dataToExport = dataToExport.filter(contract => 
-          contract.title.toLowerCase().includes(filters.keyword.toLowerCase()) ||
-          (contract.contractor && contract.contractor.toLowerCase().includes(filters.keyword.toLowerCase())) ||
-          (contract.purpose && contract.purpose.toLowerCase().includes(filters.keyword.toLowerCase()))
-        );
-      }
-      
-      // 상태 필터
-      if (filters.status !== 'all') {
-        dataToExport = dataToExport.filter(contract => contract.status === filters.status);
-      }
-      
-      // 계약 유형 필터
-      if (filters.type !== 'all') {
-        dataToExport = dataToExport.filter(contract => contract.contractType === filters.type);
-      }
-      
-      // 부서 필터
-      if (filters.department !== 'all') {
-        dataToExport = dataToExport.filter(contract => 
-          contract.department === filters.department ||
-          (Array.isArray(contract.requestDepartments) && 
-           contract.requestDepartments.some(d => 
-             (typeof d === 'string' ? d : d.department || d.name) === filters.department
-           ))
-        );
-      }
-      
-      console.log(`📊 필터링 후 ${dataToExport.length}건의 데이터를 엑셀로 변환합니다.`);
+      console.log(`📊 화면에 표시된 ${dataToExport.length}건의 데이터를 엑셀로 변환합니다.`);
+      console.log('현재 필터:', {
+        keyword: filters.keyword || '없음',
+        status: filters.status,
+        type: filters.type,
+        department: filters.department,
+        authorInput: filters.authorInput || '없음',
+        dateRange: filters.dateRange,
+        amountRange: filters.amountRange
+      });
       
       // 엑셀 형식으로 변환
       const excelData = dataToExport.map((contract, index) => ({
         '번호': index + 1,
+        '품의서번호': contract.id || '-',
         '품의서명': contract.title || '-',
-        '계약유형': contract.contractType || '-',
-        '요청부서': Array.isArray(contract.requestDepartments) 
-          ? contract.requestDepartments.map(d => (typeof d === 'string' ? d : d.department || d.name || d)).join(', ')
+        '계약유형': contract.type || contract.contractType || '-',
+        '요청부서': Array.isArray(contract.requestDepartments) && contract.requestDepartments.length > 0
+          ? contract.requestDepartments.join(', ')
           : (contract.department || '-'),
         '계약업체': contract.contractor || '-',
         '계약금액': contract.amount || 0,
+        '작성자': contract.author || '-',
         '상태': contract.status || '-',
-        '계약기간': contract.contractPeriod || '-',
+        '계약기간': contract.contractPeriod || contract.endDate || '-',
         '계약방법': contract.contractMethod || '-',
         '작성일': contract.createdAt ? new Date(contract.createdAt).toLocaleDateString('ko-KR') : '-',
         '수정일': contract.updatedAt ? new Date(contract.updatedAt).toLocaleDateString('ko-KR') : '-',
@@ -747,11 +678,13 @@ const ContractList = () => {
       // 컬럼 너비 설정
       const columnWidths = [
         { wch: 8 },  // 번호
+        { wch: 12 }, // 품의서번호
         { wch: 30 }, // 품의서명
         { wch: 12 }, // 계약유형
         { wch: 15 }, // 요청부서
         { wch: 20 }, // 계약업체
         { wch: 15 }, // 계약금액
+        { wch: 12 }, // 작성자
         { wch: 10 }, // 상태
         { wch: 20 }, // 계약기간
         { wch: 15 }, // 계약방법
@@ -832,7 +765,7 @@ const ContractList = () => {
   };
 
   // 다중정렬된 데이터 생성
-  const getSortedData = (data) => {
+  const getSortedData = React.useCallback((data) => {
     console.log('정렬 설정:', sortConfigs); // 디버깅용
     if (sortConfigs.length === 0) {
       console.log('정렬 없음, 원본 데이터 반환'); // 디버깅용
@@ -845,7 +778,7 @@ const ContractList = () => {
         let bValue = b[sortConfig.key];
 
         // 숫자 필드 처리
-        if (sortConfig.key === 'amount') {
+        if (sortConfig.key === 'amount' || sortConfig.key === 'id') {
           aValue = Number(aValue || 0);
           bValue = Number(bValue || 0);
         }
@@ -872,7 +805,7 @@ const ContractList = () => {
 
     console.log('정렬된 데이터:', sortedData.slice(0, 3)); // 디버깅용 (처음 3개만)
     return sortedData;
-  };
+  }, [sortConfigs]);
 
   const formatCurrency = (amount) => {
     // 소수점 제거하고 정수로 변환
@@ -1672,36 +1605,12 @@ const ContractList = () => {
           
           <div className="filter-group">
             <label>작성자:</label>
-            <select 
-              value={filters.author} 
-              onChange={(e) => {
-                setFilters({...filters, author: e.target.value, authorInput: e.target.value === 'direct' ? filters.authorInput : ''});
-              }}
-            >
-              {authorOptions.map(option => (
-                <option key={option} value={option === '전체' ? 'all' : option}>
-                  {option}
-                </option>
-              ))}
-              <option value="direct">직접입력</option>
-            </select>
-            {filters.author === 'direct' && (
-              <input
-                type="text"
-                placeholder="작성자명 입력..."
-                value={filters.authorInput}
-                onChange={(e) => setFilters({...filters, authorInput: e.target.value})}
-                style={{ 
-                  marginTop: '0.5rem',
-                  width: '100%',
-                  padding: '0.5rem', 
-                  border: '1px solid #ddd', 
-                  borderRadius: '4px',
-                  fontSize: '0.9rem',
-                  boxSizing: 'border-box'
-                }}
-              />
-            )}
+            <input
+              type="text"
+              placeholder="작성자명 검색 (2글자 이상)..."
+              value={filters.authorInput}
+              onChange={(e) => setFilters({...filters, authorInput: e.target.value})}
+            />
           </div>
           
           <div className="filter-group">
@@ -1744,14 +1653,23 @@ const ContractList = () => {
           </div>
           <div className="result-info">
             <span className="result-count">
-              검색 결과: {filteredContracts.length}건
-              {hasActiveFilters() && displayedContracts.length < filteredContracts.length && ` (${displayedContracts.length}건 표시 중)`}
-              {!hasActiveFilters() && contracts.length < totalCount && ` (전체 ${totalCount}건 중 ${contracts.length}건 로드됨)`}
+              {hasActiveFilters() ? (
+                <>
+                  검색 결과: {filteredContracts.length}건
+                  {displayedContracts.length < filteredContracts.length && ` (${displayedContracts.length}건 표시 중)`}
+                </>
+              ) : (
+                <>
+                  전체 품의서: {totalCount > 0 ? totalCount : contracts.length}건
+                  {contracts.length < totalCount && ` (${contracts.length}건 로드됨)`}
+                </>
+              )}
             </span>
             {sortConfigs.length > 0 && (
               <span className="sort-info">
                 정렬: {sortConfigs.map((config, index) => {
                   const fieldNames = {
+                    id: '품의서번호',
                     title: '계약명',
                     department: '요청부서',
                     author: '작성자',
@@ -1773,7 +1691,7 @@ const ContractList = () => {
       {/* 품의서 목록 */}
       <div className="proposals-list-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3>품의서 목록 (총 {filteredContracts.length}건)</h3>
+          <h3>품의서 목록 {hasActiveFilters() ? `(검색결과 ${filteredContracts.length}건)` : `(전체 ${totalCount > 0 ? totalCount : contracts.length}건)`}</h3>
           {sortConfigs.length > 0 && (
             <button 
               onClick={resetFilters}
@@ -1799,6 +1717,19 @@ const ContractList = () => {
           <thead>
             <tr>
               <th style={{ width: '60px', textAlign: 'center' }}>순번</th>
+              <th 
+                style={{ width: '80px', textAlign: 'center' }}
+                className="sortable-header"
+                onClick={() => handleSort('id')}
+              >
+                품의서번호
+                {getSortDirection('id') && (
+                  <span className="sort-indicator">
+                    {getSortDirection('id') === 'asc' ? ' ↑' : ' ↓'}
+                    <span className="sort-priority">{getSortPriority('id')}</span>
+                  </span>
+                )}
+              </th>
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('title')}
@@ -1917,6 +1848,7 @@ const ContractList = () => {
                 onClick={() => handleRowClick(contract)}
               >
                 <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                <td style={{ textAlign: 'center', fontWeight: '500' }}>{contract.id}</td>
                 <td>{contract.title}</td>
                 <td>
                   {contract.requestDepartments && contract.requestDepartments.length > 0
