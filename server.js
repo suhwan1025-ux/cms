@@ -1104,7 +1104,7 @@ app.post('/api/proposals', async (req, res) => {
         name: item.name || '', // 성명 필드 추가
         personnel: item.personnel && item.personnel !== '' ? parseInt(item.personnel) || 1 : 1, // INTEGER: 기본값 1
         skillLevel: item.skillLevel && item.skillLevel !== '' ? item.skillLevel : 'junior', // ENUM: 기본값 junior
-        period: item.period && item.period !== '' ? parseInt(item.period) || 1 : 1, // INTEGER: 기본값 1
+        period: item.period && item.period !== '' ? parseFloat(item.period) || 1 : 1, // DECIMAL: 소수점 허용
         monthlyRate: item.monthlyRate && item.monthlyRate !== '' ? parseInt(item.monthlyRate) || 0 : 0,
         contractAmount: item.contractAmount && item.contractAmount !== '' ? parseInt(item.contractAmount) || 0 : 0,
         supplier: item.supplier || '',
@@ -1465,6 +1465,20 @@ app.get('/api/proposals/:id', async (req, res) => {
     // 구매품목별 비용분배 정보 추가
     const proposalData = proposal.toJSON();
     
+    // 계약방식 설명 추가
+    if (proposalData.contractMethod) {
+      const contractMethodInfo = await sequelize.query(`
+        SELECT basis FROM contract_methods WHERE value = ?
+      `, {
+        replacements: [proposalData.contractMethod],
+        type: sequelize.QueryTypes.SELECT
+      });
+      
+      if (contractMethodInfo && contractMethodInfo.length > 0) {
+        proposalData.contract_method_description = contractMethodInfo[0].basis;
+      }
+    }
+    
     // 예산 정보 가져오기
     if (proposalData.budgetId) {
       try {
@@ -1714,7 +1728,7 @@ app.put('/api/proposals/:id', async (req, res) => {
           name: item.name || '', // 성명 필드 추가
           personnel: item.personnel && item.personnel !== '' ? parseInt(item.personnel) || 1 : 1, // INTEGER: 기본값 1
           skillLevel: item.skillLevel && item.skillLevel !== '' ? item.skillLevel : 'junior', // ENUM: 기본값 junior
-          period: item.period && item.period !== '' ? parseInt(item.period) || 1 : 1, // INTEGER: 기본값 1
+          period: item.period && item.period !== '' ? parseFloat(item.period) || 1 : 1, // DECIMAL: 소수점 허용
           monthlyRate: item.monthlyRate && item.monthlyRate !== '' ? parseInt(item.monthlyRate) || 0 : 0,
           contractAmount: item.contractAmount && item.contractAmount !== '' ? parseInt(item.contractAmount) || 0 : 0,
           supplier: item.supplier || '',
@@ -1955,14 +1969,16 @@ app.patch('/api/proposals/:id/status', async (req, res) => {
       isDraft: false
     };
     
+    // 결재완료로 변경되는 경우 approvalDate 설정
+    if (dbStatus === 'approved') {
+      // statusDate가 전달되면 해당 날짜 사용, 없으면 현재 날짜 사용
+      updateData.approvalDate = statusDate || new Date().toISOString().split('T')[0];
+      console.log('결재완료일 설정:', updateData.approvalDate);
+    }
+    
     console.log('업데이트할 데이터:', updateData);
     await proposal.update(updateData);
     console.log('✅ 상태 업데이트 완료');
-    
-    // 상태에 따라 특정 날짜 필드 업데이트
-    if (status === '결재완료' && statusDate) {
-      await proposal.update({ approvalDate: statusDate });
-    }
     
     // 히스토리 저장 (현재 테이블 구조에 맞게)
     await models.ProposalHistory.create({
@@ -2229,7 +2245,7 @@ app.post('/api/proposals/draft', async (req, res) => {
         personnel: item.personnel && item.personnel !== '' ? parseInt(item.personnel) || 1 : 1, // INTEGER: 기본값 1
         name: item.name || '', // 성명 필드 추가
         skillLevel: item.skillLevel && item.skillLevel !== '' ? item.skillLevel : 'junior', // ENUM: 기본값 junior
-        period: item.period && item.period !== '' ? parseInt(item.period) || 1 : 1, // INTEGER: 기본값 1
+        period: item.period && item.period !== '' ? parseFloat(item.period) || 1 : 1, // DECIMAL: 소수점 허용
         monthlyRate: item.monthlyRate && item.monthlyRate !== '' ? parseInt(item.monthlyRate) || 0 : 0,
         contractAmount: item.contractAmount && item.contractAmount !== '' ? parseInt(item.contractAmount) || 0 : 0,
         supplier: item.supplier || '',

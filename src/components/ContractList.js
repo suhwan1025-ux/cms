@@ -883,6 +883,7 @@ const ContractList = () => {
           budget: enhancedContract.budget,
           budgetInfo: enhancedContract.budgetInfo, // 서버에서 가져온 예산 정보 추가
           contractMethod: originalData.contractMethod || originalData.contract_method || enhancedContract.contractMethod,
+          contractMethodDescription: originalData.contract_method_description || enhancedContract.contract_method_description, // 계약방식 설명 추가
           requestDepartments: enhancedContract.requestDepartments && enhancedContract.requestDepartments.length > 0
             ? enhancedContract.requestDepartments.map(d => d.department || d.name || d)
             : (enhancedContract.department ? [enhancedContract.department] : []),
@@ -1221,14 +1222,29 @@ const ContractList = () => {
         
         // 용역품목도 기존 수정 기능과 동일하게 처리
         serviceItems: (originalData.serviceItems || []).map(item => ({
+          id: Date.now() + Math.random(), // 새로운 ID 생성
           item: item.item || '',
+          name: item.name || '', // 성명
           personnel: item.personnel || '',
           skillLevel: item.skillLevel || '',
-          period: item.period || '',
+          period: item.period || 0,
           monthlyRate: item.monthlyRate || 0,
           contractAmount: item.contractAmount || 0,
           supplier: item.supplier || '',
-          creditRating: item.creditRating || ''
+          creditRating: item.creditRating || '',
+          contractPeriodStart: item.contractPeriodStart || '', // 계약 시작일
+          contractPeriodEnd: item.contractPeriodEnd || '', // 계약 종료일
+          paymentMethod: item.paymentMethod || '', // 비용지급방식
+          // 비용분배 정보
+          costAllocation: {
+            type: item.costAllocation?.type || 'percentage',
+            allocations: (item.costAllocation?.allocations || []).map(alloc => ({
+              id: Date.now() + Math.random(),
+              department: alloc.department || '',
+              type: alloc.type || 'percentage',
+              value: parseFloat(alloc.value) || 0
+            }))
+          }
         })),
         contractPeriod: originalData.contractPeriod || '',
         paymentMethod: originalData.paymentMethod || '',
@@ -1326,6 +1342,7 @@ const ContractList = () => {
         serviceItems: originalData.serviceItems?.map(item => ({
           id: item.id,
           item: item.item,
+          name: item.name,
           personnel: item.personnel,
           skillLevel: item.skillLevel,
           period: item.period,
@@ -1333,7 +1350,19 @@ const ContractList = () => {
           contractAmount: item.contractAmount,
           supplier: item.supplier,
           creditRating: item.creditRating,
-          name: item.name
+          contractPeriodStart: item.contractPeriodStart || '', // 계약 시작일
+          contractPeriodEnd: item.contractPeriodEnd || '', // 계약 종료일
+          paymentMethod: item.paymentMethod || '', // 비용지급방식
+          // 비용분배 정보
+          costAllocation: {
+            type: item.costAllocation?.type || 'percentage',
+            allocations: (item.costAllocation?.allocations || []).map(alloc => ({
+              id: alloc.id || Date.now() + Math.random(),
+              department: alloc.department || '',
+              type: alloc.type || 'percentage',
+              value: parseFloat(alloc.value) || 0
+            }))
+          }
         })) || [],
         
         // 비용귀속부서

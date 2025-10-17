@@ -1015,7 +1015,7 @@ const ProposalForm = () => {
               personnel: item.personnel || '',
               name: item.name || '', // 성명 필드 추가
               skillLevel: item.skillLevel || '',
-              period: Number(item.period) || 0,
+              period: parseFloat(item.period) || 0,
               monthlyRate: Number(item.monthlyRate) || 0,
               contractAmount: Number(item.contractAmount) || 0,
               supplier: item.supplier || '',
@@ -1398,28 +1398,32 @@ const ProposalForm = () => {
             }))
           }
         })),
-        serviceItems: (proposalData.serviceItems || []).map(item => ({
-          id: item.id || Date.now() + Math.random(),
-          item: item.item || '',
-          personnel: item.personnel || '',
-          name: item.name || '',
-          skillLevel: item.skillLevel || '',
-          period: Number(item.period) || 0,
-          monthlyRate: Number(item.monthlyRate) || 0,
-          contractAmount: Number(item.contractAmount) || 0,
-          supplier: item.supplier || '',
-          creditRating: item.creditRating || '',
-          contractPeriodStart: item.contractPeriodStart ? item.contractPeriodStart.split('T')[0] : '',
-          contractPeriodEnd: item.contractPeriodEnd ? item.contractPeriodEnd.split('T')[0] : '',
-          paymentMethod: item.paymentMethod || '',
-          costAllocation: {
-            allocations: (item.costAllocation?.allocations || []).map(alloc => ({
-              department: alloc.department || '',
-              type: alloc.type || 'percentage',
-              value: alloc.value || 0
-            }))
-          }
-        })),
+        serviceItems: (proposalData.serviceItems || []).map(item => {
+          const periodValue = parseFloat(item.period) || 0;
+          console.log(`🔍 용역항목 로드: ${item.item}, 원본 period: "${item.period}" (타입: ${typeof item.period}), 변환 후: ${periodValue}`);
+          return {
+            id: item.id || Date.now() + Math.random(),
+            item: item.item || '',
+            personnel: item.personnel || '',
+            name: item.name || '',
+            skillLevel: item.skillLevel || '',
+            period: periodValue,
+            monthlyRate: Number(item.monthlyRate) || 0,
+            contractAmount: Number(item.contractAmount) || 0,
+            supplier: item.supplier || '',
+            creditRating: item.creditRating || '',
+            contractPeriodStart: item.contractPeriodStart ? item.contractPeriodStart.split('T')[0] : '',
+            contractPeriodEnd: item.contractPeriodEnd ? item.contractPeriodEnd.split('T')[0] : '',
+            paymentMethod: item.paymentMethod || '',
+            costAllocation: {
+              allocations: (item.costAllocation?.allocations || []).map(alloc => ({
+                department: alloc.department || '',
+                type: alloc.type || 'percentage',
+                value: alloc.value || 0
+              }))
+            }
+          };
+        }),
         suppliers: proposalData.suppliers || [],
         changeReason: proposalData.changeReason || '',
         extensionReason: proposalData.extensionReason || '',
@@ -2996,18 +3000,29 @@ const ProposalForm = () => {
       console.log('  ⚠️ formData.budget이 비어있음');
     }
 
+    // 계약방식 설명 찾기
+    let contractMethodDescription = '';
+    if (formData.contractMethod && contractMethods.length > 0) {
+      const selectedMethod = contractMethods.find(m => m.value === formData.contractMethod);
+      if (selectedMethod && selectedMethod.basis) {
+        contractMethodDescription = selectedMethod.basis;
+      }
+    }
+
     // 공통 미리보기 함수 사용 (utils/previewGenerator.js)
     // contractType을 포함한 완전한 데이터 구성
     const completeData = {
       ...formData,
       contractType: contractType,
-      budgetInfo: budgetInfo // 사업예산 정보 추가
+      budgetInfo: budgetInfo, // 사업예산 정보 추가
+      contractMethodDescription: contractMethodDescription // 계약방식 설명 추가
     };
     
     // ProposalForm 미리보기 데이터 디버깅
     console.log('=== ProposalForm 미리보기 데이터 ===');
     console.log('contractType:', contractType);
     console.log('선택된 사업예산:', budgetInfo);
+    console.log('계약방식 설명:', contractMethodDescription);
     console.log('formData.purchaseItems:', formData.purchaseItems);
     console.log('formData.serviceItems:', formData.serviceItems);
     console.log('완전한 데이터:', completeData);
@@ -5256,11 +5271,18 @@ const ProposalForm = () => {
                       <label>기간 (개월)</label>
                       <input
                         type="number"
-                        value={item.period}
+                        step="0.01"
+                        min="0"
+                        value={(() => {
+                          console.log(`🔍 렌더링 - 항목 ${index}: period 값 = ${item.period} (타입: ${typeof item.period})`);
+                          return item.period;
+                        })()}
                         onChange={(e) => {
+                          console.log(`📝 onChange - 입력값: ${e.target.value}`);
                           setFormData(prevData => {
                             const updated = [...prevData.serviceItems];
                             updated[index].period = Number(e.target.value);
+                            console.log(`✅ 업데이트 후: ${updated[index].period}`);
                             updated[index].contractAmount = updated[index].period * updated[index].monthlyRate;
                             return {
                               ...prevData,
@@ -8203,16 +8225,20 @@ const ProposalForm = () => {
           height: calc(90vh - 200px);
           overflow-y: auto;
           padding: 1rem;
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1rem;
+          align-content: start;
         }
 
         .budget-item {
           padding: 1rem;
           border: 1px solid #e1e5e9;
           border-radius: 8px;
-          margin-bottom: 0.5rem;
           cursor: pointer;
           transition: all 0.3s ease;
           background: white;
+          height: fit-content;
         }
 
         .budget-item:hover {
@@ -8287,6 +8313,10 @@ const ProposalForm = () => {
 
         @media (max-width: 768px) {
           .popup-filters {
+            grid-template-columns: 1fr;
+          }
+          
+          .budget-list {
             grid-template-columns: 1fr;
           }
           

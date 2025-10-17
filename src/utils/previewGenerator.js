@@ -26,6 +26,27 @@ export const getContractTypeName = (contractType) => {
   return typeMap[contractType] || contractType;
 };
 
+// 기술등급 한글 변환
+export const getSkillLevelKorean = (skillLevel) => {
+  if (!skillLevel) return '-';
+  
+  const skillMap = {
+    'expert': '특급',
+    'senior': '고급',
+    'advanced': '고급',
+    'intermediate': '중급',
+    'junior': '초급',
+    'beginner': '초급',
+    // 이미 한글인 경우 그대로 반환
+    '특급': '특급',
+    '고급': '고급',
+    '중급': '중급',
+    '초급': '초급'
+  };
+  
+  return skillMap[skillLevel.toLowerCase()] || skillLevel;
+};
+
 // 계약방법 이름 반환
 export const getContractMethodName = (contractMethod) => {
   // contractMethod가 없거나 빈 문자열이면 '-' 반환
@@ -252,18 +273,17 @@ export const generateItemsSection = (data) => {
       <table class="items-table">
         <thead>
           <tr>
-            <th>번호</th>
-            <th>용역명</th>
-            <th>성명</th>
-            <th>기술등급</th>
-            <th>기간(개월)</th>
-            <th>월단가</th>
-            <th>계약금액</th>
-            <th>공급업체</th>
-            <th>신용등급</th>
-            <th>계약시작일</th>
-            <th>계약종료일</th>
-            <th>비용지급방식</th>
+            <th style="width: 40px;">No</th>
+            <th style="min-width: 120px;">용역명</th>
+            <th style="width: 80px;">성명</th>
+            <th style="width: 70px;">기술등급</th>
+            <th style="width: 50px;">기간</th>
+            <th style="width: 90px;">월단가</th>
+            <th style="width: 100px;">계약금액</th>
+            <th style="width: 100px;">공급업체</th>
+            <th style="width: 50px;">신용등급</th>
+            <th style="width: 120px;">계약기간</th>
+            <th style="width: 80px;">지급방식</th>
           </tr>
         </thead>
         <tbody>
@@ -274,9 +294,9 @@ export const generateItemsSection = (data) => {
                                  (parseFloat(item.unitPrice || item.unit_price) * parseFloat(item.quantity)) || 0;
             
             const paymentMethodMap = {
-              'monthly': '월별 지급',
-              'quarterly': '분기별 지급',
-              'lump': '일시 지급'
+              'monthly': '월별',
+              'quarterly': '분기별',
+              'lump': '일시'
             };
             const paymentMethod = item.paymentMethod || item.payment_method;
             const paymentMethodText = paymentMethodMap[paymentMethod] || paymentMethod || '-';
@@ -284,34 +304,51 @@ export const generateItemsSection = (data) => {
             const contractPeriodStart = item.contractPeriodStart || item.contract_period_start;
             const contractPeriodEnd = item.contractPeriodEnd || item.contract_period_end;
             
+            // 계약기간 포맷팅 (시작일 ~ 종료일)
+            let contractPeriodText = '-';
+            if (contractPeriodStart && contractPeriodEnd) {
+              const startDate = contractPeriodStart.split ? contractPeriodStart.split('T')[0] : contractPeriodStart;
+              const endDate = contractPeriodEnd.split ? contractPeriodEnd.split('T')[0] : contractPeriodEnd;
+              contractPeriodText = `${startDate}<br>~ ${endDate}`;
+            } else if (contractPeriodStart) {
+              contractPeriodText = contractPeriodStart.split ? contractPeriodStart.split('T')[0] : contractPeriodStart;
+            } else if (contractPeriodEnd) {
+              contractPeriodText = '~ ' + (contractPeriodEnd.split ? contractPeriodEnd.split('T')[0] : contractPeriodEnd);
+            }
+            
+            const skillLevel = item.skillLevel || item.skill_level;
+            
+            // 기간 포맷팅 (소수점 있으면 표시, 없으면 정수로 표시)
+            const period = parseFloat(item.period || 0);
+            const periodText = period % 1 === 0 ? period.toString() : period.toFixed(2);
+            
             return `
             <tr>
-              <td>${index + 1}</td>
-              <td>${item.item || '-'}</td>
-              <td>${item.name || item.personnel || '-'}</td>
-              <td>${item.skillLevel || item.skill_level || '-'}</td>
-              <td>${item.period || 0}</td>
-              <td>${formatCurrency(item.monthlyRate || item.monthly_rate || item.unitPrice || item.unit_price || 0)}</td>
-              <td style="font-weight: bold;">${formatCurrency(contractAmount)}</td>
-              <td>${item.supplier || '-'}</td>
-              <td>${item.creditRating || item.credit_rating || '-'}</td>
-              <td>${contractPeriodStart ? (contractPeriodStart.split ? contractPeriodStart.split('T')[0] : contractPeriodStart) : '-'}</td>
-              <td>${contractPeriodEnd ? (contractPeriodEnd.split ? contractPeriodEnd.split('T')[0] : contractPeriodEnd) : '-'}</td>
-              <td>${paymentMethodText}</td>
+              <td style="text-align: center;">${index + 1}</td>
+              <td style="text-align: center;">${item.item || '-'}</td>
+              <td style="text-align: center;">${item.name || item.personnel || '-'}</td>
+              <td style="text-align: center;">${getSkillLevelKorean(skillLevel)}</td>
+              <td style="text-align: center;">${periodText}개월</td>
+              <td style="text-align: right;">${formatCurrency(item.monthlyRate || item.monthly_rate || item.unitPrice || item.unit_price || 0)}</td>
+              <td style="text-align: right; font-weight: bold;">${formatCurrency(contractAmount)}</td>
+              <td style="text-align: center;">${item.supplier || '-'}</td>
+              <td style="text-align: center;">${item.creditRating || item.credit_rating || '-'}</td>
+              <td style="text-align: center; font-size: 0.85em; line-height: 1.3;">${contractPeriodText}</td>
+              <td style="text-align: center;">${paymentMethodText}</td>
             </tr>
             `;
           }).join('')}
         </tbody>
         <tfoot>
           <tr class="total-row">
-            <td colspan="6">합계</td>
-            <td>${formatCurrency(data.serviceItems.reduce((sum, item) => {
+            <td colspan="6" style="text-align: center; font-weight: bold;">합계</td>
+            <td style="text-align: right; font-weight: bold;">${formatCurrency(data.serviceItems.reduce((sum, item) => {
               const contractAmount = item.contractAmount || item.contract_amount ||
                                    (parseFloat(item.monthlyRate || item.monthly_rate) * parseFloat(item.period)) || 
                                    (parseFloat(item.unitPrice || item.unit_price) * parseFloat(item.quantity)) || 0;
               return sum + contractAmount;
             }, 0))}</td>
-            <td colspan="5">-</td>
+            <td colspan="4" style="text-align: center; font-weight: bold;">-</td>
           </tr>
         </tfoot>
       </table>
@@ -379,9 +416,9 @@ export const generateItemsSection = (data) => {
         </tbody>
         <tfoot>
           <tr class="total-row">
-            <td colspan="6">합계</td>
-            <td>${formatCurrency(data.purchaseItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0))}</td>
-            <td>-</td>
+            <td colspan="6" style="text-align: center; font-weight: bold;">합계</td>
+            <td style="text-align: right; font-weight: bold;">${formatCurrency(data.purchaseItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0))}</td>
+            <td style="text-align: center; font-weight: bold;">-</td>
           </tr>
         </tfoot>
       </table>
@@ -537,13 +574,13 @@ export const generateCostAllocationSection = (data) => {
     totalAmount += allocation.amount;
     allocationHTML += `
       <tr>
-        <td>${index + 1}</td>
-        <td>${allocation.classification}</td>
-        <td>${allocation.productName}</td>
-        <td>${allocation.department}</td>
-        <td>${allocation.type}</td>
-        <td>${allocation.value}</td>
-        <td style="font-weight: bold;">${formatCurrency(allocation.amount)}</td>
+        <td style="text-align: center;">${index + 1}</td>
+        <td style="text-align: center;">${allocation.classification}</td>
+        <td style="text-align: center;">${allocation.productName}</td>
+        <td style="text-align: center;">${allocation.department}</td>
+        <td style="text-align: center;">${allocation.type}</td>
+        <td style="text-align: center;">${allocation.value}</td>
+        <td style="text-align: right; font-weight: bold;">${formatCurrency(allocation.amount)}</td>
       </tr>
     `;
   });
@@ -553,8 +590,8 @@ export const generateCostAllocationSection = (data) => {
       </tbody>
       <tfoot>
         <tr class="total-row">
-          <td colspan="6">합계</td>
-          <td style="font-weight: bold;">${formatCurrency(totalAmount)}</td>
+          <td colspan="6" style="text-align: center; font-weight: bold;">합계</td>
+          <td style="text-align: right; font-weight: bold;">${formatCurrency(totalAmount)}</td>
         </tr>
       </tfoot>
     </table>
@@ -565,7 +602,21 @@ export const generateCostAllocationSection = (data) => {
 
 // 계정과목 섹션 생성
 export const generateAccountSubjectSection = (data) => {
-  // 계정과목 정보 생성
+  // 용역계약의 경우 간단하게 한 줄로만 표시
+  if (data.contractType === 'service' && data.serviceItems?.length > 0) {
+    return `
+      <div style="margin-top: 30px; page-break-inside: avoid;">
+        <div class="section-title">계정과목</div>
+        <div style="padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+          <div style="padding: 8px 0;">
+            관: 운영비 > 항: 일반운영비 > 목: 전산용역비
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // 구매계약의 경우 기존 방식 유지 (항목별로 표시)
   const accountSubjects = getAccountSubjectGroups(data);
   
   if (accountSubjects.length === 0) {
@@ -650,7 +701,7 @@ export const generatePreviewHTML = (data, options = {}) => {
           background-color: #f5f5f5;
         }
         .preview-container {
-          max-width: 800px;
+          max-width: 880px;
           margin: 0 auto;
           background: white;
           padding: 40px;
@@ -678,17 +729,20 @@ export const generatePreviewHTML = (data, options = {}) => {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 20px;
+          font-size: 9pt;
         }
         .items-table th, .items-table td {
           border: 1px solid #ddd;
-          padding: 8px;
-          text-align: center;
+          padding: 6px 4px;
+          text-align: left;
           white-space: pre-wrap; /* 줄바꿈 보존 */
           word-wrap: break-word; /* 긴 단어 자동 줄바꿈 */
+          vertical-align: middle;
         }
         .items-table th {
           background-color: #f8f9fa;
           font-weight: bold;
+          text-align: center;
         }
         .total-row {
           background-color: #f8f9fa;
@@ -763,10 +817,6 @@ export const generatePreviewHTML = (data, options = {}) => {
         <table class="info-table">
           <tbody>
             <tr>
-              <th>계약 방식</th>
-              <td>${getContractMethodName(data.contractMethod || data.contract_method)}</td>
-            </tr>
-            <tr>
               <th>사업 목적</th>
               <td>${data.purpose || '-'}</td>
             </tr>
@@ -819,6 +869,10 @@ export const generatePreviewHTML = (data, options = {}) => {
                 }
                 return '-';
               })()}</td>
+            </tr>
+            <tr>
+              <th>계약 방식</th>
+              <td><div style="font-weight: 600; margin-bottom: 2px;">${getContractMethodName(data.contractMethod || data.contract_method)}</div>${data.contractMethodDescription || data.contract_method_description ? `<div style="font-size: 0.85em; color: #666; line-height: 1.3; margin-top: 2px;">${data.contractMethodDescription || data.contract_method_description}</div>` : ''}</td>
             </tr>
             ${data.contractType !== 'freeform' ? `
             <tr>

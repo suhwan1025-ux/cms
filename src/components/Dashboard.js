@@ -97,24 +97,24 @@ const Dashboard = () => {
       approvedProposals.forEach(proposal => {
         if (proposal.contractType === 'service' && proposal.serviceItems) {
           proposal.serviceItems.forEach(item => {
-            // 시작일과 종료일 - 실제 계약일 우선, 없으면 승인일 기준으로 계산
+            // 시작일과 종료일 - 용역항목의 계약기간 우선, 없으면 승인일 기준으로 계산
             let startDate = null;
             let endDate = null;
             
-            // 1순위: 품의서에 입력된 실제 계약 시작일/종료일 사용
-            if (proposal.contractStartDate) {
-              startDate = new Date(proposal.contractStartDate);
+            // 1순위: 용역항목에 입력된 계약 시작일/종료일 사용
+            if (item.contractPeriodStart) {
+              startDate = new Date(item.contractPeriodStart);
             } else if (proposal.approvalDate) {
               // 2순위: 승인일 사용
               startDate = new Date(proposal.approvalDate);
             }
             
-            if (proposal.contractEndDate) {
-              endDate = new Date(proposal.contractEndDate);
+            if (item.contractPeriodEnd) {
+              endDate = new Date(item.contractPeriodEnd);
             } else if (startDate && item.period) {
               // 계약 종료일이 없으면 시작일 + 기간으로 자동 계산
               endDate = new Date(startDate);
-              endDate.setMonth(endDate.getMonth() + parseInt(item.period));
+              endDate.setMonth(endDate.getMonth() + parseFloat(item.period));
             }
             
             // 재직 상태 판단 (시작전, 재직중, 종료)

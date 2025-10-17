@@ -55,10 +55,10 @@ module.exports = (sequelize, DataTypes) => {
       comment: '기술등급'
     },
     period: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
       defaultValue: 1,
-      comment: '기간 (개월)'
+      comment: '기간 (개월) - 소수점 2자리 허용'
     },
     monthlyRate: {
       type: DataTypes.DECIMAL(15, 2),
