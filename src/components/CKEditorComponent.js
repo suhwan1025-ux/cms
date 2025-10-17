@@ -56,6 +56,11 @@ const CKEditorComponent = ({
                 items: [
                   'heading',
                   '|',
+                  'fontSize',
+                  'fontFamily',
+                  'fontColor',
+                  'fontBackgroundColor',
+                  '|',
                   'bold',
                   'italic',
                   'underline',
@@ -72,6 +77,66 @@ const CKEditorComponent = ({
                   '|',
                   'undo',
                   'redo'
+                ]
+              },
+              fontSize: {
+                options: [
+                  9,
+                  10,
+                  11,
+                  12,
+                  14,
+                  16,
+                  18,
+                  20,
+                  22,
+                  24,
+                  26,
+                  28,
+                  36,
+                  48,
+                  72
+                ],
+                supportAllValues: true
+              },
+              fontFamily: {
+                options: [
+                  'default',
+                  '맑은 고딕, Malgun Gothic',
+                  '굴림, Gulim',
+                  '돋움, Dotum',
+                  '바탕, Batang',
+                  'Arial, sans-serif',
+                  'Times New Roman, serif',
+                  'Courier New, monospace'
+                ],
+                supportAllValues: true
+              },
+              fontColor: {
+                columns: 5,
+                colors: [
+                  { color: 'hsl(0, 0%, 0%)', label: '검정' },
+                  { color: 'hsl(0, 0%, 30%)', label: '어두운 회색' },
+                  { color: 'hsl(0, 0%, 60%)', label: '회색' },
+                  { color: 'hsl(0, 0%, 90%)', label: '밝은 회색' },
+                  { color: 'hsl(0, 0%, 100%)', label: '흰색', hasBorder: true },
+                  { color: 'hsl(0, 75%, 60%)', label: '빨강' },
+                  { color: 'hsl(30, 75%, 60%)', label: '주황' },
+                  { color: 'hsl(60, 75%, 60%)', label: '노랑' },
+                  { color: 'hsl(120, 75%, 60%)', label: '초록' },
+                  { color: 'hsl(240, 75%, 60%)', label: '파랑' }
+                ]
+              },
+              fontBackgroundColor: {
+                columns: 5,
+                colors: [
+                  { color: 'hsl(0, 0%, 100%)', label: '흰색', hasBorder: true },
+                  { color: 'hsl(0, 0%, 90%)', label: '밝은 회색' },
+                  { color: 'hsl(60, 75%, 90%)', label: '연한 노랑' },
+                  { color: 'hsl(30, 75%, 90%)', label: '연한 주황' },
+                  { color: 'hsl(0, 75%, 90%)', label: '연한 빨강' },
+                  { color: 'hsl(120, 75%, 90%)', label: '연한 초록' },
+                  { color: 'hsl(240, 75%, 90%)', label: '연한 파랑' }
                 ]
               },
               alignment: {
@@ -134,6 +199,9 @@ const CKEditorComponent = ({
           <h4>🎯 지원 기능</h4>
           <div className="feature-list">
             <span className="feature-item">📝 텍스트 서식</span>
+            <span className="feature-item">🔤 글자크기</span>
+            <span className="feature-item">🎨 글자색</span>
+            <span className="feature-item">🖍️ 배경색</span>
             <span className="feature-item">📊 표 편집</span>
             <span className="feature-item">🔗 링크</span>
             <span className="feature-item">📋 목록</span>

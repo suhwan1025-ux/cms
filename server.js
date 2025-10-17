@@ -480,8 +480,27 @@ app.put('/api/business-budgets/:id', async (req, res) => {
         null
       );
       
-      // 값이 변경된 경우에만 이력 저장
-      if (String(oldValue) !== String(newValue)) {
+      // 값 정규화 함수 (null, undefined, "" 를 같은 것으로 취급)
+      const normalizeValue = (value) => {
+        if (value === null || value === undefined || value === '') {
+          return null;
+        }
+        // boolean 값 처리
+        if (typeof value === 'boolean') {
+          return value;
+        }
+        // 숫자 값 처리 (문자열 숫자도 숫자로 변환)
+        if (typeof value === 'number' || !isNaN(Number(value))) {
+          return Number(value);
+        }
+        return String(value);
+      };
+      
+      const normalizedOldValue = normalizeValue(oldValue);
+      const normalizedNewValue = normalizeValue(newValue);
+      
+      // 값이 실제로 변경된 경우에만 이력 저장
+      if (normalizedOldValue !== normalizedNewValue) {
         await saveBusinessBudgetHistory(
           budgetId,
           'UPDATE',
@@ -3266,7 +3285,7 @@ async function saveBusinessBudgetHistory(budgetId, changeType, changedField, old
     await sequelize.query(
       `INSERT INTO business_budget_history 
         (budget_id, change_type, changed_field, old_value, new_value, changed_at, changed_by) 
-       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+       VALUES (?, ?, ?, ?, ?, timezone('Asia/Seoul', now()), ?)`,
       {
         replacements: [
           budgetId,

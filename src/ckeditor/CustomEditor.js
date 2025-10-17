@@ -13,6 +13,7 @@ import { Heading } from '@ckeditor/ckeditor5-heading';
 import { List, ListProperties } from '@ckeditor/ckeditor5-list';
 import { Link } from '@ckeditor/ckeditor5-link';
 import { Alignment } from '@ckeditor/ckeditor5-alignment';
+import { FontSize, FontFamily, FontColor, FontBackgroundColor } from '@ckeditor/ckeditor5-font';
 
 // Table 전체 - 가장 강력한 표 기능
 import { Table, TableToolbar, TableProperties, TableCellProperties, TableColumnResize } from '@ckeditor/ckeditor5-table';
@@ -35,6 +36,10 @@ ClassicEditor.builtinPlugins = [
   ListProperties,
   Link,
   Alignment,
+  FontSize,
+  FontFamily,
+  FontColor,
+  FontBackgroundColor,
   Table,
   TableToolbar,
   TableProperties,
@@ -51,10 +56,17 @@ ClassicEditor.defaultConfig = {
     items: [
       'heading',
       '|',
+      'fontSize',
+      'fontFamily',
+      'fontColor',
+      'fontBackgroundColor',
+      '|',
       'bold',
       'italic',
       'underline',
       'strikethrough',
+      '|',
+      'alignment',
       '|',
       'link',
       '|',
@@ -65,6 +77,66 @@ ClassicEditor.defaultConfig = {
       '|',
       'undo',
       'redo'
+    ]
+  },
+  fontSize: {
+    options: [
+      9,
+      10,
+      11,
+      12,
+      14,
+      16,
+      18,
+      20,
+      22,
+      24,
+      26,
+      28,
+      36,
+      48,
+      72
+    ],
+    supportAllValues: true
+  },
+  fontFamily: {
+    options: [
+      'default',
+      '맑은 고딕, Malgun Gothic',
+      '굴림, Gulim',
+      '돋움, Dotum',
+      '바탕, Batang',
+      'Arial, sans-serif',
+      'Times New Roman, serif',
+      'Courier New, monospace'
+    ],
+    supportAllValues: true
+  },
+  fontColor: {
+    columns: 5,
+    colors: [
+      { color: 'hsl(0, 0%, 0%)', label: '검정' },
+      { color: 'hsl(0, 0%, 30%)', label: '어두운 회색' },
+      { color: 'hsl(0, 0%, 60%)', label: '회색' },
+      { color: 'hsl(0, 0%, 90%)', label: '밝은 회색' },
+      { color: 'hsl(0, 0%, 100%)', label: '흰색', hasBorder: true },
+      { color: 'hsl(0, 75%, 60%)', label: '빨강' },
+      { color: 'hsl(30, 75%, 60%)', label: '주황' },
+      { color: 'hsl(60, 75%, 60%)', label: '노랑' },
+      { color: 'hsl(120, 75%, 60%)', label: '초록' },
+      { color: 'hsl(240, 75%, 60%)', label: '파랑' }
+    ]
+  },
+  fontBackgroundColor: {
+    columns: 5,
+    colors: [
+      { color: 'hsl(0, 0%, 100%)', label: '흰색', hasBorder: true },
+      { color: 'hsl(0, 0%, 90%)', label: '밝은 회색' },
+      { color: 'hsl(60, 75%, 90%)', label: '연한 노랑' },
+      { color: 'hsl(30, 75%, 90%)', label: '연한 주황' },
+      { color: 'hsl(0, 75%, 90%)', label: '연한 빨강' },
+      { color: 'hsl(120, 75%, 90%)', label: '연한 초록' },
+      { color: 'hsl(240, 75%, 90%)', label: '연한 파랑' }
     ]
   },
   table: {
