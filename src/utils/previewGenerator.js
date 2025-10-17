@@ -239,7 +239,11 @@ export const generateItemsSection = (data) => {
         unitPrice: item.unitPrice || item.unit_price,
         quantity: item.quantity,
         contractAmount: item.contractAmount || item.contract_amount,
-        supplier: item.supplier
+        supplier: item.supplier,
+        creditRating: item.creditRating || item.credit_rating,
+        contractPeriodStart: item.contractPeriodStart || item.contract_period_start,
+        contractPeriodEnd: item.contractPeriodEnd || item.contract_period_end,
+        paymentMethod: item.paymentMethod || item.payment_method
       });
     });
     
@@ -256,6 +260,10 @@ export const generateItemsSection = (data) => {
             <th>월단가</th>
             <th>계약금액</th>
             <th>공급업체</th>
+            <th>신용등급</th>
+            <th>계약시작일</th>
+            <th>계약종료일</th>
+            <th>비용지급방식</th>
           </tr>
         </thead>
         <tbody>
@@ -264,6 +272,17 @@ export const generateItemsSection = (data) => {
             const contractAmount = item.contractAmount || item.contract_amount ||
                                  (parseFloat(item.monthlyRate || item.monthly_rate) * parseFloat(item.period)) || 
                                  (parseFloat(item.unitPrice || item.unit_price) * parseFloat(item.quantity)) || 0;
+            
+            const paymentMethodMap = {
+              'monthly': '월별 지급',
+              'quarterly': '분기별 지급',
+              'lump': '일시 지급'
+            };
+            const paymentMethod = item.paymentMethod || item.payment_method;
+            const paymentMethodText = paymentMethodMap[paymentMethod] || paymentMethod || '-';
+            
+            const contractPeriodStart = item.contractPeriodStart || item.contract_period_start;
+            const contractPeriodEnd = item.contractPeriodEnd || item.contract_period_end;
             
             return `
             <tr>
@@ -275,6 +294,10 @@ export const generateItemsSection = (data) => {
               <td>${formatCurrency(item.monthlyRate || item.monthly_rate || item.unitPrice || item.unit_price || 0)}</td>
               <td style="font-weight: bold;">${formatCurrency(contractAmount)}</td>
               <td>${item.supplier || '-'}</td>
+              <td>${item.creditRating || item.credit_rating || '-'}</td>
+              <td>${contractPeriodStart ? (contractPeriodStart.split ? contractPeriodStart.split('T')[0] : contractPeriodStart) : '-'}</td>
+              <td>${contractPeriodEnd ? (contractPeriodEnd.split ? contractPeriodEnd.split('T')[0] : contractPeriodEnd) : '-'}</td>
+              <td>${paymentMethodText}</td>
             </tr>
             `;
           }).join('')}
@@ -288,7 +311,7 @@ export const generateItemsSection = (data) => {
                                    (parseFloat(item.unitPrice || item.unit_price) * parseFloat(item.quantity)) || 0;
               return sum + contractAmount;
             }, 0))}</td>
-            <td>-</td>
+            <td colspan="5">-</td>
           </tr>
         </tfoot>
       </table>
