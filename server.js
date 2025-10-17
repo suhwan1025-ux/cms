@@ -1096,18 +1096,22 @@ app.post('/api/proposals', async (req, res) => {
       await models.PurchaseItem.bulkCreate(purchaseItems);
     }
 
-    // 용역항목 생성 (임시저장)
+    // 용역항목 생성
     if (proposalData.serviceItems && proposalData.serviceItems.length > 0) {
       const serviceItems = proposalData.serviceItems.map(item => ({
         proposalId: proposal.id,
         item: item.item || '',
-        personnel: item.personnel || '',
-        skillLevel: item.skillLevel || '',
-        period: item.period || '',
+        name: item.name || '', // 성명 필드 추가
+        personnel: item.personnel && item.personnel !== '' ? parseInt(item.personnel) || 1 : 1, // INTEGER: 기본값 1
+        skillLevel: item.skillLevel && item.skillLevel !== '' ? item.skillLevel : 'junior', // ENUM: 기본값 junior
+        period: item.period && item.period !== '' ? parseInt(item.period) || 1 : 1, // INTEGER: 기본값 1
         monthlyRate: item.monthlyRate && item.monthlyRate !== '' ? parseInt(item.monthlyRate) || 0 : 0,
         contractAmount: item.contractAmount && item.contractAmount !== '' ? parseInt(item.contractAmount) || 0 : 0,
         supplier: item.supplier || '',
-        creditRating: item.creditRating || ''
+        creditRating: item.creditRating || null, // 빈 값 허용
+        contractPeriodStart: item.contractPeriodStart || null,
+        contractPeriodEnd: item.contractPeriodEnd || null,
+        paymentMethod: item.paymentMethod || null
       }));
       await models.ServiceItem.bulkCreate(serviceItems);
     }
@@ -1173,6 +1177,38 @@ app.post('/api/proposals', async (req, res) => {
       console.log('저장할 CostDepartment 데이터:', costDepartments);
       await models.CostDepartment.bulkCreate(costDepartments);
       console.log('✅ 구매품목별 비용분배 정보 저장 완료');
+    }
+    
+    // 용역품목별 비용분배 정보 저장 (일반 API)
+    console.log('받은 serviceItemCostAllocations:', proposalData.serviceItemCostAllocations);
+    
+    if (proposalData.serviceItemCostAllocations && proposalData.serviceItemCostAllocations.length > 0) {
+      console.log('=== 용역품목별 비용분배 정보 저장 시작 ===');
+      console.log('저장할 비용분배 정보 수:', proposalData.serviceItemCostAllocations.length);
+      
+      // 용역품목 ID 매핑을 위해 생성된 용역품목들을 조회
+      const createdServiceItems = await models.ServiceItem.findAll({
+        where: { proposalId: proposal.id },
+        order: [['id', 'ASC']]
+      });
+      
+      console.log('생성된 용역품목 수:', createdServiceItems.length);
+      
+      const serviceCostDepartments = proposalData.serviceItemCostAllocations.map(alloc => {
+        const serviceItem = createdServiceItems[alloc.itemIndex];
+        return {
+          proposalId: proposal.id,
+          serviceItemId: serviceItem ? serviceItem.id : null,
+          department: alloc.department,
+          allocationType: alloc.type || 'percentage',
+          ratio: alloc.value || 0,
+          amount: alloc.amount || 0
+        };
+      });
+      
+      console.log('저장할 용역품목 CostDepartment 데이터:', serviceCostDepartments);
+      await models.CostDepartment.bulkCreate(serviceCostDepartments);
+      console.log('✅ 용역품목별 비용분배 정보 저장 완료');
     }
 
     // 요청부서 생성
@@ -1242,6 +1278,31 @@ app.get('/api/proposals', async (req, res) => {
     // status 필터링 (승인 상태)
     if (req.query.status) {
       whereClause.status = req.query.status;
+    }
+    
+    // 등록일 필터링 (최근 N개월)
+    if (req.query.createdWithinMonths) {
+      const monthsAgo = parseInt(req.query.createdWithinMonths);
+      if (monthsAgo > 0) {
+        const cutoffDate = new Date();
+        cutoffDate.setMonth(cutoffDate.getMonth() - monthsAgo);
+        whereClause.createdAt = { [models.Sequelize.Op.gte]: cutoffDate };
+      }
+    }
+    
+    // 결재완료일 필터링 (최근 N개월)
+    if (req.query.approvedWithinMonths) {
+      const monthsAgo = parseInt(req.query.approvedWithinMonths);
+      if (monthsAgo > 0) {
+        const cutoffDate = new Date();
+        cutoffDate.setMonth(cutoffDate.getMonth() - monthsAgo);
+        whereClause.approvalDate = { 
+          [models.Sequelize.Op.and]: [
+            { [models.Sequelize.Op.ne]: null },
+            { [models.Sequelize.Op.gte]: cutoffDate }
+          ]
+        };
+      }
     }
 
     // 페이지네이션 파라미터 (limit, offset)
@@ -1454,6 +1515,12 @@ app.get('/api/proposals/:id', async (req, res) => {
           amount: dept.amount || 0
         }));
         
+        // costAllocation 필드 추가 (중첩 구조로)
+        purchaseItem.costAllocation = {
+          type: 'percentage',
+          allocations: purchaseItem.costAllocations
+        };
+        
         // requestDepartments 배열로 변환 (JSON 배열 지원)
         if (purchaseItem.requestDepartment) {
           try {
@@ -1470,6 +1537,34 @@ app.get('/api/proposals/:id', async (req, res) => {
         }
         
         console.log(`구매품목 "${purchaseItem.item}" 요청부서 (전체):`, purchaseItem.requestDepartments);
+      });
+    }
+    
+    // 각 용역품목에 비용분배 정보 추가
+    if (proposalData.serviceItems) {
+      proposalData.serviceItems.forEach(serviceItem => {
+        // 해당 용역품목의 비용분배 정보 찾기
+        const itemCostAllocations = proposalData.costDepartments.filter(dept => 
+          dept.serviceItemId === serviceItem.id
+        );
+        
+        console.log(`용역품목 "${serviceItem.item}" (ID: ${serviceItem.id}) 비용분배 찾기:`, itemCostAllocations.length, '개');
+        
+        // costAllocations 필드 추가
+        serviceItem.costAllocations = itemCostAllocations.map(dept => ({
+          department: dept.department,
+          type: dept.allocationType || 'percentage',
+          value: dept.ratio || 0,
+          amount: dept.amount || 0
+        }));
+        
+        // costAllocation 필드 추가 (중첩 구조로)
+        serviceItem.costAllocation = {
+          type: 'percentage',
+          allocations: serviceItem.costAllocations
+        };
+        
+        console.log(`용역품목 "${serviceItem.item}" 비용분배:`, serviceItem.costAllocation);
       });
     }
     
@@ -1616,13 +1711,17 @@ app.put('/api/proposals/:id', async (req, res) => {
         const serviceItems = proposalData.serviceItems.map(item => ({
           proposalId: proposal.id,
           item: item.item || '',
-          personnel: item.personnel || '',
-          skillLevel: item.skillLevel || '',
-          period: item.period || '',
+          name: item.name || '', // 성명 필드 추가
+          personnel: item.personnel && item.personnel !== '' ? parseInt(item.personnel) || 1 : 1, // INTEGER: 기본값 1
+          skillLevel: item.skillLevel && item.skillLevel !== '' ? item.skillLevel : 'junior', // ENUM: 기본값 junior
+          period: item.period && item.period !== '' ? parseInt(item.period) || 1 : 1, // INTEGER: 기본값 1
           monthlyRate: item.monthlyRate && item.monthlyRate !== '' ? parseInt(item.monthlyRate) || 0 : 0,
           contractAmount: item.contractAmount && item.contractAmount !== '' ? parseInt(item.contractAmount) || 0 : 0,
           supplier: item.supplier || '',
-          creditRating: item.creditRating || ''
+          creditRating: item.creditRating || null, // 빈 값 허용
+          contractPeriodStart: item.contractPeriodStart || null,
+          contractPeriodEnd: item.contractPeriodEnd || null,
+          paymentMethod: item.paymentMethod || null
         }));
         await models.ServiceItem.bulkCreate(serviceItems, { transaction });
         console.log('✅ ServiceItem 생성 완료');
@@ -1679,6 +1778,39 @@ app.put('/api/proposals/:id', async (req, res) => {
         console.log('저장할 CostDepartment 데이터:', costDepartments);
         await models.CostDepartment.bulkCreate(costDepartments, { transaction });
         console.log('✅ 구매품목별 비용분배 정보 저장 완료 (PUT)');
+      }
+      
+      // 용역품목별 비용분배 정보 저장 (PUT API)
+      console.log('받은 serviceItemCostAllocations:', proposalData.serviceItemCostAllocations);
+      
+      if (proposalData.serviceItemCostAllocations && proposalData.serviceItemCostAllocations.length > 0) {
+        console.log('=== 용역품목별 비용분배 정보 저장 시작 (PUT) ===');
+        console.log('저장할 비용분배 정보 수:', proposalData.serviceItemCostAllocations.length);
+        
+        // 용역품목 ID 매핑을 위해 생성된 용역품목들을 조회
+        const createdServiceItems = await models.ServiceItem.findAll({
+          where: { proposalId: proposal.id },
+          order: [['id', 'ASC']],
+          transaction
+        });
+        
+        console.log('생성된 용역품목 수:', createdServiceItems.length);
+        
+        const serviceCostDepartments = proposalData.serviceItemCostAllocations.map(alloc => {
+          const serviceItem = createdServiceItems[alloc.itemIndex];
+          return {
+            proposalId: proposal.id,
+            serviceItemId: serviceItem ? serviceItem.id : null,
+            department: alloc.department,
+            allocationType: alloc.type || 'percentage',
+            ratio: alloc.value || 0,
+            amount: alloc.amount || 0
+          };
+        });
+        
+        console.log('저장할 용역품목 CostDepartment 데이터:', serviceCostDepartments);
+        await models.CostDepartment.bulkCreate(serviceCostDepartments, { transaction });
+        console.log('✅ 용역품목별 비용분배 정보 저장 완료 (PUT)');
       }
 
       // 요청부서 생성 (PUT)
@@ -2094,14 +2226,17 @@ app.post('/api/proposals/draft', async (req, res) => {
       const serviceItems = proposalData.serviceItems.map(item => ({
         proposalId: proposal.id,
         item: item.item || '',
-        personnel: item.personnel || '',
+        personnel: item.personnel && item.personnel !== '' ? parseInt(item.personnel) || 1 : 1, // INTEGER: 기본값 1
         name: item.name || '', // 성명 필드 추가
-        skillLevel: item.skillLevel || '',
-        period: item.period || '',
+        skillLevel: item.skillLevel && item.skillLevel !== '' ? item.skillLevel : 'junior', // ENUM: 기본값 junior
+        period: item.period && item.period !== '' ? parseInt(item.period) || 1 : 1, // INTEGER: 기본값 1
         monthlyRate: item.monthlyRate && item.monthlyRate !== '' ? parseInt(item.monthlyRate) || 0 : 0,
         contractAmount: item.contractAmount && item.contractAmount !== '' ? parseInt(item.contractAmount) || 0 : 0,
         supplier: item.supplier || '',
-        creditRating: item.creditRating || ''
+        creditRating: item.creditRating || null, // 빈 값 허용
+        contractPeriodStart: item.contractPeriodStart || null,
+        contractPeriodEnd: item.contractPeriodEnd || null,
+        paymentMethod: item.paymentMethod || null
       }));
       await models.ServiceItem.bulkCreate(serviceItems);
     }
@@ -2153,6 +2288,45 @@ app.post('/api/proposals/draft', async (req, res) => {
       if (additionalCostDepartments.length > 0) {
         console.log('추가할 비용귀속부서 데이터:', additionalCostDepartments);
         await models.CostDepartment.bulkCreate(additionalCostDepartments);
+      }
+    }
+    
+    // 용역품목별 비용분배 정보 저장
+    console.log('=== 용역품목별 비용분배 정보 처리 ===');
+    console.log('받은 serviceItemCostAllocations:', proposalData.serviceItemCostAllocations);
+    
+    if (proposalData.serviceItemCostAllocations && proposalData.serviceItemCostAllocations.length > 0) {
+      // 기존 용역품목 정보 가져오기
+      const serviceItems = await models.ServiceItem.findAll({
+        where: { proposalId: proposal.id },
+        order: [['id', 'ASC']]
+      });
+      
+      console.log('저장된 용역품목:', serviceItems.map(item => ({ id: item.id, item: item.item })));
+      
+      // 각 용역품목의 비용분배 정보를 costDepartments에 추가
+      const additionalServiceCostDepartments = [];
+      
+      proposalData.serviceItemCostAllocations.forEach(alloc => {
+        const serviceItem = serviceItems[alloc.itemIndex];
+        if (serviceItem) {
+          console.log(`용역품목 "${serviceItem.item}" (ID: ${serviceItem.id}) 비용분배:`, alloc);
+          
+          // 비용분배 정보를 costDepartments에 추가
+          additionalServiceCostDepartments.push({
+            proposalId: proposal.id,
+            department: alloc.department,
+            amount: alloc.type === 'percentage' ? (serviceItem.contractAmount * (alloc.value / 100)) : alloc.value,
+            ratio: alloc.value,
+            serviceItemId: serviceItem.id,
+            allocationType: alloc.type
+          });
+        }
+      });
+      
+      if (additionalServiceCostDepartments.length > 0) {
+        console.log('추가할 용역품목 비용귀속부서 데이터:', additionalServiceCostDepartments);
+        await models.CostDepartment.bulkCreate(additionalServiceCostDepartments);
       }
     }
 

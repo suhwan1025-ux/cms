@@ -579,6 +579,9 @@ const ProposalForm = () => {
       contractAmount: 0,
       supplier: '',
       creditRating: '',
+      contractPeriodStart: '', // 계약 시작일
+      contractPeriodEnd: '', // 계약 종료일
+      paymentMethod: '', // 각 항목별 비용지급방식
       costAllocation: {
         allocations: []
       }
@@ -1012,9 +1015,9 @@ const ProposalForm = () => {
               personnel: item.personnel || '',
               name: item.name || '', // 성명 필드 추가
               skillLevel: item.skillLevel || '',
-              period: item.period || '',
-              monthlyRate: item.monthlyRate || 0,
-              contractAmount: item.contractAmount || 0,
+              period: Number(item.period) || 0,
+              monthlyRate: Number(item.monthlyRate) || 0,
+              contractAmount: Number(item.contractAmount) || 0,
               supplier: item.supplier || '',
               creditRating: item.creditRating || '',
               costAllocation: {
@@ -1396,15 +1399,19 @@ const ProposalForm = () => {
           }
         })),
         serviceItems: (proposalData.serviceItems || []).map(item => ({
+          id: item.id || Date.now() + Math.random(),
           item: item.item || '',
           personnel: item.personnel || '',
           name: item.name || '',
           skillLevel: item.skillLevel || '',
-          period: item.period || '',
-          monthlyRate: item.monthlyRate || 0,
-          contractAmount: item.contractAmount || 0,
+          period: Number(item.period) || 0,
+          monthlyRate: Number(item.monthlyRate) || 0,
+          contractAmount: Number(item.contractAmount) || 0,
           supplier: item.supplier || '',
           creditRating: item.creditRating || '',
+          contractPeriodStart: item.contractPeriodStart ? item.contractPeriodStart.split('T')[0] : '',
+          contractPeriodEnd: item.contractPeriodEnd ? item.contractPeriodEnd.split('T')[0] : '',
+          paymentMethod: item.paymentMethod || '',
           costAllocation: {
             allocations: (item.costAllocation?.allocations || []).map(alloc => ({
               department: alloc.department || '',
@@ -1419,6 +1426,8 @@ const ProposalForm = () => {
         beforeItems: proposalData.beforeItems || [],
         afterItems: proposalData.afterItems || [],
         contractPeriod: proposalData.contractPeriod || '',
+        contractStartDate: proposalData.contractStartDate || '',
+        contractEndDate: proposalData.contractEndDate || '',
         paymentMethod: proposalData.paymentMethod || '',
         biddingType: proposalData.biddingType || '',
         qualificationRequirements: proposalData.qualificationRequirements || '',
@@ -2507,12 +2516,44 @@ const ProposalForm = () => {
               alert(`${i + 1}번째 용역품목의 항목명을 입력해주세요.`);
               return;
             }
-            if (!item.personnel || item.personnel <= 0) {
-              alert(`${i + 1}번째 용역품목의 인원수를 입력해주세요.`);
+            if (!item.name?.trim()) {
+              alert(`${i + 1}번째 용역품목의 성명을 입력해주세요.`);
+              return;
+            }
+            if (!item.skillLevel?.trim()) {
+              alert(`${i + 1}번째 용역품목의 기술등급을 선택해주세요.`);
+              return;
+            }
+            if (!item.period || item.period <= 0) {
+              alert(`${i + 1}번째 용역품목의 기간(개월)을 입력해주세요.`);
+              return;
+            }
+            if (!item.monthlyRate || item.monthlyRate <= 0) {
+              alert(`${i + 1}번째 용역품목의 월 단가를 입력해주세요.`);
               return;
             }
             if (!item.contractAmount || item.contractAmount <= 0) {
               alert(`${i + 1}번째 용역품목의 계약금액을 입력해주세요.`);
+              return;
+            }
+            if (!item.supplier?.trim()) {
+              alert(`${i + 1}번째 용역품목의 공급업체를 입력해주세요.`);
+              return;
+            }
+            if (!item.creditRating?.trim()) {
+              alert(`${i + 1}번째 용역품목의 신용등급을 입력해주세요.`);
+              return;
+            }
+            if (!item.contractPeriodStart) {
+              alert(`${i + 1}번째 용역품목의 계약 시작일을 입력해주세요.`);
+              return;
+            }
+            if (!item.contractPeriodEnd) {
+              alert(`${i + 1}번째 용역품목의 계약 종료일을 입력해주세요.`);
+              return;
+            }
+            if (!item.paymentMethod?.trim()) {
+              alert(`${i + 1}번째 용역품목의 비용지급방식을 선택해주세요.`);
               return;
             }
           }
@@ -2539,6 +2580,27 @@ const ProposalForm = () => {
             
             if (Math.abs(totalPercentage - 100) > 0.01) {
               alert(`${i + 1}번째 구매품목의 비용분배 비율 합계가 100%가 아닙니다. (현재: ${totalPercentage}%)`);
+              return;
+            }
+          }
+        }
+        
+        // 비용귀속분배 필수 검증 (용역계약의 경우)
+        if (contractType === 'service') {
+          for (let i = 0; i < formData.serviceItems.length; i++) {
+            const item = formData.serviceItems[i];
+            if (!item.costAllocation || !item.costAllocation.allocations || item.costAllocation.allocations.length === 0) {
+              alert(`${i + 1}번째 용역품목의 비용귀속분배 정보를 입력해주세요.`);
+              return;
+            }
+            
+            // 비용분배 합계 검증
+            const totalPercentage = item.costAllocation.allocations.reduce((sum, alloc) => {
+              return alloc.type === 'percentage' ? sum + (alloc.value || 0) : sum;
+            }, 0);
+            
+            if (Math.abs(totalPercentage - 100) > 0.01) {
+              alert(`${i + 1}번째 용역품목의 비용분배 비율 합계가 100%가 아닙니다. (현재: ${totalPercentage}%)`);
               return;
             }
           }
@@ -2587,7 +2649,51 @@ const ProposalForm = () => {
         }
       });
       
-      console.log('최종 수집된 비용분배 정보:', purchaseItemCostAllocations);
+      console.log('최종 수집된 구매품목 비용분배 정보:', purchaseItemCostAllocations);
+      
+      // 용역품목별 비용분배 정보 수집
+      const serviceItemCostAllocations = [];
+      console.log(`=== ${isDraft ? '임시저장' : '작성완료'} 시 용역품목 비용분배 정보 수집 ===`);
+      console.log('전체 용역품목 수:', formData.serviceItems?.length || 0);
+      
+      if (formData.serviceItems) {
+        formData.serviceItems.forEach((item, itemIndex) => {
+          console.log(`용역품목 ${itemIndex + 1} (${item.item}) 비용분배 정보:`, {
+            hasCostAllocation: !!item.costAllocation,
+            costAllocationData: item.costAllocation,
+            allocationsCount: item.costAllocation?.allocations?.length || 0,
+            itemData: item
+          });
+          
+          // 비용분배 정보가 있는 경우에만 수집
+          if (item.costAllocation && item.costAllocation.allocations && item.costAllocation.allocations.length > 0) {
+            item.costAllocation.allocations.forEach((alloc, allocIndex) => {
+              // 유효성 검사 추가
+              if (alloc && alloc.department && (alloc.value || alloc.value === 0)) {
+                const allocationData = {
+                  itemIndex,
+                  allocationIndex: allocIndex,
+                  department: alloc.department,
+                  type: alloc.type || 'percentage',
+                  value: alloc.value,
+                  amount: alloc.type === 'percentage' ? (item.contractAmount * (alloc.value / 100)) : alloc.value,
+                  // 추가 식별 정보
+                  itemName: item.item,
+                  supplier: item.supplier
+                };
+                serviceItemCostAllocations.push(allocationData);
+                console.log(`  용역품목 할당 ${allocIndex + 1}:`, allocationData);
+              } else {
+                console.log(`  용역품목 할당 ${allocIndex + 1} 유효하지 않음:`, alloc);
+              }
+            });
+          } else {
+            console.log(`  용역품목 비용분배 정보 없음`);
+          }
+        });
+      }
+      
+      console.log('최종 수집된 용역품목 비용분배 정보:', serviceItemCostAllocations);
 
       // 구매품목에 비용분배 정보를 직접 포함하여 저장 (강화된 구조)
       const purchaseItemsWithAllocations = formData.purchaseItems.map(item => {
@@ -2657,6 +2763,27 @@ const ProposalForm = () => {
         return '일반관리비'; // 기본값
       })();
 
+      // 용역품목에 비용분배 정보를 직접 포함하여 저장
+      const serviceItemsWithAllocations = (formData.serviceItems || []).map(item => {
+        // costAllocation이 없거나 allocations가 없으면 기본값 생성
+        const costAllocation = item.costAllocation && item.costAllocation.allocations 
+          ? {
+              type: item.costAllocation.type || 'percentage',
+              allocations: item.costAllocation.allocations.map(alloc => ({
+                id: alloc.id || Date.now() + Math.random(),
+                department: alloc.department || '',
+                type: alloc.type || 'percentage',
+                value: alloc.value || 0
+              }))
+            }
+          : { type: 'percentage', allocations: [] };
+        
+        return {
+          ...item,
+          costAllocation
+        };
+      });
+
       const proposalData = {
         contractType: contractType, // 사용자가 선택한 계약 유형
         title: formData.title || formData.purpose || '품의서',
@@ -2668,7 +2795,7 @@ const ProposalForm = () => {
         totalAmount: totalAmount, // 총 금액 추가
         requestDepartments: normalizedRequestDepartments, // 정규화된 요청부서
         purchaseItems: purchaseItemsWithAllocations, // 비용분배 정보가 포함된 구매품목
-        serviceItems: formData.serviceItems || [],
+        serviceItems: serviceItemsWithAllocations, // 비용분배 정보가 포함된 용역품목
         suppliers: formData.suppliers || [],
         changeReason: formData.changeReason || '',
         extensionReason: formData.extensionReason || '',
@@ -2685,7 +2812,8 @@ const ProposalForm = () => {
         createdBy: '사용자1', // 고정값으로 설정
         isDraft: isDraft, // 매개변수에 따라 설정
         status: isDraft ? 'draft' : 'submitted', // 임시저장: draft, 작성완료: submitted
-        purchaseItemCostAllocations // 추가로 별도 저장 (백업용)
+        purchaseItemCostAllocations, // 구매품목 비용분배 (백업용)
+        serviceItemCostAllocations // 용역품목 비용분배 (백업용)
       };
 
       // 편집 모드인 경우 proposalId는 추가하지 않음 (서버에서 자동 생성)
@@ -3259,10 +3387,22 @@ const ProposalForm = () => {
               <th>월단가</th>
               <th>계약금액</th>
               <th>공급업체</th>
+              <th>신용등급</th>
+              <th>계약시작일</th>
+              <th>계약종료일</th>
+              <th>비용지급방식</th>
             </tr>
           </thead>
           <tbody>
-            ${formData.serviceItems.map((item, index) => `
+            ${formData.serviceItems.map((item, index) => {
+              const paymentMethodMap = {
+                'monthly': '월별 지급',
+                'quarterly': '분기별 지급',
+                'lump': '일시 지급'
+              };
+              const paymentMethodText = paymentMethodMap[item.paymentMethod] || item.paymentMethod || '-';
+              
+              return `
               <tr>
                 <td>${index + 1}</td>
                 <td>${item.item || '-'}</td>
@@ -3272,14 +3412,19 @@ const ProposalForm = () => {
                 <td>${formatCurrency(item.monthlyRate || 0)}</td>
                 <td style="font-weight: bold;">${formatCurrency(item.contractAmount || 0)}</td>
                 <td>${item.supplier || '-'}</td>
+                <td>${item.creditRating || '-'}</td>
+                <td>${item.contractPeriodStart || '-'}</td>
+                <td>${item.contractPeriodEnd || '-'}</td>
+                <td>${paymentMethodText}</td>
               </tr>
-            `).join('')}
+              `;
+            }).join('')}
           </tbody>
           <tfoot>
             <tr class="total-row">
               <td colspan="6">합계</td>
               <td>${formatCurrency(formData.serviceItems.reduce((sum, item) => sum + (parseFloat(item.contractAmount) || 0), 0))}</td>
-              <td>-</td>
+              <td colspan="5">-</td>
             </tr>
           </tfoot>
         </table>
@@ -5160,7 +5305,7 @@ const ProposalForm = () => {
                     </div>
                   </div>
                   
-                  {/* 두 번째 행: 공급업체, 신용등급 */}
+                  {/* 두 번째 행: 공급업체, 신용등급, 계약기간, 비용지급방식 */}
                   <div className="form-row service-sub-row">
                     <div className="form-group">
                       <label>공급업체</label>
@@ -5177,7 +5322,7 @@ const ProposalForm = () => {
                             };
                           });
                         }}
-                        placeholder="공급업체를 입력하세요"
+                        placeholder="공급업체"
                         required
                       />
                     </div>
@@ -5196,11 +5341,69 @@ const ProposalForm = () => {
                             };
                           });
                         }}
-                        placeholder="신용등급을 입력하세요 (예: A, B+, BBB 등)"
+                        placeholder="등급"
                         required
                       />
                     </div>
                     <div className="form-group">
+                      <label>계약 시작일</label>
+                      <input
+                        type="date"
+                        value={item.contractPeriodStart || ''}
+                        onChange={(e) => {
+                          setFormData(prevData => {
+                            const updated = [...prevData.serviceItems];
+                            updated[index].contractPeriodStart = e.target.value;
+                            return {
+                              ...prevData,
+                              serviceItems: updated
+                            };
+                          });
+                        }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>계약 종료일</label>
+                      <input
+                        type="date"
+                        value={item.contractPeriodEnd || ''}
+                        onChange={(e) => {
+                          setFormData(prevData => {
+                            const updated = [...prevData.serviceItems];
+                            updated[index].contractPeriodEnd = e.target.value;
+                            return {
+                              ...prevData,
+                              serviceItems: updated
+                            };
+                          });
+                        }}
+                        min={item.contractPeriodStart || undefined}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>비용지급방식</label>
+                      <select
+                        value={item.paymentMethod || ''}
+                        onChange={(e) => {
+                          setFormData(prevData => {
+                            const updated = [...prevData.serviceItems];
+                            updated[index].paymentMethod = e.target.value;
+                            return {
+                              ...prevData,
+                              serviceItems: updated
+                            };
+                          });
+                        }}
+                        required
+                      >
+                        <option value="">선택</option>
+                        <option value="monthly">월별 지급</option>
+                        <option value="quarterly">분기별 지급</option>
+                        <option value="lump">일시 지급</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>&nbsp;</label>
                       <button 
                         type="button" 
                         className="remove-service-btn"
@@ -5218,48 +5421,6 @@ const ProposalForm = () => {
                   </div>
                 </div>
               ))}
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>계약기간</label>
-                  <div className="contract-period-dates">
-                    <div className="date-input-wrapper">
-                      <label className="date-sub-label">시작일:</label>
-                      <input
-                        type="date"
-                        value={formData.contractStartDate || ''}
-                        onChange={(e) => setFormData(prevData => ({...prevData, contractStartDate: e.target.value}))}
-                        className="contract-date-input"
-                        required
-                      />
-                    </div>
-                    <div className="date-input-wrapper">
-                      <label className="date-sub-label">종료일:</label>
-                      <input
-                        type="date"
-                        value={formData.contractEndDate || ''}
-                        onChange={(e) => setFormData(prevData => ({...prevData, contractEndDate: e.target.value}))}
-                        className="contract-date-input"
-                        min={formData.contractStartDate || undefined}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>비용지급방식</label>
-                  <select
-                    value={formData.paymentMethod}
-                    onChange={(e) => setFormData(prevData => ({...prevData, paymentMethod: e.target.value}))}
-                    required
-                  >
-                    <option value="">지급방식을 선택하세요</option>
-                    <option value="monthly">월별 지급</option>
-                    <option value="quarterly">분기별 지급</option>
-                    <option value="lump">일시 지급</option>
-                  </select>
-                </div>
-              </div>
               
               <div className="total-amount">
                 <h4 className="total-contract-amount">총 계약금액: {formatCurrency(calculateTotalAmount())}</h4>
@@ -8299,10 +8460,10 @@ const ProposalForm = () => {
           align-items: end;
         }
 
-        /* 두 번째 행: 공급업체, 신용등급, 삭제버튼 */
+        /* 두 번째 행: 공급업체, 신용등급, 계약기간, 비용지급방식, 삭제버튼 */
         .service-item .service-sub-row {
           display: grid;
-          grid-template-columns: 2fr 1fr 120px;
+          grid-template-columns: 1fr 100px 150px 150px 150px 120px;
           gap: 12px;
           margin-bottom: 10px;
           align-items: end;

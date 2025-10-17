@@ -87,9 +87,24 @@ module.exports = (sequelize, DataTypes) => {
       comment: '공급업체명'
     },
     creditRating: {
-      type: DataTypes.ENUM('A', 'B', 'C'),
-      allowNull: false,
+      type: DataTypes.STRING,
+      allowNull: true,
       comment: '신용등급'
+    },
+    contractPeriodStart: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: '계약 시작일'
+    },
+    contractPeriodEnd: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: '계약 종료일'
+    },
+    paymentMethod: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: '비용지급방식 (monthly, quarterly, lump)'
     },
     createdAt: {
       type: DataTypes.DATE,

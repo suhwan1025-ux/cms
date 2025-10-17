@@ -97,10 +97,22 @@ const Dashboard = () => {
       approvedProposals.forEach(proposal => {
         if (proposal.contractType === 'service' && proposal.serviceItems) {
           proposal.serviceItems.forEach(item => {
-            // 시작일과 종료일 계산
-            const startDate = proposal.approvalDate ? new Date(proposal.approvalDate) : null;
+            // 시작일과 종료일 - 실제 계약일 우선, 없으면 승인일 기준으로 계산
+            let startDate = null;
             let endDate = null;
-            if (startDate && item.period) {
+            
+            // 1순위: 품의서에 입력된 실제 계약 시작일/종료일 사용
+            if (proposal.contractStartDate) {
+              startDate = new Date(proposal.contractStartDate);
+            } else if (proposal.approvalDate) {
+              // 2순위: 승인일 사용
+              startDate = new Date(proposal.approvalDate);
+            }
+            
+            if (proposal.contractEndDate) {
+              endDate = new Date(proposal.contractEndDate);
+            } else if (startDate && item.period) {
+              // 계약 종료일이 없으면 시작일 + 기간으로 자동 계산
               endDate = new Date(startDate);
               endDate.setMonth(endDate.getMonth() + parseInt(item.period));
             }

@@ -2,7 +2,7 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.addColumn('ServiceItems', 'name', {
+    await queryInterface.addColumn('service_items', 'name', {
       type: Sequelize.STRING,
       allowNull: true,
       comment: '성명'
@@ -10,6 +10,6 @@ module.exports = {
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.removeColumn('ServiceItems', 'name');
+    await queryInterface.removeColumn('service_items', 'name');
   }
 }; 

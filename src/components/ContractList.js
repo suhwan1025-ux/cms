@@ -209,7 +209,8 @@ const ContractList = () => {
     type: 'all',
     department: 'all',
     authorInput: '', // 작성자 직접 입력
-    dateRange: 'all',
+    dateRange: '최근 1년', // 기본값: 최근 1년
+    approvalDateRange: 'all', // 결재완료일 필터
     amountRange: 'all',
     keyword: ''
   });
@@ -246,11 +247,42 @@ const ContractList = () => {
       
       // 필터가 활성화되어 있거나 loadAll이 true면 모든 데이터 로드, 아니면 페이지네이션
       let apiUrl;
-      if (loadAll || hasActiveFilters()) {
-        apiUrl = `${API_BASE_URL}/api/proposals?isDraft=false`;
-      } else {
-        apiUrl = `${API_BASE_URL}/api/proposals?isDraft=false&limit=${ITEMS_PER_PAGE}&offset=${offset}`;
+      const queryParams = ['isDraft=false'];
+      
+      // 등록일 필터 추가
+      if (filters.dateRange !== 'all') {
+        let monthsAgo = 0;
+        switch (filters.dateRange) {
+          case '최근 1개월': monthsAgo = 1; break;
+          case '최근 3개월': monthsAgo = 3; break;
+          case '최근 6개월': monthsAgo = 6; break;
+          case '최근 1년': monthsAgo = 12; break;
+        }
+        if (monthsAgo > 0) {
+          queryParams.push(`createdWithinMonths=${monthsAgo}`);
+        }
       }
+      
+      // 결재완료일 필터 추가
+      if (filters.approvalDateRange !== 'all') {
+        let monthsAgo = 0;
+        switch (filters.approvalDateRange) {
+          case '최근 1개월': monthsAgo = 1; break;
+          case '최근 3개월': monthsAgo = 3; break;
+          case '최근 6개월': monthsAgo = 6; break;
+          case '최근 1년': monthsAgo = 12; break;
+        }
+        if (monthsAgo > 0) {
+          queryParams.push(`approvedWithinMonths=${monthsAgo}`);
+        }
+      }
+      
+      // 페이지네이션 파라미터
+      if (!loadAll && !hasActiveFilters()) {
+        queryParams.push(`limit=${ITEMS_PER_PAGE}&offset=${offset}`);
+      }
+      
+      apiUrl = `${API_BASE_URL}/api/proposals?${queryParams.join('&')}`;
       
       console.log('📡 API 요청:', apiUrl);
       const response = await fetch(apiUrl);
@@ -481,15 +513,10 @@ const ContractList = () => {
     return () => clearTimeout(timer);
   }, [contracts]);
 
-  // 필터가 활성화되어 있는지 확인하는 함수
+  // 날짜 필터가 활성화되어 있는지 확인하는 함수 (서버 조회용)
   const hasActiveFilters = () => {
-    return filters.keyword !== '' ||
-           filters.status !== 'all' ||
-           filters.type !== 'all' ||
-           filters.department !== 'all' ||
-           filters.authorInput.trim() !== '' ||
-           filters.dateRange !== 'all' ||
-           filters.amountRange !== 'all';
+    return filters.dateRange !== 'all' ||
+           filters.approvalDateRange !== 'all';
   };
 
   // 필터 적용 함수
@@ -528,31 +555,7 @@ const ContractList = () => {
       );
     }
 
-    // 날짜 범위 필터
-    if (filters.dateRange !== 'all') {
-      const now = new Date();
-      let monthsAgo;
-      switch (filters.dateRange) {
-        case '최근 1개월':
-          monthsAgo = 1;
-          break;
-        case '최근 3개월':
-          monthsAgo = 3;
-          break;
-        case '최근 6개월':
-          monthsAgo = 6;
-          break;
-        case '최근 1년':
-          monthsAgo = 12;
-          break;
-        default:
-          monthsAgo = 0;
-      }
-      if (monthsAgo > 0) {
-        const cutoffDate = new Date(now.setMonth(now.getMonth() - monthsAgo));
-        filtered = filtered.filter(contract => new Date(contract.createdAt) >= cutoffDate);
-      }
-    }
+    // 등록일 및 결재완료일 필터는 서버에서 처리되므로 클라이언트에서는 제거
 
     // 금액 범위 필터
     if (filters.amountRange !== 'all') {
@@ -577,23 +580,20 @@ const ContractList = () => {
     setFilteredContracts(sortedData);
   }, [contracts, filters, sortConfigs]);
 
-  // 필터 변경 시 전체 데이터 로드 (키워드, 작성자 제외)
+  // 날짜 필터 변경 시에만 서버 재조회 (나머지는 캐싱된 데이터에서 클라이언트 필터링)
   useEffect(() => {
-    // 키워드와 작성자는 클라이언트 사이드 필터링이므로 서버 재조회 제외
-    const hasServerFilters = filters.status !== 'all' ||
-                              filters.type !== 'all' ||
-                              filters.department !== 'all' ||
-                              filters.dateRange !== 'all' ||
-                              filters.amountRange !== 'all';
+    // 날짜 필터만 서버에서 처리 (DB 레벨 필터링으로 효율적)
+    const hasDateFilters = filters.dateRange !== 'all' ||
+                           filters.approvalDateRange !== 'all';
     
-    if (hasServerFilters) {
-      // 서버 필터가 활성화되면 전체 데이터를 로드
+    if (hasDateFilters) {
+      // 날짜 필터가 있으면 전체 데이터를 로드 (해당 기간 내)
       fetchProposals(true, true);
     } else {
-      // 필터가 없으면 페이지네이션 모드로 초기 로드
+      // 날짜 필터가 없으면 페이지네이션 모드로 초기 로드
       fetchProposals(true, false);
     }
-  }, [filters.status, filters.type, filters.department, filters.dateRange, filters.amountRange]);
+  }, [filters.dateRange, filters.approvalDateRange]); // 날짜 필터만 의존성에 포함
 
   // 필터 변경 시 자동 적용
   useEffect(() => {
@@ -627,7 +627,8 @@ const ContractList = () => {
       type: 'all',
       department: 'all',
       authorInput: '',
-      dateRange: 'all',
+      dateRange: '최근 1년', // 기본값: 최근 1년
+      approvalDateRange: 'all', // 결재완료일 필터
       amountRange: 'all',
       keyword: ''
     });
@@ -648,6 +649,7 @@ const ContractList = () => {
         department: filters.department,
         authorInput: filters.authorInput || '없음',
         dateRange: filters.dateRange,
+        approvalDateRange: filters.approvalDateRange,
         amountRange: filters.amountRange
       });
       
@@ -1548,6 +1550,24 @@ const ContractList = () => {
     <div className="contract-list">
       <h1>품의서 조회</h1>
       
+      {/* 안내 문구 */}
+      {(filters.dateRange !== 'all' || filters.approvalDateRange !== 'all') && (
+        <div style={{ 
+          padding: '10px 15px', 
+          marginBottom: '15px', 
+          backgroundColor: '#e3f2fd', 
+          border: '1px solid #2196f3',
+          borderRadius: '4px',
+          color: '#1976d2',
+          fontSize: '0.9rem'
+        }}>
+          ℹ️ 현재 {filters.dateRange !== 'all' && <><strong>등록일: {filters.dateRange}</strong></>}
+          {filters.dateRange !== 'all' && filters.approvalDateRange !== 'all' && ', '}
+          {filters.approvalDateRange !== 'all' && <><strong>결재완료일: {filters.approvalDateRange}</strong></>}
+          {' '}데이터만 조회되고 있습니다. 전체 데이터를 보려면 '전체'로 선택하세요.
+        </div>
+      )}
+      
       {/* 다중조건 필터 섹션 */}
       <div className="filter-section">
         <div className="filter-grid">
@@ -1618,6 +1638,20 @@ const ContractList = () => {
             <select 
               value={filters.dateRange} 
               onChange={(e) => setFilters({...filters, dateRange: e.target.value})}
+            >
+              {dateRangeOptions.map(option => (
+                <option key={option} value={option === '전체' ? 'all' : option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="filter-group">
+            <label>결재완료일:</label>
+            <select 
+              value={filters.approvalDateRange} 
+              onChange={(e) => setFilters({...filters, approvalDateRange: e.target.value})}
             >
               {dateRangeOptions.map(option => (
                 <option key={option} value={option === '전체' ? 'all' : option}>

@@ -68,6 +68,15 @@ module.exports = (sequelize, DataTypes) => {
       },
       comment: '구매품목 ID (구매품목별 비용분배인 경우)'
     },
+    serviceItemId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'service_items',
+        key: 'id'
+      },
+      comment: '용역품목 ID (용역품목별 비용분배인 경우)'
+    },
     allocationType: {
       type: DataTypes.STRING,
       allowNull: true,
