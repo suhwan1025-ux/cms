@@ -1196,7 +1196,9 @@ const ProposalForm = () => {
         }
       } catch (error) {
         console.error('데이터 로드 실패:', error);
-        alert('데이터 로드에 실패했습니다. 서버가 실행 중인지 확인해주세요.');
+        console.error('에러 상세:', error.message);
+        console.error('에러 스택:', error.stack);
+        alert(`데이터 로드에 실패했습니다.\n\n에러: ${error.message}\n\n서버가 실행 중인지 확인해주세요.`);
       } finally {
         setLoading(false);
       }
@@ -4318,11 +4320,11 @@ const ProposalForm = () => {
             
             <div className="form-row">
               <div className="form-group">
-                <label>사업 목적</label>
+                <label>목적</label>
                 <textarea
                   value={formData.purpose}
                   onChange={(e) => setFormData(prevData => ({...prevData, purpose: e.target.value}))}
-                  placeholder="사업 목적을 입력하세요"
+                  placeholder="목적을 입력하세요"
                   required
                   rows={3}
                   style={{ resize: 'vertical', minHeight: '70px' }}
@@ -6353,7 +6355,7 @@ const ProposalForm = () => {
                           </td>
                         </tr>
                         <tr>
-                          <td className="label-cell">사업 목적</td>
+                          <td className="label-cell">목적</td>
                           <td className="value-cell" colSpan="3">{formData.purpose || '미입력'}</td>
                         </tr>
                         <tr>

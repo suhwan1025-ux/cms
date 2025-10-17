@@ -86,13 +86,18 @@ const Dashboard = () => {
         }
       });
       
-      // 월별 데이터 정렬 (최근 12개월)
-      const sortedMonths = Object.values(monthlyData)
-        .sort((a, b) => a.month.localeCompare(b.month))
-        .slice(-12); // 최근 12개월만
+      // 직전 12개월 배열 생성 (현재 월 포함)
+      const sortedMonths = [];
+      const today = new Date();
+      for (let i = 11; i >= 0; i--) {
+        const targetDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const monthKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        // 해당 월의 데이터가 있으면 사용, 없으면 0으로 채움
+        sortedMonths.push(monthlyData[monthKey] || { month: monthKey, count: 0, amount: 0 });
+      }
       
       // 외주인력 현황 수집 (용역계약 + 결재완료)
-      const today = new Date();
       const personnelList = [];
       approvedProposals.forEach(proposal => {
         if (proposal.contractType === 'service' && proposal.serviceItems) {
@@ -169,16 +174,27 @@ const Dashboard = () => {
         let monthlyCost = 0;
         let personnelCount = 0;
         
+        // 현재 월인지 확인
+        const isCurrentMonth = current.getFullYear() === today.getFullYear() && 
+                              current.getMonth() === today.getMonth();
+        
         // 해당 월에 재직중인 모든 인력을 찾아서 합산
         personnelList.forEach(person => {
           if (person.startDate && person.endDate && person.monthlyRate) {
             const personStart = new Date(person.startDate);
             const personEnd = new Date(person.endDate);
             
-            // 해당 월에 재직중인지 확인 (계약 기간이 해당 월과 겹치는지)
-            const isWorkingThisMonth = personStart <= monthEnd && personEnd >= monthStart;
+            let shouldCount = false;
             
-            if (isWorkingThisMonth) {
+            // 현재 월인 경우: 오늘 기준으로 재직중인 인력만 카운트
+            if (isCurrentMonth) {
+              shouldCount = person.isCurrentlyWorking;
+            } else {
+              // 과거/미래 월인 경우: 해당 월과 계약 기간이 겹치는지 확인
+              shouldCount = personStart <= monthEnd && personEnd >= monthStart;
+            }
+            
+            if (shouldCount) {
               const monthlyRate = parseFloat(person.monthlyRate);
               
               // 유효한 숫자인지 확인
@@ -396,7 +412,7 @@ const Dashboard = () => {
       '성명': person.name,
       '기술등급': person.skillLevel,
       '요청부서': person.department,
-      '사업목적': person.purpose,
+      '목적': person.purpose,
       '계약기간(개월)': person.period,
       '월단가(원)': person.monthlyRate,
       '시작일': person.startDate ? person.startDate.toLocaleDateString('ko-KR') : '-',
@@ -417,7 +433,7 @@ const Dashboard = () => {
       { wch: 12 },  // 성명
       { wch: 12 },  // 기술등급
       { wch: 15 },  // 요청부서
-      { wch: 25 },  // 사업목적
+      { wch: 25 },  // 목적
       { wch: 15 },  // 계약기간
       { wch: 15 },  // 월단가
       { wch: 15 },  // 시작일
@@ -1874,7 +1890,7 @@ const Dashboard = () => {
                   style={{ cursor: 'pointer', userSelect: 'none' }}
                   className="sortable-header"
                 >
-                  사업목적 {sortConfig.key === 'purpose' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  목적 {sortConfig.key === 'purpose' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
                 </th>
                 <th 
                   onClick={() => handleSort('period')}

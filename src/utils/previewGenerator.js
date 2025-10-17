@@ -343,10 +343,18 @@ export const generateItemsSection = (data) => {
           <tr class="total-row">
             <td colspan="6" style="text-align: center; font-weight: bold;">합계</td>
             <td style="text-align: right; font-weight: bold;">${formatCurrency(data.serviceItems.reduce((sum, item) => {
-              const contractAmount = item.contractAmount || item.contract_amount ||
-                                   (parseFloat(item.monthlyRate || item.monthly_rate) * parseFloat(item.period)) || 
-                                   (parseFloat(item.unitPrice || item.unit_price) * parseFloat(item.quantity)) || 0;
-              return sum + contractAmount;
+              const contractAmount = item.contractAmount || item.contract_amount;
+              if (contractAmount) {
+                return sum + (parseFloat(contractAmount) || 0);
+              }
+              
+              const monthlyRate = parseFloat(item.monthlyRate || item.monthly_rate) || 0;
+              const period = parseFloat(item.period) || 0;
+              const unitPrice = parseFloat(item.unitPrice || item.unit_price) || 0;
+              const quantity = parseFloat(item.quantity) || 0;
+              
+              const calculated = (monthlyRate * period) || (unitPrice * quantity) || 0;
+              return sum + calculated;
             }, 0))}</td>
             <td colspan="4" style="text-align: center; font-weight: bold;">-</td>
           </tr>
@@ -483,16 +491,19 @@ export const generateCostAllocationSection = (data) => {
     }
     
     allocations.forEach(allocation => {
+      const itemAmount = parseFloat(item.amount) || 0;
+      const allocValue = parseFloat(allocation.value) || 0;
+      
       const allocationAmount = allocation.type === 'percentage' 
-        ? (item.amount * (allocation.value / 100))
-        : allocation.value;
+        ? (itemAmount * (allocValue / 100))
+        : allocValue;
       
       allAllocations.push({
         productName: item.productName || `품목 ${itemIndex + 1}`,
         classification: item.item || '-',
         department: allocation.department || '-',
         type: allocation.type === 'percentage' ? '정률 (%)' : '정액 (원)',
-        value: allocation.type === 'percentage' ? allocation.value + '%' : formatCurrency(allocation.value),
+        value: allocation.type === 'percentage' ? allocValue + '%' : formatCurrency(allocValue),
         amount: allocationAmount
       });
     });
@@ -513,16 +524,19 @@ export const generateCostAllocationSection = (data) => {
     }
     
     allocations.forEach(allocation => {
+      const contractAmount = parseFloat(item.contractAmount || item.contract_amount) || 0;
+      const allocValue = parseFloat(allocation.value) || 0;
+      
       const allocationAmount = allocation.type === 'percentage' 
-        ? (item.contractAmount * (allocation.value / 100))
-        : allocation.value;
+        ? (contractAmount * (allocValue / 100))
+        : allocValue;
       
       allAllocations.push({
         productName: item.item || `용역항목 ${itemIndex + 1}`,
         classification: '전산용역비',
         department: allocation.department || '-',
         type: allocation.type === 'percentage' ? '정률 (%)' : '정액 (원)',
-        value: allocation.type === 'percentage' ? allocation.value + '%' : formatCurrency(allocation.value),
+        value: allocation.type === 'percentage' ? allocValue + '%' : formatCurrency(allocValue),
         amount: allocationAmount
       });
     });
@@ -571,7 +585,7 @@ export const generateCostAllocationSection = (data) => {
   // 모든 분배 정보를 하나의 테이블에 표시
   let totalAmount = 0;
   allAllocations.forEach((allocation, index) => {
-    totalAmount += allocation.amount;
+    totalAmount += (parseFloat(allocation.amount) || 0);
     allocationHTML += `
       <tr>
         <td style="text-align: center;">${index + 1}</td>
@@ -716,7 +730,6 @@ export const generatePreviewHTML = (data, options = {}) => {
         .info-table th, .info-table td {
           border: 1px solid #ddd;
           padding: 12px;
-          text-align: left;
           white-space: pre-wrap; /* 줄바꿈 보존 */
           word-wrap: break-word; /* 긴 단어 자동 줄바꿈 */
         }
@@ -724,6 +737,10 @@ export const generatePreviewHTML = (data, options = {}) => {
           background-color: #f8f9fa;
           font-weight: bold;
           width: 150px;
+          text-align: center;
+        }
+        .info-table td {
+          text-align: left;
         }
         .items-table {
           width: 100%;
@@ -809,7 +826,8 @@ export const generatePreviewHTML = (data, options = {}) => {
     </head>
     <body>
       <div class="action-buttons">
-        <button class="action-btn copy-btn" onclick="copyToClipboard()">📋 복사</button>
+        <button class="action-btn copy-btn" onclick="copyToClipboard()">📋 이미지 복사</button>
+        <button class="action-btn copy-btn" onclick="copyHTMLToClipboard()" style="background: #17a2b8;">💾 HTML 복사</button>
       </div>
       
       <div class="preview-container">
@@ -817,7 +835,7 @@ export const generatePreviewHTML = (data, options = {}) => {
         <table class="info-table">
           <tbody>
             <tr>
-              <th>사업 목적</th>
+              <th>목적</th>
               <td>${data.purpose || '-'}</td>
             </tr>
             <tr>
@@ -902,15 +920,16 @@ export const generatePreviewHTML = (data, options = {}) => {
             const buttons = document.querySelector('.action-buttons');
             buttons.style.display = 'none';
             
-            // 캡처 실행
-            const canvas = await html2canvas(document.body, {
+            // 캡처할 컨테이너 선택
+            const container = document.querySelector('.preview-container');
+            
+            // 캡처 실행 (컨테이너만)
+            const canvas = await html2canvas(container, {
               useCORS: true,
               allowTaint: true,
               scale: 2, // 고화질을 위해 2배 스케일
               scrollX: 0,
-              scrollY: 0,
-              width: window.innerWidth,
-              height: document.body.scrollHeight,
+              scrollY: -window.scrollY,
               backgroundColor: '#ffffff'
             });
             
@@ -943,6 +962,36 @@ export const generatePreviewHTML = (data, options = {}) => {
             // 오류 발생 시에도 버튼들을 다시 표시
             const buttons = document.querySelector('.action-buttons');
             if (buttons) buttons.style.display = 'flex';
+          }
+        }
+
+        // HTML 코드 복사 함수
+        async function copyHTMLToClipboard() {
+          try {
+            // preview-container의 HTML 가져오기
+            const container = document.querySelector('.preview-container');
+            const styles = document.querySelector('style').outerHTML;
+            
+            // 전체 HTML 구성 (스타일 포함)
+            const fullHTML = \`<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>품의서 미리보기</title>
+  \${styles}
+</head>
+<body>
+  \${container.outerHTML}
+</body>
+</html>\`;
+            
+            // 클립보드에 복사
+            await navigator.clipboard.writeText(fullHTML);
+            alert('HTML 코드가 클립보드에 복사되었습니다!');
+          } catch (error) {
+            console.error('HTML 복사 실패:', error);
+            alert('HTML 복사에 실패했습니다: ' + error.message);
           }
         }
       </script>

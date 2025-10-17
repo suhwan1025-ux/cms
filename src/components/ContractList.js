@@ -1232,8 +1232,8 @@ const ContractList = () => {
           contractAmount: item.contractAmount || 0,
           supplier: item.supplier || '',
           creditRating: item.creditRating || '',
-          contractPeriodStart: item.contractPeriodStart || '', // 계약 시작일
-          contractPeriodEnd: item.contractPeriodEnd || '', // 계약 종료일
+          contractPeriodStart: item.contractPeriodStart ? item.contractPeriodStart.split('T')[0] : '', // 계약 시작일 (날짜 형식 변환)
+          contractPeriodEnd: item.contractPeriodEnd ? item.contractPeriodEnd.split('T')[0] : '', // 계약 종료일 (날짜 형식 변환)
           paymentMethod: item.paymentMethod || '', // 비용지급방식
           // 비용분배 정보
           costAllocation: {
@@ -1350,8 +1350,8 @@ const ContractList = () => {
           contractAmount: item.contractAmount,
           supplier: item.supplier,
           creditRating: item.creditRating,
-          contractPeriodStart: item.contractPeriodStart || '', // 계약 시작일
-          contractPeriodEnd: item.contractPeriodEnd || '', // 계약 종료일
+          contractPeriodStart: item.contractPeriodStart ? item.contractPeriodStart.split('T')[0] : '', // 계약 시작일 (날짜 형식 변환)
+          contractPeriodEnd: item.contractPeriodEnd ? item.contractPeriodEnd.split('T')[0] : '', // 계약 종료일 (날짜 형식 변환)
           paymentMethod: item.paymentMethod || '', // 비용지급방식
           // 비용분배 정보
           costAllocation: {
