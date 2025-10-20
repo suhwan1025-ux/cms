@@ -433,21 +433,21 @@ const BudgetDashboard = () => {
           </div>
         </div>
 
-        <div className="summary-card executed">
-          <div className="card-icon">💵</div>
-          <div className="card-content">
-            <h3>기 집행</h3>
-            <p className="amount">{formatBillionWon(stats.totalExecuted)}</p>
-            <p className="sub-text">집행률: {stats.executedRate}%</p>
-          </div>
-        </div>
-
         <div className="summary-card confirmed">
           <div className="card-icon">✅</div>
           <div className="card-content">
             <h3>확정집행액</h3>
             <p className="amount">{formatBillionWon(stats.totalConfirmedExecution)}</p>
             <p className="sub-text">확정집행률: {stats.executionRate}%</p>
+          </div>
+        </div>
+
+        <div className="summary-card executed">
+          <div className="card-icon">💵</div>
+          <div className="card-content">
+            <h3>기 집행</h3>
+            <p className="amount">{formatBillionWon(stats.totalExecuted)}</p>
+            <p className="sub-text">집행률: {stats.executedRate}%</p>
           </div>
         </div>
 

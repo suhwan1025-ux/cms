@@ -4395,11 +4395,54 @@ const ProposalForm = () => {
                     required
                   >
                     <option value="">계약방식을 선택하세요</option>
-                    {contractMethods.map(method => (
-                      <option key={method.id || method.value} value={method.value}>
-                        {method.name}
-                      </option>
-                    ))}
+                    {contractMethods.map(method => {
+                      // 수의계약(제6조)만 키워드 추출
+                      let keyword = '';
+                      const basis = method.basis || method.regulation || '';
+                      const name = method.name || '';
+                      
+                      // 수의계약 관련만 키워드 표시
+                      if (name.includes('수의계약') || basis.includes('제6조')) {
+                        // 제6조 제1항 수의계약 세부 규정
+                        if (basis.includes('제6조 제1항의 가') || (basis.includes('천재지변') && basis.includes('긴급'))) {
+                          keyword = '긴급/경쟁불가';
+                        } else if (basis.includes('제6조 제1항의 나') || basis.includes('비밀로 할 필요')) {
+                          keyword = '비밀 유지';
+                        } else if (basis.includes('제6조 제1항의 다') || (basis.includes('유리하거나') && basis.includes('불가피'))) {
+                          keyword = '유리/불가피';
+                        } else if (basis.includes('제6조 제1항의 라') || basis.includes('그룹 통합 구매')) {
+                          keyword = '그룹 통합구매';
+                        } else if (basis.includes('제6조 제1항의 마') || basis.includes('재입찰')) {
+                          keyword = '재입찰 단독';
+                        }
+                        // 제6조 제2항 수의계약 세부 규정
+                        else if (basis.includes('제6조 제2항의 가') || (basis.includes('특허') && basis.includes('실용신안'))) {
+                          keyword = '특허/실용신안';
+                        } else if (basis.includes('제6조 제2항의 나') || basis.includes('생산자 또는 소지자가 1인')) {
+                          keyword = '독점 공급자';
+                        } else if (basis.includes('제6조 제2항의 다') || (basis.includes('부품교환') && basis.includes('호환성'))) {
+                          keyword = '호환성 필요';
+                        } else if (basis.includes('제6조 제2항의 라') || (basis.includes('학술연구') || (basis.includes('특정인') && basis.includes('용역')))) {
+                          keyword = '특정인 용역';
+                        } else if (basis.includes('제6조 제2항의 마') || (basis.includes('인력으로') && basis.includes('업무연속성'))) {
+                          keyword = '업무연속성';
+                        } else if (basis.includes('제6조 제2항의 바') || (basis.includes('제조/공급한 자가 직접') || basis.includes('정비 또는 유지보수'))) {
+                          keyword = '제조자 직접';
+                        } else if (basis.includes('제6조 제2항의 사') || (basis.includes('정보이용') && basis.includes('연속성'))) {
+                          keyword = '정보제공 연속';
+                        }
+                        // 일반 수의계약 (제6조 세부항목이 아닌 경우)
+                        else if (basis.includes('1천만원 이하')) {
+                          keyword = '1천만원 이하';
+                        }
+                      }
+                      
+                      return (
+                        <option key={method.id || method.value} value={method.value}>
+                          {method.name}{keyword ? ` (${keyword})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                   {formData.contractMethod && (
                     <div className="regulation-info">

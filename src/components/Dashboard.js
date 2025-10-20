@@ -9,7 +9,10 @@ const API_BASE_URL = getApiUrl();
 const Dashboard = () => {
   const [stats, setStats] = useState({
     approvedProposals: 0,
-    draftProposals: 0
+    draftProposals: 0,
+    lowestPriceContracts: 0,
+    competitiveContracts: 0,
+    privateContracts: 0
   });
 
   const [recentProposals, setRecentProposals] = useState([]);
@@ -224,9 +227,38 @@ const Dashboard = () => {
         데이터있는월: sortedCosts.filter(m => m.cost > 0 || m.count > 0).length
       });
       
+      // 계약방식별 건수 집계 (최근 1년)
+      const contractMethodStats = {
+        lowestPrice: 0,    // 최저가 계약
+        competitive: 0,    // 경쟁계약 (일반, 제한, 지명, 협상)
+        private: 0         // 수의계약
+      };
+      
+      approvedProposals.forEach(proposal => {
+        const method = proposal.contractMethod || '';
+        
+        // 최저가 계약
+        if (method.includes('최저가')) {
+          contractMethodStats.lowestPrice++;
+        }
+        // 경쟁계약 (일반, 제한, 지명, 협상)
+        else if (method.includes('경쟁') || method.includes('입찰')) {
+          contractMethodStats.competitive++;
+        }
+        // 수의계약
+        else if (method.includes('수의')) {
+          contractMethodStats.private++;
+        }
+      });
+      
+      console.log('📊 계약방식별 건수:', contractMethodStats);
+      
       setStats({
         approvedProposals: approvedProposals.length,
-        draftProposals: draftProposals.length
+        draftProposals: draftProposals.length,
+        lowestPriceContracts: contractMethodStats.lowestPrice,
+        competitiveContracts: contractMethodStats.competitive,
+        privateContracts: contractMethodStats.private
       });
       
       // 모든 결재완료 품의서 저장 (사업별 계약 진행 현황 테이블용)
@@ -530,19 +562,21 @@ const Dashboard = () => {
       <h1>계약현황 대시보드</h1>
       
       {/* 통계 카드 */}
-      <div className="stats-grid">
+      <div className="stats-grid stats-grid-7">
         <div className="stat-card approved">
           <div className="stat-icon">✅</div>
           <div className="stat-content">
             <div className="stat-number">{stats.approvedProposals}</div>
-            <div className="stat-label">결재완료 품의서 (최근 1년)</div>
+            <div className="stat-label">결재완료 (최근 1년)</div>
           </div>
         </div>
-        <div className="stat-card draft">
-          <div className="stat-icon">📝</div>
+        <div className="stat-card personnel-pending">
+          <div className="stat-icon">⏳</div>
           <div className="stat-content">
-            <div className="stat-number">{stats.draftProposals}</div>
-            <div className="stat-label">작성중</div>
+            <div className="stat-number">
+              {outsourcingPersonnel.filter(p => p.workStatus === 'notStarted').length}
+            </div>
+            <div className="stat-label">인력 (시작전)</div>
           </div>
         </div>
         <div className="stat-card personnel-active">
@@ -551,7 +585,7 @@ const Dashboard = () => {
             <div className="stat-number">
               {outsourcingPersonnel.filter(p => p.isCurrentlyWorking).length}
             </div>
-            <div className="stat-label">외주인력 (재직중)</div>
+            <div className="stat-label">인력 (재직중)</div>
           </div>
         </div>
         <div className="stat-card personnel-expiring">
@@ -566,7 +600,28 @@ const Dashboard = () => {
                 ).length;
               })()}
             </div>
-            <div className="stat-label">외주인력 (만료 1개월 전)</div>
+            <div className="stat-label">인력 (만료임박)</div>
+          </div>
+        </div>
+        <div className="stat-card contract-lowest">
+          <div className="stat-icon">💰</div>
+          <div className="stat-content">
+            <div className="stat-number">{stats.lowestPriceContracts || 0}</div>
+            <div className="stat-label">최저가 (최근 1년)</div>
+          </div>
+        </div>
+        <div className="stat-card contract-competitive">
+          <div className="stat-icon">🏆</div>
+          <div className="stat-content">
+            <div className="stat-number">{stats.competitiveContracts || 0}</div>
+            <div className="stat-label">경쟁계약 (최근 1년)</div>
+          </div>
+        </div>
+        <div className="stat-card contract-private">
+          <div className="stat-icon">📋</div>
+          <div className="stat-content">
+            <div className="stat-number">{stats.privateContracts || 0}</div>
+            <div className="stat-label">수의계약 (최근 1년)</div>
           </div>
         </div>
       </div>
@@ -1326,10 +1381,10 @@ const Dashboard = () => {
                     amount: p.totalAmount || p.total_amount
                   })));
                   
-                  // 품의서 분류
-                  let 추진품의서 = null;
-                  let 입찰실시품의서 = null;
-                  let 입찰결과보고품의 = null;
+                  // 품의서 분류 (배열로 관리)
+                  const 추진품의서목록 = [];
+                  const 입찰실시품의서목록 = [];
+                  const 입찰결과보고품의목록 = [];
                   const 일반계약목록 = [];
                   
                   relatedProposals.forEach(proposal => {
@@ -1338,15 +1393,15 @@ const Dashboard = () => {
                     
                     // 추진품의 템플릿 사용
                     if (contractMethod.includes('추진품의')) {
-                      추진품의서 = proposal;
+                      추진품의서목록.push(proposal);
                     } 
                     // 입찰실시 품의서 템플릿 사용
                     else if (contractMethod.includes('입찰 실시') || contractMethod.includes('입찰실시')) {
-                      입찰실시품의서 = proposal;
+                      입찰실시품의서목록.push(proposal);
                     }
                     // 입찰결과보고 품의 템플릿 사용
                     else if (contractMethod.includes('입찰결과') || contractMethod.includes('입찰 결과') || contractMethod.includes('결과보고') || contractMethod.includes('결과 보고')) {
-                      입찰결과보고품의 = proposal;
+                      입찰결과보고품의목록.push(proposal);
                     }
                     
                     // 구매/용역/변경/연장 계약 (일반 계약)
@@ -1366,6 +1421,11 @@ const Dashboard = () => {
                       console.log(`  ➡️ ${contractType} 계약: ${proposal.title} - ${amount}원`);
                     }
                   });
+                  
+                  // 최신 품의서 선택 (여러 개일 때 가장 최근 것)
+                  const 추진품의서 = 추진품의서목록.length > 0 ? 추진품의서목록[추진품의서목록.length - 1] : null;
+                  const 입찰실시품의서 = 입찰실시품의서목록.length > 0 ? 입찰실시품의서목록[입찰실시품의서목록.length - 1] : null;
+                  const 입찰결과보고품의 = 입찰결과보고품의목록.length > 0 ? 입찰결과보고품의목록[입찰결과보고품의목록.length - 1] : null;
                   
                   // 상태별 색상
                   const getStatusColor = (status) => {
@@ -1432,7 +1492,21 @@ const Dashboard = () => {
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
                         {추진품의서 ? (
-                          <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                            <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
+                            {추진품의서목록.length > 1 && (
+                              <span style={{ 
+                                fontSize: '0.75rem', 
+                                color: '#667eea', 
+                                fontWeight: '600',
+                                backgroundColor: '#e3f2fd',
+                                padding: '2px 6px',
+                                borderRadius: '10px'
+                              }}>
+                                {추진품의서목록.length}건
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span style={{ color: '#e5e7eb', fontSize: '1.2rem' }}>-</span>
                         )}
@@ -1443,14 +1517,27 @@ const Dashboard = () => {
                           padding: '8px', 
                           textAlign: 'center', 
                           fontSize: '0.85rem',
-                          cursor: 추진품의서 ? 'pointer' : 'default',
-                          transition: 'background-color 0.2s'
+                          transition: 'background-color 0.2s',
+                          lineHeight: '1.6'
                         }}
-                        onClick={() => 추진품의서 && handlePersonnelClick(추진품의서.id)}
                         onMouseEnter={(e) => 추진품의서 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        {추진품의서?.createdAt ? new Date(추진품의서.createdAt).toLocaleDateString('ko-KR') : '-'}
+                        {추진품의서목록.length > 0 ? (
+                          추진품의서목록.map((p, idx) => (
+                            <div 
+                              key={p.id}
+                              style={{ 
+                                cursor: 'pointer',
+                                padding: '2px 0',
+                                borderBottom: idx < 추진품의서목록.length - 1 ? '1px dashed #dee2e6' : 'none'
+                              }}
+                              onClick={() => handlePersonnelClick(p.id)}
+                            >
+                              {p.createdAt ? new Date(p.createdAt).toLocaleDateString('ko-KR') : '-'}
+                            </div>
+                          ))
+                        ) : '-'}
                       </td>
                       <td 
                         style={{ 
@@ -1458,14 +1545,27 @@ const Dashboard = () => {
                           padding: '8px', 
                           textAlign: 'center', 
                           fontSize: '0.85rem',
-                          cursor: 추진품의서 ? 'pointer' : 'default',
-                          transition: 'background-color 0.2s'
+                          transition: 'background-color 0.2s',
+                          lineHeight: '1.6'
                         }}
-                        onClick={() => 추진품의서 && handlePersonnelClick(추진품의서.id)}
                         onMouseEnter={(e) => 추진품의서 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        {추진품의서?.approvalDate ? new Date(추진품의서.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                        {추진품의서목록.length > 0 ? (
+                          추진품의서목록.map((p, idx) => (
+                            <div 
+                              key={p.id}
+                              style={{ 
+                                cursor: 'pointer',
+                                padding: '2px 0',
+                                borderBottom: idx < 추진품의서목록.length - 1 ? '1px dashed #dee2e6' : 'none'
+                              }}
+                              onClick={() => handlePersonnelClick(p.id)}
+                            >
+                              {p.approvalDate ? new Date(p.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                            </div>
+                          ))
+                        ) : '-'}
                       </td>
                       
                       {/* 입찰실시 품의서 */}
@@ -1482,7 +1582,21 @@ const Dashboard = () => {
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
                         {입찰실시품의서 ? (
-                          <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                            <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
+                            {입찰실시품의서목록.length > 1 && (
+                              <span style={{ 
+                                fontSize: '0.75rem', 
+                                color: '#667eea', 
+                                fontWeight: '600',
+                                backgroundColor: '#fff3e0',
+                                padding: '2px 6px',
+                                borderRadius: '10px'
+                              }}>
+                                {입찰실시품의서목록.length}건
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span style={{ color: '#e5e7eb', fontSize: '1.2rem' }}>-</span>
                         )}
@@ -1493,14 +1607,27 @@ const Dashboard = () => {
                           padding: '8px', 
                           textAlign: 'center', 
                           fontSize: '0.85rem',
-                          cursor: 입찰실시품의서 ? 'pointer' : 'default',
-                          transition: 'background-color 0.2s'
+                          transition: 'background-color 0.2s',
+                          lineHeight: '1.6'
                         }}
-                        onClick={() => 입찰실시품의서 && handlePersonnelClick(입찰실시품의서.id)}
                         onMouseEnter={(e) => 입찰실시품의서 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        {입찰실시품의서?.createdAt ? new Date(입찰실시품의서.createdAt).toLocaleDateString('ko-KR') : '-'}
+                        {입찰실시품의서목록.length > 0 ? (
+                          입찰실시품의서목록.map((p, idx) => (
+                            <div 
+                              key={p.id}
+                              style={{ 
+                                cursor: 'pointer',
+                                padding: '2px 0',
+                                borderBottom: idx < 입찰실시품의서목록.length - 1 ? '1px dashed #dee2e6' : 'none'
+                              }}
+                              onClick={() => handlePersonnelClick(p.id)}
+                            >
+                              {p.createdAt ? new Date(p.createdAt).toLocaleDateString('ko-KR') : '-'}
+                            </div>
+                          ))
+                        ) : '-'}
                       </td>
                       <td 
                         style={{ 
@@ -1508,14 +1635,27 @@ const Dashboard = () => {
                           padding: '8px', 
                           textAlign: 'center', 
                           fontSize: '0.85rem',
-                          cursor: 입찰실시품의서 ? 'pointer' : 'default',
-                          transition: 'background-color 0.2s'
+                          transition: 'background-color 0.2s',
+                          lineHeight: '1.6'
                         }}
-                        onClick={() => 입찰실시품의서 && handlePersonnelClick(입찰실시품의서.id)}
                         onMouseEnter={(e) => 입찰실시품의서 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        {입찰실시품의서?.approvalDate ? new Date(입찰실시품의서.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                        {입찰실시품의서목록.length > 0 ? (
+                          입찰실시품의서목록.map((p, idx) => (
+                            <div 
+                              key={p.id}
+                              style={{ 
+                                cursor: 'pointer',
+                                padding: '2px 0',
+                                borderBottom: idx < 입찰실시품의서목록.length - 1 ? '1px dashed #dee2e6' : 'none'
+                              }}
+                              onClick={() => handlePersonnelClick(p.id)}
+                            >
+                              {p.approvalDate ? new Date(p.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                            </div>
+                          ))
+                        ) : '-'}
                       </td>
                       
                       {/* 입찰결과보고 품의 */}
@@ -1532,7 +1672,21 @@ const Dashboard = () => {
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
                         {입찰결과보고품의 ? (
-                          <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                            <span style={{ color: '#10b981', fontWeight: '600', fontSize: '1.2rem' }}>✓</span>
+                            {입찰결과보고품의목록.length > 1 && (
+                              <span style={{ 
+                                fontSize: '0.75rem', 
+                                color: '#667eea', 
+                                fontWeight: '600',
+                                backgroundColor: '#f3e5f5',
+                                padding: '2px 6px',
+                                borderRadius: '10px'
+                              }}>
+                                {입찰결과보고품의목록.length}건
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span style={{ color: '#e5e7eb', fontSize: '1.2rem' }}>-</span>
                         )}
@@ -1543,14 +1697,27 @@ const Dashboard = () => {
                           padding: '8px', 
                           textAlign: 'center', 
                           fontSize: '0.85rem',
-                          cursor: 입찰결과보고품의 ? 'pointer' : 'default',
-                          transition: 'background-color 0.2s'
+                          transition: 'background-color 0.2s',
+                          lineHeight: '1.6'
                         }}
-                        onClick={() => 입찰결과보고품의 && handlePersonnelClick(입찰결과보고품의.id)}
                         onMouseEnter={(e) => 입찰결과보고품의 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        {입찰결과보고품의?.createdAt ? new Date(입찰결과보고품의.createdAt).toLocaleDateString('ko-KR') : '-'}
+                        {입찰결과보고품의목록.length > 0 ? (
+                          입찰결과보고품의목록.map((p, idx) => (
+                            <div 
+                              key={p.id}
+                              style={{ 
+                                cursor: 'pointer',
+                                padding: '2px 0',
+                                borderBottom: idx < 입찰결과보고품의목록.length - 1 ? '1px dashed #dee2e6' : 'none'
+                              }}
+                              onClick={() => handlePersonnelClick(p.id)}
+                            >
+                              {p.createdAt ? new Date(p.createdAt).toLocaleDateString('ko-KR') : '-'}
+                            </div>
+                          ))
+                        ) : '-'}
                       </td>
                       <td 
                         style={{ 
@@ -1558,14 +1725,27 @@ const Dashboard = () => {
                           padding: '8px', 
                           textAlign: 'center', 
                           fontSize: '0.85rem',
-                          cursor: 입찰결과보고품의 ? 'pointer' : 'default',
-                          transition: 'background-color 0.2s'
+                          transition: 'background-color 0.2s',
+                          lineHeight: '1.6'
                         }}
-                        onClick={() => 입찰결과보고품의 && handlePersonnelClick(입찰결과보고품의.id)}
                         onMouseEnter={(e) => 입찰결과보고품의 && (e.currentTarget.style.backgroundColor = '#e3f2fd')}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        {입찰결과보고품의?.approvalDate ? new Date(입찰결과보고품의.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                        {입찰결과보고품의목록.length > 0 ? (
+                          입찰결과보고품의목록.map((p, idx) => (
+                            <div 
+                              key={p.id}
+                              style={{ 
+                                cursor: 'pointer',
+                                padding: '2px 0',
+                                borderBottom: idx < 입찰결과보고품의목록.length - 1 ? '1px dashed #dee2e6' : 'none'
+                              }}
+                              onClick={() => handlePersonnelClick(p.id)}
+                            >
+                              {p.approvalDate ? new Date(p.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                            </div>
+                          ))
+                        ) : '-'}
                       </td>
                       
                       {/* 구매/용역/변경/연장 계약 요약 */}
@@ -2026,6 +2206,28 @@ const Dashboard = () => {
           margin-bottom: 2rem;
         }
 
+        .stats-grid-7 {
+          grid-template-columns: repeat(7, 1fr);
+          gap: 0.75rem;
+        }
+
+        .stats-grid-7 .stat-card {
+          padding: 0.75rem;
+        }
+
+        .stats-grid-7 .stat-icon {
+          font-size: 1.5rem;
+          min-width: 30px;
+        }
+
+        .stats-grid-7 .stat-number {
+          font-size: 1.5rem;
+        }
+
+        .stats-grid-7 .stat-label {
+          font-size: 0.75rem;
+        }
+
         .charts-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
@@ -2057,6 +2259,11 @@ const Dashboard = () => {
           border-left: 3px solid #ffc107;
         }
 
+        .stat-card.personnel-pending {
+          border-left: 3px solid #3b82f6;
+          background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+        }
+
         .stat-card.personnel-active {
           border-left: 3px solid #10b981;
           background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
@@ -2065,6 +2272,21 @@ const Dashboard = () => {
         .stat-card.personnel-expiring {
           border-left: 3px solid #f59e0b;
           background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+        }
+
+        .stat-card.contract-lowest {
+          border-left: 3px solid #10b981;
+          background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+        }
+
+        .stat-card.contract-competitive {
+          border-left: 3px solid #3b82f6;
+          background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+        }
+
+        .stat-card.contract-private {
+          border-left: 3px solid #8b5cf6;
+          background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);
         }
 
         .stat-icon {
@@ -2456,8 +2678,20 @@ const Dashboard = () => {
         }
 
         @media (max-width: 768px) {
-          .stats-grid {
+          .stats-grid, .stats-grid-7 {
             grid-template-columns: repeat(2, 1fr);
+          }
+
+          .stats-grid-7 .stat-icon {
+            font-size: 1.3rem;
+          }
+
+          .stats-grid-7 .stat-number {
+            font-size: 1.3rem;
+          }
+
+          .stats-grid-7 .stat-label {
+            font-size: 0.7rem;
           }
 
           .charts-grid {
