@@ -157,6 +157,30 @@ CMS_NEW/
 📚 상세한 구조 설명은 docs/PROJECT_STRUCTURE.md 참조
 ```
 
+## 📚 추가 문서
+
+### 데이터베이스 스키마
+- [데이터베이스 스키마 개요](docs/DATABASE_SCHEMA.md) - 테이블 구조 및 관계 설명
+- [데이터베이스 스키마 상세](docs/DATABASE_SCHEMA_DETAIL.md) - 실제 DB에서 추출한 상세 정보
+
+### 프로젝트 관리
+- [프로젝트 구조](docs/PROJECT_STRUCTURE.md) - 폴더 구조 및 스크립트 가이드
+- [배포 가이드](docs/DEPLOYMENT_GUIDE.md)
+- [마이그레이션 가이드](docs/MIGRATION_GUIDE.md)
+
+### 설치 및 설정
+- [간단 설치 가이드](docs/간단_설치_가이드.txt)
+- [PostgreSQL 자동 시작 설정](docs/POSTGRESQL_AUTO_START_GUIDE.md)
+- [워크스테이션 설정](docs/WORKSTATION_SETUP_GUIDE.md)
+
+### AI 기능
+- [AI Assistant 설정](docs/AI_ASSISTANT_SETUP_COMPLETE.md)
+- [AI 서버 실행 가이드](docs/AI_서버_실행_가이드.txt)
+- [TEXT-TO-SQL 구현](docs/TEXT_TO_SQL_구현_가이드.md)
+- [RAG 구현 완료](docs/RAG_구현_완료.md)
+
+---
+
 ## 라이선스
 
 이 프로젝트는 내부 사용을 위한 것입니다.
