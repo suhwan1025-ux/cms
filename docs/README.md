@@ -55,7 +55,7 @@ npx sequelize-cli db:migrate
 
 ```bash
 # 기본 샘플 데이터 생성
-node scripts/sample-data/seed-data.js
+node create-basic-samples.js
 ```
 
 ## 실행 방법
@@ -124,37 +124,18 @@ npm run start:network
 ## 디렉토리 구조
 
 ```
-CMS_NEW/
+contract-management-system/
 ├── src/                    # React 프론트엔드 소스
 │   ├── components/         # React 컴포넌트
 │   ├── models/            # Sequelize 모델
-│   └── database.js        # DB 연결 설정
-├── scripts/               # 유틸리티 스크립트 (체계적으로 정리됨)
-│   ├── migration/         # 스키마 마이그레이션
-│   ├── database/          # DB 관리 스크립트
-│   ├── sample-data/       # 샘플 데이터 생성
-│   ├── test/              # 테스트 스크립트
-│   ├── debug/             # 디버깅 스크립트
-│   ├── setup/             # 환경 설정
-│   ├── backup/            # 백업 스크립트
-│   └── deployment/        # 배포 스크립트
-├── docs/                  # 프로젝트 문서 (가이드, 매뉴얼)
-├── sql/                   # SQL 스크립트 파일
-├── config/                # 설정 파일
-├── migrations/            # Sequelize 마이그레이션
+│   └── ...
 ├── public/                # 정적 파일
-├── build/                 # 빌드 결과물
-├── ai_server/             # AI 서버 (Python)
-├── db_data_backup/        # DB 백업 데이터
-├── server.js              # 백엔드 API 서버 (개발용)
-├── server.prod.js         # 백엔드 서버 (프로덕션용)
+├── config/                # 설정 파일
+├── migrations/            # 데이터베이스 마이그레이션
+├── uploads/               # 업로드된 파일
+├── server.js              # 백엔드 서버
 ├── package.json           # 의존성 및 스크립트
-├── craco.config.js        # CRA 설정 오버라이드
-├── ecosystem.config.js    # PM2 프로세스 관리
-├── docker-compose.yml     # Docker Compose 설정
-└── Dockerfile             # Docker 이미지 빌드
-
-📚 상세한 구조 설명은 docs/PROJECT_STRUCTURE.md 참조
+└── craco.config.js        # CKEditor 설정
 ```
 
 ## 라이선스
