@@ -164,6 +164,7 @@ CMS_NEW/
 - [데이터베이스 스키마 상세](docs/DATABASE_SCHEMA_DETAIL.md) - 실제 DB에서 추출한 상세 정보
 
 ### 프로젝트 관리
+- [🔧 유지보수 가이드](docs/MAINTENANCE_GUIDE.md) - **종합 유지보수 매뉴얼** ⭐
 - [프로젝트 구조](docs/PROJECT_STRUCTURE.md) - 폴더 구조 및 스크립트 가이드
 - [배포 가이드](docs/DEPLOYMENT_GUIDE.md)
 - [마이그레이션 가이드](docs/MIGRATION_GUIDE.md)
