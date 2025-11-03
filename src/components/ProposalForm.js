@@ -600,7 +600,6 @@ const ProposalForm = () => {
   // 사업예산 선택 팝업 상태
   const [showBudgetPopup, setShowBudgetPopup] = useState(false);
   const [selectedYear, setSelectedYear] = useState('');
-  const [selectedBudgetType, setSelectedBudgetType] = useState('');
   const [filteredBudgets, setFilteredBudgets] = useState([]);
   
   // 예산 팝업 드래그 상태
@@ -1230,7 +1229,7 @@ const ProposalForm = () => {
     if (businessBudgets.length > 0) {
       filterBudgets();
     }
-  }, [selectedYear, selectedBudgetType]);
+  }, [selectedYear]);
 
   // 컴포넌트 언마운트 시 편집모드 상태 초기화
   useEffect(() => {
@@ -1326,20 +1325,11 @@ const ProposalForm = () => {
     
     let filtered = [...businessBudgets];
     
-    console.log('필터링 시작:', { selectedYear, selectedBudgetType, totalBudgets: businessBudgets.length });
+    console.log('필터링 시작:', { selectedYear, totalBudgets: businessBudgets.length });
     
     if (selectedYear && selectedYear !== '') {
       filtered = filtered.filter(budget => budget.budget_year == selectedYear);
       console.log('연도 필터링 후:', filtered.length);
-    }
-    
-    if (selectedBudgetType && selectedBudgetType !== '') {
-      // 한글로 선택된 경우 영어와도 매칭되도록
-      filtered = filtered.filter(budget => {
-        const budgetTypeKorean = getBudgetTypeKorean(budget.budget_type);
-        return budgetTypeKorean === selectedBudgetType || budget.budget_type === selectedBudgetType;
-      });
-      console.log('유형 필터링 후:', filtered.length);
     }
     
     console.log('최종 필터링 결과:', filtered.length);
@@ -1477,7 +1467,6 @@ const ProposalForm = () => {
   // 사업예산 선택 팝업 열기
   const openBudgetPopup = () => {
     setSelectedYear('');
-    setSelectedBudgetType('');
     setFilteredBudgets(businessBudgets);
     setBudgetPopupPosition({ x: 0, y: 0 }); // 위치 초기화
     setShowBudgetPopup(true);
@@ -1529,26 +1518,6 @@ const ProposalForm = () => {
   const getYearList = () => {
     const years = [...new Set(businessBudgets.map(budget => budget.budget_year))];
     return years.sort((a, b) => b - a);
-  };
-
-  // 예산 유형 한글 변환
-  const getBudgetTypeKorean = (type) => {
-    const typeMap = {
-      'capital': '자본예산',
-      'operational': '운영예산',
-      '자본예산': '자본예산',
-      '운영예산': '운영예산'
-    };
-    return typeMap[type] || type;
-  };
-
-  // 예산 유형 목록 가져오기 (한글로 변환 후 중복 제거)
-  const getBudgetTypeList = () => {
-    const types = businessBudgets.map(budget => budget.budget_type);
-    // 영어를 한글로 변환한 후 중복 제거
-    const koreanTypes = types.map(type => getBudgetTypeKorean(type));
-    const uniqueTypes = [...new Set(koreanTypes)];
-    return uniqueTypes.sort();
   };
 
   // 부서 검색 및 필터링
@@ -4357,7 +4326,7 @@ const ProposalForm = () => {
                       (() => {
                         const selectedBudget = businessBudgets.find(b => b.id === formData.budget);
                         return selectedBudget ? 
-                          `${selectedBudget.project_name} (${selectedBudget.budget_year}년) - ${getBudgetTypeKorean(selectedBudget.budget_type)}` :
+                          `${selectedBudget.project_name} (${selectedBudget.budget_year}년)` :
                           '사업예산을 선택하세요';
                       })() :
                       '사업예산을 선택하세요'
@@ -6113,19 +6082,6 @@ const ProposalForm = () => {
                   ))}
                 </select>
               </div>
-              
-              <div className="filter-group">
-                <label>예산 유형</label>
-                <select 
-                  value={selectedBudgetType} 
-                  onChange={(e) => setSelectedBudgetType(e.target.value)}
-                >
-                  <option value="">전체 유형</option>
-                  {getBudgetTypeList().map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
             </div>
             
             <div className="budget-list">
@@ -6143,7 +6099,6 @@ const ProposalForm = () => {
                         <span className="budget-year">{budget.budget_year}년</span>
                       </div>
                       <div className="budget-details">
-                        <span className="budget-type">{getBudgetTypeKorean(budget.budget_type)}</span>
                         <span className="budget-amount">총액: {formatCurrency(budget.budget_amount || 0)}</span>
                         <span className="budget-remaining">잔여: {formatCurrency(remainingAmount)}</span>
                       </div>

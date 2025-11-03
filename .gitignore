@@ -11,11 +11,13 @@ package-lock.json
 .env.migration
 
 # 로그 파일
-logs/
+logs/**/*.log
+logs/**/*.txt
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+!logs/backup/.gitkeep
 
 # 데이터베이스 파일
 *.sqlite
@@ -26,14 +28,16 @@ yarn-error.log*
 uploads/*
 !uploads/.gitkeep
 
-# 백업 파일
+# 백업 파일 (데이터 백업만 무시, 스크립트는 포함)
 backup/
 backup_*/
-*.sql
 *.dump
 data-export-*.json
 complete-export-*.json
 schema-*.sql
+# 백업 스크립트는 포함
+!sql/create_backup_tables.sql
+!scripts/backup/
 
 # 운영체제 파일
 .DS_Store
