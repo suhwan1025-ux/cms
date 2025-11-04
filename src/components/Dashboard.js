@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getApiUrl } from '../config/api';
 import { generatePreviewHTML } from '../utils/previewGenerator';
 import * as XLSX from 'xlsx';
@@ -24,6 +24,27 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   
+  // 컬럼 리사이징 관련 상태
+  const [columnWidths, setColumnWidths] = useState(() => {
+    const saved = localStorage.getItem('personnelTableColumnWidths');
+    return saved ? JSON.parse(saved) : {
+      순번: 60,
+      성명: 100,
+      기술등급: 100,
+      요청부서: 120,
+      목적: 200,
+      계약기간: 100,
+      월단가: 120,
+      시작일: 120,
+      종료일: 120,
+      공급업체: 150,
+      재직여부: 100
+    };
+  });
+  const [resizingColumn, setResizingColumn] = useState(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
+  
   // 일반계약 팝업 관련 상태
   const [showContractPopup, setShowContractPopup] = useState(false);
   const [selectedContracts, setSelectedContracts] = useState([]);
@@ -45,7 +66,6 @@ const Dashboard = () => {
       const budgetResponse = await fetch(`${API_BASE_URL}/api/business-budgets`);
       const budgetData = await budgetResponse.json();
       const budgets = Array.isArray(budgetData) ? budgetData : (budgetData.budgets || []);
-      console.log('사업예산 데이터:', budgets);
       setBusinessBudgets(budgets);
       
       // 품의서 데이터 가져오기
@@ -54,7 +74,6 @@ const Dashboard = () => {
       
       // API 응답이 배열인지 확인
       const proposals = Array.isArray(proposalsData) ? proposalsData : [];
-      console.log('대시보드 proposals 데이터:', proposals);
       
       // 결재완료된 품의서만 필터링 (최근 1년)
       const oneYearAgo = new Date();
@@ -68,9 +87,6 @@ const Dashboard = () => {
         }
         return false; // 결재일이 없는 경우 제외
       });
-      
-      console.log('📊 전체 결재완료 품의서:', allApprovedProposals.length);
-      console.log('📊 최근 1년 결재완료 품의서:', approvedProposals.length);
       
       const draftProposals = proposals.filter(p => p.status === 'draft' || p.isDraft === true);
       
@@ -204,8 +220,6 @@ const Dashboard = () => {
               if (!isNaN(monthlyRate) && monthlyRate > 0) {
                 monthlyCost += monthlyRate;
                 personnelCount += 1; // 각 계약을 독립적인 인력으로 카운트
-              } else {
-                console.warn('⚠️ 유효하지 않은 월 단가:', person.name, person.monthlyRate);
               }
             }
           }
@@ -219,13 +233,6 @@ const Dashboard = () => {
         
         current.setMonth(current.getMonth() + 1);
       }
-      
-      console.log('📅 표시 기간:', {
-        시작: sixMonthsAgo.toLocaleDateString('ko-KR'),
-        종료: sixMonthsLater.toLocaleDateString('ko-KR'),
-        총월수: sortedCosts.length,
-        데이터있는월: sortedCosts.filter(m => m.cost > 0 || m.count > 0).length
-      });
       
       // 계약방식별 건수 집계 (최근 1년)
       const contractMethodStats = {
@@ -250,8 +257,6 @@ const Dashboard = () => {
           contractMethodStats.private++;
         }
       });
-      
-      console.log('📊 계약방식별 건수:', contractMethodStats);
       
       setStats({
         approvedProposals: approvedProposals.length,
@@ -302,6 +307,82 @@ const Dashboard = () => {
   const resetSort = () => {
     setSortConfig({ key: null, direction: 'asc' });
   };
+
+  // 컬럼 너비 초기화
+  const resetColumnWidths = () => {
+    const defaultWidths = {
+      순번: 60,
+      성명: 100,
+      기술등급: 100,
+      요청부서: 120,
+      목적: 200,
+      계약기간: 100,
+      월단가: 120,
+      시작일: 120,
+      종료일: 120,
+      공급업체: 150,
+      재직여부: 100
+    };
+    setColumnWidths(defaultWidths);
+    localStorage.removeItem('personnelTableColumnWidths');
+  };
+
+  // 리사이저 공통 스타일
+  const resizerStyle = {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '10px',
+    cursor: 'col-resize',
+    userSelect: 'none',
+    zIndex: 999,
+    backgroundColor: 'transparent'
+  };
+
+  // 컬럼 리사이징 핸들러
+  const handleMouseDown = (e, columnName) => {
+    setResizingColumn(columnName);
+    setStartX(e.clientX);
+    setStartWidth(columnWidths[columnName]);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = useCallback((e) => {
+    if (!resizingColumn) return;
+    
+    const diff = e.clientX - startX;
+    const newWidth = Math.max(50, startWidth + diff); // 최소 너비 50px
+    
+    setColumnWidths(prev => ({
+      ...prev,
+      [resizingColumn]: newWidth
+    }));
+  }, [resizingColumn, startX, startWidth]);
+
+  const handleMouseUp = useCallback(() => {
+    if (resizingColumn) {
+      // localStorage에 저장
+      setColumnWidths(prev => {
+        localStorage.setItem('personnelTableColumnWidths', JSON.stringify(prev));
+        return prev;
+      });
+      setResizingColumn(null);
+    }
+  }, [resizingColumn]);
+
+  // 전역 마우스 이벤트 리스너
+  useEffect(() => {
+    if (resizingColumn) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [resizingColumn, handleMouseMove, handleMouseUp]);
 
   // 재직중인 외주인력만 필터링
   const getActivePersonnel = () => {
@@ -500,7 +581,6 @@ const Dashboard = () => {
 
   // 외주인력 행 클릭 핸들러 (품의서 미리보기)
   const handlePersonnelClick = async (proposalId) => {
-    console.log('🔍 선택된 품의서 ID:', proposalId);
     try {
       // 서버에서 품의서 데이터 조회
       const response = await fetch(`${API_BASE_URL}/api/proposals/${proposalId}`);
@@ -530,8 +610,6 @@ const Dashboard = () => {
           createdBy: originalData.createdBy,
           status: originalData.status
         };
-        
-        console.log('📄 품의서 미리보기 데이터:', previewData);
         
         // 미리보기 HTML 생성 및 새 창 열기
         const previewHTML = generatePreviewHTML(previewData);
@@ -1000,15 +1078,6 @@ const Dashboard = () => {
                 const chartHeight = 350;
                 const stepX = chartWidth / (monthlyPersonnelCost.length - 1 || 1);
                 
-                console.log('📊 그래프 데이터:', {
-                  데이터포인트: monthlyPersonnelCost.length,
-                  실제최대금액: actualMaxCost.toLocaleString() + '원',
-                  실제최대인원: actualMaxCount + '명',
-                  사용최대금액: maxCost.toLocaleString() + '원',
-                  사용최대인원: maxCount + '명',
-                  월별데이터: monthlyPersonnelCost
-                });
-                
                 const costPath = monthlyPersonnelCost.map((month, index) => {
                   const x = 50 + index * stepX;
                   const ratio = month.cost && maxCost > 0 ? month.cost / maxCost : 0;
@@ -1302,9 +1371,6 @@ const Dashboard = () => {
             </thead>
             <tbody>
               {(() => {
-                console.log('📊 사업예산 목록:', businessBudgets.length);
-                console.log('📊 전체 결재완료 품의서 수:', allApprovedProposals.length);
-                
                 // 사업예산이 없는 경우 메시지 표시
                 if (businessBudgets.length === 0) {
                   return (
@@ -1372,15 +1438,6 @@ const Dashboard = () => {
                   // 해당 사업예산에 연결된 품의서들 찾기
                   const relatedProposals = allApprovedProposals.filter(p => p.budgetId === budgetId);
                   
-                  console.log(`📋 ${projectName} (${budgetYear}년) - 예산: ${budgetAmount}원 - 연결된 품의서: ${relatedProposals.length}건`);
-                  console.log(`   품의서 목록:`, relatedProposals.map(p => ({
-                    id: p.id,
-                    title: p.title,
-                    type: p.contractType,
-                    method: p.contractMethod,
-                    amount: p.totalAmount || p.total_amount
-                  })));
-                  
                   // 품의서 분류 (배열로 관리)
                   const 추진품의서목록 = [];
                   const 입찰실시품의서목록 = [];
@@ -1417,8 +1474,6 @@ const Dashboard = () => {
                         createdAt: proposal.createdAt,
                         approvalDate: proposal.approvalDate
                       });
-                      
-                      console.log(`  ➡️ ${contractType} 계약: ${proposal.title} - ${amount}원`);
                     }
                   });
                   
@@ -1761,12 +1816,6 @@ const Dashboard = () => {
                             return sum + amount;
                           }, 0);
                           
-                          console.log(`💰 ${projectName} 일반계약 총액:`, {
-                            count: 일반계약목록.length,
-                            contracts: 일반계약목록,
-                            total: totalAmount
-                          });
-                          
                           return (
                             <div 
                               onClick={() => handleOpenContractPopup(일반계약목록, {
@@ -2037,82 +2086,149 @@ const Dashboard = () => {
                 🔄 정렬 초기화
               </button>
             )}
+            <button 
+              onClick={resetColumnWidths}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '500',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#5a6268'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#6c757d'}
+            >
+              ↔️ 컬럼 너비 초기화
+            </button>
           </div>
         </div>
         <div className="table-responsive-personnel">
           <table className="outsourcing-table">
             <thead>
               <tr>
-                <th style={{ width: '60px', textAlign: 'center' }}>순번</th>
+                <th style={{ width: `${columnWidths['순번']}px`, textAlign: 'center', position: 'relative' }}>
+                  순번
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => handleMouseDown(e, '순번')}
+                  />
+                </th>
                 <th 
                   onClick={() => handleSort('name')}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  style={{ width: `${columnWidths['성명']}px`, cursor: 'pointer', userSelect: 'none', position: 'relative' }}
                   className="sortable-header"
                 >
                   성명 {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '성명'); }}
+                  />
                 </th>
                 <th 
                   onClick={() => handleSort('skillLevel')}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  style={{ width: `${columnWidths['기술등급']}px`, cursor: 'pointer', userSelect: 'none', position: 'relative' }}
                   className="sortable-header"
                 >
                   기술등급 {sortConfig.key === 'skillLevel' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '기술등급'); }}
+                  />
                 </th>
                 <th 
                   onClick={() => handleSort('department')}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  style={{ width: `${columnWidths['요청부서']}px`, cursor: 'pointer', userSelect: 'none', position: 'relative' }}
                   className="sortable-header"
                 >
                   요청부서 {sortConfig.key === 'department' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '요청부서'); }}
+                  />
                 </th>
                 <th 
                   onClick={() => handleSort('purpose')}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  style={{ width: `${columnWidths['목적']}px`, cursor: 'pointer', userSelect: 'none', position: 'relative' }}
                   className="sortable-header"
                 >
                   목적 {sortConfig.key === 'purpose' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '목적'); }}
+                  />
                 </th>
                 <th 
                   onClick={() => handleSort('period')}
-                  style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+                  style={{ width: `${columnWidths['계약기간']}px`, textAlign: 'center', cursor: 'pointer', userSelect: 'none', position: 'relative' }}
                   className="sortable-header"
                 >
                   계약기간 {sortConfig.key === 'period' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '계약기간'); }}
+                  />
                 </th>
                 <th 
                   onClick={() => handleSort('monthlyRate')}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  style={{ width: `${columnWidths['월단가']}px`, cursor: 'pointer', userSelect: 'none', position: 'relative' }}
                   className="sortable-header"
                 >
                   월 단가 {sortConfig.key === 'monthlyRate' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '월단가'); }}
+                  />
                 </th>
                 <th 
                   onClick={() => handleSort('startDate')}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  style={{ width: `${columnWidths['시작일']}px`, cursor: 'pointer', userSelect: 'none', position: 'relative' }}
                   className="sortable-header"
                 >
                   시작일 {sortConfig.key === 'startDate' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '시작일'); }}
+                  />
                 </th>
                 <th 
                   onClick={() => handleSort('endDate')}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  style={{ width: `${columnWidths['종료일']}px`, cursor: 'pointer', userSelect: 'none', position: 'relative' }}
                   className="sortable-header"
                 >
                   종료일 {sortConfig.key === 'endDate' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '종료일'); }}
+                  />
                 </th>
                 <th 
                   onClick={() => handleSort('supplier')}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  style={{ width: `${columnWidths['공급업체']}px`, cursor: 'pointer', userSelect: 'none', position: 'relative' }}
                   className="sortable-header"
                 >
                   공급업체 {sortConfig.key === 'supplier' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '공급업체'); }}
+                  />
                 </th>
                 <th 
                   onClick={() => handleSort('workStatus')}
-                  style={{ textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+                  style={{ width: `${columnWidths['재직여부']}px`, textAlign: 'center', cursor: 'pointer', userSelect: 'none', position: 'relative' }}
                   className="sortable-header"
                 >
                   재직여부 {sortConfig.key === 'workStatus' && (sortConfig.direction === 'asc' ? '▲' : '▼')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '재직여부'); }}
+                  />
                 </th>
               </tr>
             </thead>
@@ -2528,6 +2644,7 @@ const Dashboard = () => {
           width: 100%;
           border-collapse: collapse;
           font-size: 0.9rem;
+          table-layout: fixed;
         }
 
         .outsourcing-table thead {
@@ -2585,6 +2702,25 @@ const Dashboard = () => {
           transition: background-color 0.2s;
           position: relative;
           padding-right: 1.5rem;
+        }
+
+        .column-resizer {
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: 5px;
+          cursor: col-resize;
+          user-select: none;
+          z-index: 11;
+        }
+
+        .column-resizer:hover {
+          background-color: #667eea;
+        }
+
+        .column-resizer:active {
+          background-color: #5568d3;
         }
 
         .sortable-header:hover {

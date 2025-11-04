@@ -15,6 +15,7 @@ import TaskManagement from './components/TaskManagement';
 import TemplateManagement from './components/TemplateManagement';
 import WorkReport from './components/WorkReport';
 import PersonnelManagement from './components/PersonnelManagement';
+import ExternalPersonnelManagement from './components/ExternalPersonnelManagement';
 
 
 
@@ -135,6 +136,9 @@ function App() {
                     <Link to="/personnel" className="dropdown-item">
                       내부인력
                     </Link>
+                    <Link to="/external-personnel" className="dropdown-item">
+                      외주인력
+                    </Link>
                   </div>
                 )}
               </div>
@@ -165,6 +169,7 @@ function App() {
              <Route path="/tasks" element={<TaskManagement />} />
              <Route path="/templates" element={<TemplateManagement />} />
              <Route path="/personnel" element={<PersonnelManagement />} />
+             <Route path="/external-personnel" element={<ExternalPersonnelManagement />} />
              <Route path="/work-report" element={<WorkReport />} />
              <Route path="/ai-assistant" element={<AIAssistantPage />} />
            </Routes>

@@ -356,6 +356,196 @@ const WorkReport = () => {
             </div>
           )}
 
+          {/* 인력현황 증감 */}
+          {reportData.personnelStats && reportData.personnelStats.current.total > 0 && (
+            <div className="report-section">
+              <h2>👥 인력현황 증감</h2>
+              
+              {/* 전체 인력 증감 요약 */}
+              <div className="personnel-summary">
+                <div className="personnel-summary-item">
+                  <div className="label">기준시점 인원</div>
+                  <div className="value">{reportData.personnelStats.previous.total} 명</div>
+                </div>
+                <div className="personnel-summary-item">
+                  <div className="label">현재 인원</div>
+                  <div className="value">{reportData.personnelStats.current.total} 명</div>
+                </div>
+                <div className="personnel-summary-item">
+                  <div className="label">증감</div>
+                  <div className={`value ${reportData.personnelStats.changes.total > 0 ? 'increase' : reportData.personnelStats.changes.total < 0 ? 'decrease' : ''}`}>
+                    {reportData.personnelStats.changes.total > 0 ? '+' : ''}{reportData.personnelStats.changes.total} 명
+                  </div>
+                </div>
+              </div>
+
+              {/* 부서별 인력 증감 */}
+              {Object.keys(reportData.personnelStats.current.byDepartment).length > 0 && (
+                <div style={{ marginTop: '30px' }}>
+                  <h3>부서별 인력 증감</h3>
+                  <table className="report-table">
+                    <thead>
+                      <tr>
+                        <th>부서</th>
+                        <th>기준시점</th>
+                        <th>현재</th>
+                        <th>증감</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(reportData.personnelStats.current.byDepartment)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([dept]) => {
+                          const current = reportData.personnelStats.current.byDepartment[dept] || 0;
+                          const previous = reportData.personnelStats.previous.byDepartment[dept] || 0;
+                          const change = reportData.personnelStats.changes.byDepartment[dept] || 0;
+                          
+                          return (
+                            <tr key={dept}>
+                              <td>{dept}</td>
+                              <td>{previous} 명</td>
+                              <td>{current} 명</td>
+                              <td style={{ 
+                                color: change > 0 ? '#28a745' : change < 0 ? '#dc3545' : '#666',
+                                fontWeight: change !== 0 ? '600' : 'normal'
+                              }}>
+                                {change > 0 ? '+' : ''}{change} 명
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <th>합계</th>
+                        <th>{reportData.personnelStats.previous.total} 명</th>
+                        <th>{reportData.personnelStats.current.total} 명</th>
+                        <th style={{ 
+                          color: reportData.personnelStats.changes.total > 0 ? '#28a745' : 
+                                 reportData.personnelStats.changes.total < 0 ? '#dc3545' : '#666',
+                          fontWeight: 'bold'
+                        }}>
+                          {reportData.personnelStats.changes.total > 0 ? '+' : ''}{reportData.personnelStats.changes.total} 명
+                        </th>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {/* 외주인력 증감 */}
+              {reportData.personnelStats.external && reportData.personnelStats.external.current.total > 0 && (
+                <div style={{ marginTop: '30px' }}>
+                  <h3>외주인력 증감</h3>
+                  
+                  {/* 외주인력 전체 요약 */}
+                  <div className="personnel-summary" style={{ marginBottom: '20px' }}>
+                    <div className="personnel-summary-item">
+                      <div className="label">기준시점 외주인원</div>
+                      <div className="value">{reportData.personnelStats.external.previous.total} 명</div>
+                    </div>
+                    <div className="personnel-summary-item">
+                      <div className="label">현재 외주인원</div>
+                      <div className="value">{reportData.personnelStats.external.current.total} 명</div>
+                    </div>
+                    <div className="personnel-summary-item">
+                      <div className="label">증감</div>
+                      <div className={`value ${reportData.personnelStats.external.changes.total > 0 ? 'increase' : reportData.personnelStats.external.changes.total < 0 ? 'decrease' : ''}`}>
+                        {reportData.personnelStats.external.changes.total > 0 ? '+' : ''}{reportData.personnelStats.external.changes.total} 명
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 신규 투입 인력 */}
+                  {reportData.personnelStats.external.newPersonnel && reportData.personnelStats.external.newPersonnel.length > 0 && (
+                    <div style={{ marginBottom: '30px' }}>
+                      <h4 style={{ color: '#28a745', marginBottom: '15px' }}>✅ 신규 투입 인력 ({reportData.personnelStats.external.newPersonnel.length}명)</h4>
+                      <table className="report-table">
+                        <thead>
+                          <tr>
+                            <th>성명</th>
+                            <th>업무</th>
+                            <th>협업팀</th>
+                            <th>계약시작일</th>
+                            <th>계약종료일</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reportData.personnelStats.external.newPersonnel.map((person, index) => (
+                            <tr key={person.id || index}>
+                              <td>{person.name}</td>
+                              <td>{person.item}</td>
+                              <td>{person.requestDepartments}</td>
+                              <td>
+                                {person.contractPeriodStart 
+                                  ? new Date(person.contractPeriodStart).toLocaleDateString('ko-KR')
+                                  : '-'
+                                }
+                              </td>
+                              <td>
+                                {person.contractPeriodEnd 
+                                  ? new Date(person.contractPeriodEnd).toLocaleDateString('ko-KR')
+                                  : '진행중'
+                                }
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* 계약 종료 인력 */}
+                  {reportData.personnelStats.external.endedPersonnel && reportData.personnelStats.external.endedPersonnel.length > 0 && (
+                    <div>
+                      <h4 style={{ color: '#dc3545', marginBottom: '15px' }}>❌ 계약 종료 인력 ({reportData.personnelStats.external.endedPersonnel.length}명)</h4>
+                      <table className="report-table">
+                        <thead>
+                          <tr>
+                            <th>성명</th>
+                            <th>업무</th>
+                            <th>협업팀</th>
+                            <th>계약시작일</th>
+                            <th>계약종료일</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reportData.personnelStats.external.endedPersonnel.map((person, index) => (
+                            <tr key={person.id || index}>
+                              <td>{person.name}</td>
+                              <td>{person.item}</td>
+                              <td>{person.requestDepartments}</td>
+                              <td>
+                                {person.contractPeriodStart 
+                                  ? new Date(person.contractPeriodStart).toLocaleDateString('ko-KR')
+                                  : '-'
+                                }
+                              </td>
+                              <td>
+                                {person.contractPeriodEnd 
+                                  ? new Date(person.contractPeriodEnd).toLocaleDateString('ko-KR')
+                                  : '-'
+                                }
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* 증감이 없는 경우 */}
+                  {(!reportData.personnelStats.external.newPersonnel || reportData.personnelStats.external.newPersonnel.length === 0) &&
+                   (!reportData.personnelStats.external.endedPersonnel || reportData.personnelStats.external.endedPersonnel.length === 0) && (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                      외주인력 증감이 없습니다.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 상세 목록 */}
           <div className="report-section">
             <h2>📝 상세 계약 목록</h2>

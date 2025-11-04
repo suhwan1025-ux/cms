@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getApiUrl } from '../config/api';
 import './BudgetRegistrationAPI.css';
 import * as XLSX from 'xlsx';
@@ -71,6 +71,34 @@ const BudgetRegistrationAPI = () => {
 
   // 다중 정렬 상태 관리
   const [sortConfigs, setSortConfigs] = useState([]);
+
+  // 컬럼 리사이징 관련 상태
+  const [columnWidths, setColumnWidths] = useState(() => {
+    const saved = localStorage.getItem('budgetRegistrationTableColumnWidths');
+    return saved ? JSON.parse(saved) : {
+      번호: 60,
+      사업연도: 100,
+      사업명: 200,
+      발의부서: 120,
+      추진부서: 120,
+      예산구분: 100,
+      사업시작월: 120,
+      사업종료월: 120,
+      예산: 150,
+      추가예산: 120,
+      기집행: 150,
+      확정집행액: 150,
+      집행률: 80,
+      미집행액: 120,
+      예산초과액: 120,
+      상태: 100,
+      필수여부: 100,
+      사업목적: 150
+    };
+  });
+  const [resizingColumn, setResizingColumn] = useState(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
 
   // 검색 가능한 드롭다운 상태
   const [initiatorSearch, setInitiatorSearch] = useState('');
@@ -777,6 +805,88 @@ const BudgetRegistrationAPI = () => {
   const handleResetSort = () => {
     setSortConfigs([]);
   };
+
+  // 컬럼 너비 초기화
+  const resetColumnWidths = () => {
+    const defaultWidths = {
+      번호: 60,
+      사업연도: 100,
+      사업명: 200,
+      발의부서: 120,
+      추진부서: 120,
+      예산구분: 100,
+      사업시작월: 120,
+      사업종료월: 120,
+      예산: 150,
+      추가예산: 120,
+      기집행: 150,
+      확정집행액: 150,
+      집행률: 80,
+      미집행액: 120,
+      예산초과액: 120,
+      상태: 100,
+      필수여부: 100,
+      사업목적: 150
+    };
+    setColumnWidths(defaultWidths);
+    localStorage.removeItem('budgetRegistrationTableColumnWidths');
+  };
+
+  // 리사이저 공통 스타일
+  const resizerStyle = {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '10px',
+    cursor: 'col-resize',
+    userSelect: 'none',
+    zIndex: 999,
+    backgroundColor: 'transparent'
+  };
+
+  // 컬럼 리사이징 핸들러
+  const handleMouseDown = (e, columnName) => {
+    setResizingColumn(columnName);
+    setStartX(e.clientX);
+    setStartWidth(columnWidths[columnName]);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = useCallback((e) => {
+    if (!resizingColumn) return;
+    
+    const diff = e.clientX - startX;
+    const newWidth = Math.max(50, startWidth + diff);
+    
+    setColumnWidths(prev => ({
+      ...prev,
+      [resizingColumn]: newWidth
+    }));
+  }, [resizingColumn, startX, startWidth]);
+
+  const handleMouseUp = useCallback(() => {
+    if (resizingColumn) {
+      setColumnWidths(prev => {
+        localStorage.setItem('budgetRegistrationTableColumnWidths', JSON.stringify(prev));
+        return prev;
+      });
+      setResizingColumn(null);
+    }
+  }, [resizingColumn]);
+
+  // 전역 마우스 이벤트 리스너
+  useEffect(() => {
+    if (resizingColumn) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [resizingColumn, handleMouseMove, handleMouseUp]);
 
   // 편집 모드 시작
   const handleEdit = (budget) => {
@@ -1619,6 +1729,25 @@ const BudgetRegistrationAPI = () => {
               </button>
               )}
               <button
+                onClick={resetColumnWidths}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+                onMouseEnter={(e) => e.target.style.background = '#5a6268'}
+                onMouseLeave={(e) => e.target.style.background = '#6c757d'}
+              >
+                ↔️ 컬럼 너비 초기화
+              </button>
+              <button
                 onClick={handleExcelDownload}
                 style={{
                   padding: '0.5rem 1rem',
@@ -1643,60 +1772,80 @@ const BudgetRegistrationAPI = () => {
             <table className="budget-list-table">
             <thead>
               <tr>
-                <th>번호</th>
-                <th className="sortable" onClick={() => handleSort('budgetYear')}>
+                <th style={{ width: `${columnWidths['번호']}px`, position: 'relative' }}>
+                  번호
+                  <div style={resizerStyle} onMouseDown={(e) => handleMouseDown(e, '번호')} />
+                </th>
+                <th className="sortable" style={{ width: `${columnWidths['사업연도']}px`, position: 'relative' }} onClick={() => handleSort('budgetYear')}>
                   사업연도 {getSortIcon('budgetYear')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '사업연도'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('projectName')}>
+                <th className="sortable" style={{ width: `${columnWidths['사업명']}px`, position: 'relative' }} onClick={() => handleSort('projectName')}>
                   사업명 {getSortIcon('projectName')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '사업명'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('initiatorDepartment')}>
+                <th className="sortable" style={{ width: `${columnWidths['발의부서']}px`, position: 'relative' }} onClick={() => handleSort('initiatorDepartment')}>
                   발의부서 {getSortIcon('initiatorDepartment')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '발의부서'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('executorDepartment')}>
+                <th className="sortable" style={{ width: `${columnWidths['추진부서']}px`, position: 'relative' }} onClick={() => handleSort('executorDepartment')}>
                   추진부서 {getSortIcon('executorDepartment')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '추진부서'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('budgetCategory')}>
+                <th className="sortable" style={{ width: `${columnWidths['예산구분']}px`, position: 'relative' }} onClick={() => handleSort('budgetCategory')}>
                   예산 구분 {getSortIcon('budgetCategory')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '예산구분'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('startDate')}>
+                <th className="sortable" style={{ width: `${columnWidths['사업시작월']}px`, position: 'relative' }} onClick={() => handleSort('startDate')}>
                   사업 시작월 {getSortIcon('startDate')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '사업시작월'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('endDate')}>
+                <th className="sortable" style={{ width: `${columnWidths['사업종료월']}px`, position: 'relative' }} onClick={() => handleSort('endDate')}>
                   사업 종료월 {getSortIcon('endDate')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '사업종료월'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('budgetAmount')}>
+                <th className="sortable" style={{ width: `${columnWidths['예산']}px`, position: 'relative' }} onClick={() => handleSort('budgetAmount')}>
                   예산 {getSortIcon('budgetAmount')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '예산'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('executedAmount')}>
+                <th className="sortable" style={{ width: `${columnWidths['추가예산']}px`, position: 'relative' }} onClick={() => handleSort('additionalBudget')}>
+                  추가예산 {getSortIcon('additionalBudget')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '추가예산'); }} />
+                </th>
+                <th className="sortable" style={{ width: `${columnWidths['기집행']}px`, position: 'relative' }} onClick={() => handleSort('executedAmount')}>
                   기 집행 {getSortIcon('executedAmount')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '기집행'); }} />
                 </th>
                 <th className="sortable" onClick={() => handleSort('pendingAmount')}>
                   집행대기 {getSortIcon('pendingAmount')}
                 </th>
-                <th className="sortable" onClick={() => handleSort('confirmedExecutionAmount')}>
+                <th className="sortable" style={{ width: `${columnWidths['확정집행액']}px`, position: 'relative' }} onClick={() => handleSort('confirmedExecutionAmount')}>
                   확정집행액 {getSortIcon('confirmedExecutionAmount')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '확정집행액'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('executionRate')}>
+                <th className="sortable" style={{ width: `${columnWidths['집행률']}px`, position: 'relative' }} onClick={() => handleSort('executionRate')}>
                   집행률 {getSortIcon('executionRate')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '집행률'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('unexecutedAmount')}>
+                <th className="sortable" style={{ width: `${columnWidths['미집행액']}px`, position: 'relative' }} onClick={() => handleSort('unexecutedAmount')}>
                   미집행액 {getSortIcon('unexecutedAmount')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '미집행액'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('budgetExcessAmount')} style={{ backgroundColor: '#fff3cd' }}>
+                <th className="sortable" style={{ width: `${columnWidths['예산초과액']}px`, position: 'relative', backgroundColor: '#fff3cd' }} onClick={() => handleSort('budgetExcessAmount')}>
                   예산초과액 {getSortIcon('budgetExcessAmount')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '예산초과액'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('additionalBudget')}>
-                  추가예산 {getSortIcon('additionalBudget')}
-                </th>
-                <th className="sortable" onClick={() => handleSort('status')}>
+                <th className="sortable" style={{ width: `${columnWidths['상태']}px`, position: 'relative' }} onClick={() => handleSort('status')}>
                   상태 {getSortIcon('status')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '상태'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('isEssential')}>
+                <th className="sortable" style={{ width: `${columnWidths['필수여부']}px`, position: 'relative' }} onClick={() => handleSort('isEssential')}>
                   필수사업 {getSortIcon('isEssential')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '필수여부'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('projectPurpose')}>
+                <th className="sortable" style={{ width: `${columnWidths['사업목적']}px`, position: 'relative' }} onClick={() => handleSort('projectPurpose')}>
                   사업목적 {getSortIcon('projectPurpose')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '사업목적'); }} />
                 </th>
                 <th className="sortable" onClick={() => handleSort('itPlanReported')}>
                   IT계획서 {getSortIcon('itPlanReported')}

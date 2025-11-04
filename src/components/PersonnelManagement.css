@@ -331,6 +331,11 @@
   font-weight: 500;
 }
 
+.stats-table .count.scheduled {
+  color: #28a745;
+  font-weight: 600;
+}
+
 .stats-table .diff {
   text-align: center;
   font-weight: 600;

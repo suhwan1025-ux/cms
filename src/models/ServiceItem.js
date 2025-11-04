@@ -15,6 +15,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'supplierId',
         as: 'supplierInfo'
       });
+      
+      // 용역항목과 외주인력 관리정보의 관계
+      ServiceItem.hasOne(models.ExternalPersonnelInfo, {
+        foreignKey: 'serviceItemId',
+        as: 'personnelInfo'
+      });
     }
   }
   

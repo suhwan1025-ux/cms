@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getApiUrl } from '../config/api';
 import { generatePreviewHTML } from '../utils/previewGenerator';
 import './BudgetDashboard.css';
@@ -16,6 +16,29 @@ const BudgetDashboard = () => {
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [proposalSortConfig, setProposalSortConfig] = useState({ key: null, direction: 'asc' });
+
+  // 컬럼 리사이징 관련 상태
+  const [columnWidths, setColumnWidths] = useState(() => {
+    const saved = localStorage.getItem('budgetTableColumnWidths');
+    return saved ? JSON.parse(saved) : {
+      번호: 60,
+      사업명: 200,
+      예산구분: 100,
+      사업목적: 150,
+      예산: 150,
+      추가예산: 120,
+      기집행액: 150,
+      확정집행액: 150,
+      집행률: 80,
+      상태: 100,
+      필수여부: 100,
+      발의부서: 120,
+      추진부서: 120
+    };
+  });
+  const [resizingColumn, setResizingColumn] = useState(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
 
   // 데이터 로드
   useEffect(() => {
@@ -162,6 +185,63 @@ const BudgetDashboard = () => {
     return (amount / 100000000).toFixed(1) + '억원';
   };
 
+  // 리사이저 공통 스타일
+  const resizerStyle = {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '10px',
+    cursor: 'col-resize',
+    userSelect: 'none',
+    zIndex: 999,
+    backgroundColor: 'transparent'
+  };
+
+  // 컬럼 리사이징 핸들러
+  const handleMouseDown = (e, columnName) => {
+    setResizingColumn(columnName);
+    setStartX(e.clientX);
+    setStartWidth(columnWidths[columnName]);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = useCallback((e) => {
+    if (!resizingColumn) return;
+    
+    const diff = e.clientX - startX;
+    const newWidth = Math.max(50, startWidth + diff); // 최소 너비 50px
+    
+    setColumnWidths(prev => ({
+      ...prev,
+      [resizingColumn]: newWidth
+    }));
+  }, [resizingColumn, startX, startWidth]);
+
+  const handleMouseUp = useCallback(() => {
+    if (resizingColumn) {
+      // localStorage에 저장
+      setColumnWidths(prev => {
+        localStorage.setItem('budgetTableColumnWidths', JSON.stringify(prev));
+        return prev;
+      });
+      setResizingColumn(null);
+    }
+  }, [resizingColumn]);
+
+  // 전역 마우스 이벤트 리스너
+  useEffect(() => {
+    if (resizingColumn) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [resizingColumn, handleMouseMove, handleMouseUp]);
+
   // 정렬 함수
   const handleSort = (key) => {
     let direction = 'asc';
@@ -174,6 +254,27 @@ const BudgetDashboard = () => {
   // 정렬 초기화
   const handleResetSort = () => {
     setSortConfig({ key: null, direction: 'asc' });
+  };
+
+  // 컬럼 너비 초기화
+  const resetColumnWidths = () => {
+    const defaultWidths = {
+      번호: 60,
+      사업명: 200,
+      예산구분: 100,
+      사업목적: 150,
+      예산: 150,
+      추가예산: 120,
+      기집행액: 150,
+      확정집행액: 150,
+      집행률: 80,
+      상태: 100,
+      필수여부: 100,
+      발의부서: 120,
+      추진부서: 120
+    };
+    setColumnWidths(defaultWidths);
+    localStorage.removeItem('budgetTableColumnWidths');
   };
 
   // 정렬 아이콘 표시
@@ -613,9 +714,28 @@ const BudgetDashboard = () => {
       <div className="budget-list-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3>{selectedYear}년 사업예산 목록 (총 {budgets.length}건)</h3>
-          {sortConfig.key && (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {sortConfig.key && (
+              <button 
+                onClick={handleResetSort}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: '500'
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
+                onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
+              >
+                🔄 정렬 초기화
+              </button>
+            )}
             <button 
-              onClick={handleResetSort}
+              onClick={resetColumnWidths}
               style={{
                 padding: '0.5rem 1rem',
                 backgroundColor: '#6c757d',
@@ -629,86 +749,140 @@ const BudgetDashboard = () => {
               onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
               onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
             >
-              🔄 정렬 초기화
+              ↔️ 컬럼 너비 초기화
             </button>
-          )}
+          </div>
         </div>
         <div className="table-responsive">
           <table className="budget-list-table">
             <thead>
               <tr>
-                <th style={{ textAlign: 'center' }}>번호</th>
+                <th style={{ width: `${columnWidths['번호']}px`, textAlign: 'center', position: 'relative' }}>
+                  번호
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => handleMouseDown(e, '번호')}
+                  />
+                </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['사업명']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('projectName')}
                 >
                   사업명{getSortIcon('projectName')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '사업명'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['예산구분']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('budgetCategory')}
                 >
                   예산 구분{getSortIcon('budgetCategory')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '예산구분'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['사업목적']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('projectPurposeCode')}
                 >
                   사업목적{getSortIcon('projectPurposeCode')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '사업목적'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['예산']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('budgetAmount')}
                 >
                   예산{getSortIcon('budgetAmount')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '예산'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['추가예산']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('additionalBudget')}
                 >
                   추가예산{getSortIcon('additionalBudget')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '추가예산'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['기집행액']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('executedAmount')}
                 >
                   기집행액{getSortIcon('executedAmount')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '기집행액'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['확정집행액']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('confirmedExecutionAmount')}
                 >
                   확정집행액{getSortIcon('confirmedExecutionAmount')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '확정집행액'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['집행률']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('executionRate')}
                 >
                   집행률{getSortIcon('executionRate')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '집행률'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['상태']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('status')}
                 >
                   상태{getSortIcon('status')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '상태'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['필수여부']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('isEssential')}
                 >
                   필수여부{getSortIcon('isEssential')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '필수여부'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['발의부서']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('initiatorDepartment')}
                 >
                   발의부서{getSortIcon('initiatorDepartment')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '발의부서'); }}
+                  />
                 </th>
                 <th 
-                  style={{ cursor: 'pointer', textAlign: 'center' }} 
+                  style={{ width: `${columnWidths['추진부서']}px`, cursor: 'pointer', textAlign: 'center', position: 'relative' }} 
                   onClick={() => handleSort('executorDepartment')}
                 >
                   추진부서{getSortIcon('executorDepartment')}
+                  <div 
+                    style={resizerStyle}
+                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '추진부서'); }}
+                  />
                 </th>
               </tr>
             </thead>

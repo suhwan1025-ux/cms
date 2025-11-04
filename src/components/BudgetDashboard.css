@@ -587,6 +587,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  table-layout: fixed;
 }
 
 .budget-list-table thead {
@@ -603,6 +604,7 @@
   color: #495057;
   border-bottom: 2px solid #dee2e6;
   white-space: nowrap;
+  position: relative;
 }
 
 .budget-list-table td {
@@ -618,6 +620,27 @@
 
 .budget-list-table .budget-row {
   cursor: pointer;
+}
+
+/* 컬럼 리사이저 */
+.column-resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 11;
+  background-color: rgba(102, 126, 234, 0.1);
+}
+
+.column-resizer:hover {
+  background-color: #667eea;
+}
+
+.column-resizer:active {
+  background-color: #5568d3;
 }
 
 /* 예산 초과 행 스타일 */

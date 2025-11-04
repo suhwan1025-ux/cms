@@ -3828,6 +3828,339 @@ app.get('/api/work-reports', async (req, res) => {
       // 오류가 발생해도 계속 진행
     }
     
+    // 인력현황 증감 조회
+    let personnelStats = {
+      current: { total: 0, byDepartment: {} },
+      previous: { total: 0, byDepartment: {} },
+      changes: { total: 0, byDepartment: {} },
+      external: {
+        current: { total: 0, byWorkType: {}, bySkillLevel: {} },
+        previous: { total: 0, byWorkType: {}, bySkillLevel: {} },
+        changes: { total: 0, byWorkType: {}, bySkillLevel: {} }
+      }
+    };
+    
+    try {
+      // 현재 인력현황 조회 (종료일 기준 재직중인 인원)
+      const currentPersonnel = await models.Personnel.findAll({
+        where: {
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { join_date: null },
+                { join_date: { [Op.lte]: new Date(endDate) } }
+              ]
+            },
+            {
+              [Op.or]: [
+                { resignation_date: null },
+                { resignation_date: { [Op.gt]: new Date(endDate) } }
+              ]
+            }
+          ]
+        }
+      });
+      
+      let previousPersonnel = [];
+      let useBackupData = false;
+      
+      // 백업 테이블이 있는지 확인하고 백업 데이터 조회 시도
+      try {
+        const [backupDates] = await sequelize.query(`
+          SELECT DISTINCT backup_date 
+          FROM personnel_backup 
+          WHERE backup_date <= :startDate
+          ORDER BY backup_date DESC
+          LIMIT 1
+        `, {
+          replacements: { startDate },
+          type: Sequelize.QueryTypes.SELECT
+        });
+        
+        if (backupDates && backupDates.backup_date) {
+          // 백업 데이터 조회
+          const [backupData] = await sequelize.query(`
+            SELECT * FROM personnel_backup 
+            WHERE backup_date = :backupDate
+            AND (resignation_date IS NULL OR resignation_date > :backupDate)
+          `, {
+            replacements: { backupDate: backupDates.backup_date },
+            type: Sequelize.QueryTypes.SELECT
+          });
+          
+          if (backupData && backupData.length > 0) {
+            previousPersonnel = backupData;
+            useBackupData = true;
+          }
+        }
+      } catch (backupError) {
+        console.log('백업 테이블 없음 또는 조회 오류, personnel 테이블로 계산:', backupError.message);
+      }
+      
+      // 백업 데이터가 없으면 personnel 테이블에서 시작일 기준으로 계산
+      if (!useBackupData) {
+        previousPersonnel = await models.Personnel.findAll({
+          where: {
+            [Op.and]: [
+              {
+                [Op.or]: [
+                  { join_date: null },
+                  { join_date: { [Op.lte]: new Date(startDate) } }
+                ]
+              },
+              {
+                [Op.or]: [
+                  { resignation_date: null },
+                  { resignation_date: { [Op.gt]: new Date(startDate) } }
+                ]
+              }
+            ]
+          }
+        });
+      }
+      
+      // 현재 인력 집계 (내부인력)
+      personnelStats.current.total = currentPersonnel.length;
+      currentPersonnel.forEach(p => {
+        const dept = p.department || '미지정';
+        personnelStats.current.byDepartment[dept] = (personnelStats.current.byDepartment[dept] || 0) + 1;
+      });
+      
+      // 이전 인력 집계 (내부인력)
+      personnelStats.previous.total = previousPersonnel.length;
+      previousPersonnel.forEach(p => {
+        const dept = p.department || '미지정';
+        personnelStats.previous.byDepartment[dept] = (personnelStats.previous.byDepartment[dept] || 0) + 1;
+      });
+      
+      // 증감 계산 (내부인력)
+      personnelStats.changes.total = personnelStats.current.total - personnelStats.previous.total;
+      
+      // 부서별 증감
+      const allDepts = new Set([
+        ...Object.keys(personnelStats.current.byDepartment),
+        ...Object.keys(personnelStats.previous.byDepartment)
+      ]);
+      allDepts.forEach(dept => {
+        const current = personnelStats.current.byDepartment[dept] || 0;
+        const previous = personnelStats.previous.byDepartment[dept] || 0;
+        personnelStats.changes.byDepartment[dept] = current - previous;
+      });
+      
+      // ===== 외주인력 증감 조회 =====
+      // 대시보드와 동일한 로직: 결재완료 + 용역계약만 조회
+      const allExternalPersonnel = await models.ServiceItem.findAll({
+        include: [
+          {
+            model: models.Proposal,
+            as: 'proposal',
+            where: {
+              status: 'approved', // 결재완료만 포함
+              contractType: 'service' // 용역계약만 포함 (대시보드와 동일)
+            },
+            required: true,
+            include: [
+              {
+                model: models.RequestDepartment,
+                as: 'requestDepartments',
+                required: false
+              }
+            ]
+          },
+          {
+            model: models.ExternalPersonnelInfo,
+            as: 'personnelInfo',
+            required: false
+          }
+        ]
+      });
+      
+      // 133번 품의서만 확인 (간단 로그)
+      try {
+        const proposal133 = await models.Proposal.findByPk(133, {
+          include: [{ model: models.ServiceItem, as: 'serviceItems', required: false }]
+        });
+        
+        if (proposal133) {
+          const isIncluded = allExternalPersonnel.some(item => item.proposal?.id === 133);
+          const approvalDate = proposal133.approvalDate ? new Date(proposal133.approvalDate) : null;
+          const oneYearAgo = new Date();
+          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+          const isWithinYear = approvalDate && approvalDate >= oneYearAgo;
+          
+          console.log(`\n[133번 품의서] 상태:${proposal133.status} | 유형:${proposal133.contractType} | 용역항목:${proposal133.serviceItems?.length || 0}개`);
+          console.log(`  결재일:${approvalDate ? approvalDate.toISOString().split('T')[0] : '없음'} | 최근1년:${isWithinYear ? 'O' : 'X'} | 업무보고포함:${isIncluded ? 'O' : 'X'}`);
+          
+          if (!isWithinYear && proposal133.status === 'approved') {
+            console.log(`  ⚠️ 대시보드 제외이유: 결재일이 1년 이전\n`);
+          } else if (proposal133.status !== 'approved') {
+            console.log(`  ⚠️ 대시보드 제외이유: 상태가 '${proposal133.status}' (approved 아님)\n`);
+          }
+        }
+      } catch (error) {
+        console.error('133번 품의서 조회 오류:', error.message);
+      }
+      
+      // 대시보드와 동일한 계약기간 계산 함수
+      const calculateContractDates = (item) => {
+        let contractStart = null;
+        let contractEnd = null;
+        
+        // 1순위: 용역항목에 입력된 계약 시작일 사용
+        if (item.contractPeriodStart) {
+          contractStart = new Date(item.contractPeriodStart);
+        } else if (item.proposal?.approvalDate) {
+          // 2순위: 승인일 사용
+          contractStart = new Date(item.proposal.approvalDate);
+        }
+        
+        // 종료일 계산
+        if (item.contractPeriodEnd) {
+          contractEnd = new Date(item.contractPeriodEnd);
+        } else if (contractStart && item.period) {
+          // 계약 종료일이 없으면 시작일 + 기간으로 자동 계산
+          contractEnd = new Date(contractStart);
+          contractEnd.setMonth(contractEnd.getMonth() + parseFloat(item.period));
+        }
+        
+        return { contractStart, contractEnd };
+      };
+      
+      // 특정 날짜 기준으로 재직중인지 확인하는 함수 (대시보드와 동일)
+      const isWorkingOnDate = (item, targetDate) => {
+        const { contractStart, contractEnd } = calculateContractDates(item);
+        
+        // 시작일과 종료일이 모두 있어야 판단 가능
+        if (!contractStart || !contractEnd) return false;
+        
+        const target = new Date(targetDate);
+        target.setHours(0, 0, 0, 0);
+        
+        const start = new Date(contractStart);
+        start.setHours(0, 0, 0, 0);
+        
+        const end = new Date(contractEnd);
+        end.setHours(0, 0, 0, 0);
+        
+        // 대시보드와 동일한 로직: target >= start && target <= end
+        // 즉, target이 계약기간 내에 있으면 재직중
+        return target >= start && target <= end;
+      };
+      
+      // *** 중요: 조회 기간의 TO 날짜(endDate) 기준으로 재직중인 외주인력 ***
+      // 이것이 "현재 외주인원"이 됩니다
+      const currentExternalPersonnel = allExternalPersonnel.filter(item => 
+        isWorkingOnDate(item, endDate)
+      );
+      
+      // *** 중요: 조회 기간의 FROM 날짜(startDate) 기준으로 재직중인 외주인력 ***
+      // 이것이 "기준시점 외주인원"이 됩니다
+      const previousExternalPersonnel = allExternalPersonnel.filter(item => 
+        isWorkingOnDate(item, startDate)
+      );
+      
+      console.log(`\n📊 [외주인력 현황] ${startDate} ~ ${endDate}`);
+      console.log(`전체: ${allExternalPersonnel.length}개 | 현재: ${currentExternalPersonnel.length}개 | 기준시점: ${previousExternalPersonnel.length}개`);
+      
+      // 각 항목의 인원수 확인 및 합산
+      let currentTotalPersonnel = 0;
+      let previousTotalPersonnel = 0;
+      
+      currentExternalPersonnel.forEach(item => {
+        const personnel = parseInt(item.personnel) || 1;
+        currentTotalPersonnel += personnel;
+      });
+      
+      previousExternalPersonnel.forEach(item => {
+        const personnel = parseInt(item.personnel) || 1;
+        previousTotalPersonnel += personnel;
+      });
+      
+      console.log('\n[외주인력 집계 결과]');
+      console.log(`✓ 현재 외주인원: ${currentTotalPersonnel}명 (${currentExternalPersonnel.length}개 계약)`);
+      console.log(`✓ 기준시점 외주인원: ${previousTotalPersonnel}명 (${previousExternalPersonnel.length}개 계약)`);
+      console.log(`✓ 증감: ${currentTotalPersonnel - previousTotalPersonnel > 0 ? '+' : ''}${currentTotalPersonnel - previousTotalPersonnel}명\n`);
+      
+      // 현재 외주인력 집계
+      currentExternalPersonnel.forEach(item => {
+        const personnel = parseInt(item.personnel) || 1;
+        const skillLevel = item.skillLevel || '미지정';
+        const workType = item.personnelInfo?.workType || '미지정';
+        
+        personnelStats.external.current.total += personnel;
+        personnelStats.external.current.bySkillLevel[skillLevel] = 
+          (personnelStats.external.current.bySkillLevel[skillLevel] || 0) + personnel;
+        personnelStats.external.current.byWorkType[workType] = 
+          (personnelStats.external.current.byWorkType[workType] || 0) + personnel;
+      });
+      
+      // 이전 외주인력 집계
+      previousExternalPersonnel.forEach(item => {
+        const personnel = parseInt(item.personnel) || 1;
+        const skillLevel = item.skillLevel || '미지정';
+        const workType = item.personnelInfo?.workType || '미지정';
+        
+        personnelStats.external.previous.total += personnel;
+        personnelStats.external.previous.bySkillLevel[skillLevel] = 
+          (personnelStats.external.previous.bySkillLevel[skillLevel] || 0) + personnel;
+        personnelStats.external.previous.byWorkType[workType] = 
+          (personnelStats.external.previous.byWorkType[workType] || 0) + personnel;
+      });
+      
+      // 외주인력 증감 계산
+      personnelStats.external.changes.total = 
+        personnelStats.external.current.total - personnelStats.external.previous.total;
+      
+      // 증감된 인력 상세 정보 추출
+      personnelStats.external.newPersonnel = []; // 신규 투입
+      personnelStats.external.endedPersonnel = []; // 계약 종료
+      
+      // 이전 기간의 serviceItemId 목록
+      const previousItemIds = new Set(previousExternalPersonnel.map(item => item.id));
+      
+      // 신규 투입 인력 (현재에는 있지만 이전에는 없는)
+      currentExternalPersonnel.forEach(item => {
+        if (!previousItemIds.has(item.id)) {
+          const { contractStart, contractEnd } = calculateContractDates(item);
+          personnelStats.external.newPersonnel.push({
+            id: item.id,
+            name: item.name || '-',
+            item: item.item || '-',
+            skillLevel: item.skillLevel,
+            personnel: item.personnel,
+            contractPeriodStart: contractStart,
+            contractPeriodEnd: contractEnd,
+            workType: item.personnelInfo?.workType || '-',
+            requestDepartments: item.proposal?.requestDepartments?.map(d => d.department).join(', ') || '-'
+          });
+        }
+      });
+      
+      // 현재 기간의 serviceItemId 목록
+      const currentItemIds = new Set(currentExternalPersonnel.map(item => item.id));
+      
+      // 계약 종료 인력 (이전에는 있지만 현재에는 없는)
+      previousExternalPersonnel.forEach(item => {
+        if (!currentItemIds.has(item.id)) {
+          const { contractStart, contractEnd } = calculateContractDates(item);
+          personnelStats.external.endedPersonnel.push({
+            id: item.id,
+            name: item.name || '-',
+            item: item.item || '-',
+            skillLevel: item.skillLevel,
+            personnel: item.personnel,
+            contractPeriodStart: contractStart,
+            contractPeriodEnd: contractEnd,
+            workType: item.personnelInfo?.workType || '-',
+            requestDepartments: item.proposal?.requestDepartments?.map(d => d.department).join(', ') || '-'
+          });
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ 인력현황 조회 오류:', error.message);
+    }
+    
     res.json({
       period,
       startDate,
@@ -3844,6 +4177,7 @@ app.get('/api/work-reports', async (req, res) => {
       monthlyStats,
       departmentStats,
       budgetStats,
+      personnelStats,
       proposals: proposals.map(p => {
         const budget = budgetMap[p.budgetId];
         return {
@@ -4228,6 +4562,150 @@ app.delete('/api/personnel/:id', async (req, res) => {
   } catch (error) {
     console.error('인력현황 삭제 오류:', error);
     res.status(500).json({ error: '인력현황 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
+// ==================== 외주인력 관리 API ====================
+
+// 외주인력 목록 조회
+app.get('/api/external-personnel', async (req, res) => {
+  try {
+    const serviceItems = await models.ServiceItem.findAll({
+      include: [
+        {
+          model: models.Proposal,
+          as: 'proposal',
+          attributes: ['id', 'title', 'purpose', 'approvalDate', 'contractType'],
+          required: true, // INNER JOIN으로 proposal이 있는 것만
+          where: {
+            approvalDate: {
+              [models.Sequelize.Op.ne]: null // 결재완료된 품의서만
+            },
+            contractType: 'service' // 용역계약만
+          },
+          include: [{
+            model: models.RequestDepartment,
+            as: 'requestDepartments',
+            attributes: ['department', 'name']
+          }]
+        },
+        {
+          model: models.ExternalPersonnelInfo,
+          as: 'personnelInfo',
+          required: false // LEFT JOIN (없어도 조회)
+        }
+      ],
+      order: [['id', 'DESC']]
+    });
+
+    // 데이터 변환: 협업팀 정보 추출 및 계약기간 계산
+    const externalPersonnel = serviceItems.map(item => {
+      const department = item.proposal?.requestDepartments?.[0]?.department || 
+                        item.proposal?.requestDepartments?.[0]?.name || 
+                        '-';
+      
+      // 시작일과 종료일 - 대시보드와 동일한 로직
+      let startDate = null;
+      let endDate = null;
+      
+      // 1순위: 용역항목에 입력된 계약 시작일 사용
+      if (item.contractPeriodStart) {
+        startDate = new Date(item.contractPeriodStart);
+      } else if (item.proposal?.approvalDate) {
+        // 2순위: 승인일 사용
+        startDate = new Date(item.proposal.approvalDate);
+      }
+      
+      // 종료일 계산
+      if (item.contractPeriodEnd) {
+        endDate = new Date(item.contractPeriodEnd);
+      } else if (startDate && item.period) {
+        // 계약 종료일이 없으면 시작일 + 기간으로 자동 계산
+        endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + parseFloat(item.period));
+      }
+      
+      // 날짜를 YYYY-MM-DD 형식으로 변환
+      const formatDate = (date) => {
+        if (!date) return null;
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      
+      return {
+        id: item.id,
+        proposal_id: item.proposalId,
+        proposal_title: item.proposal?.title || item.proposal?.purpose || '-',
+        employee_number: item.personnelInfo?.employeeNumber || null,
+        name: item.name,
+        rank: item.personnelInfo?.rank || null,
+        item: item.item,
+        contract_start_date: formatDate(startDate),
+        contract_end_date: formatDate(endDate),
+        skill_level: item.skillLevel,
+        department: department,
+        work_type: item.personnelInfo?.workType || null,
+        is_onsite: item.personnelInfo?.isOnsite !== undefined ? item.personnelInfo.isOnsite : null,
+        work_load: item.personnelInfo?.workLoad || null,
+        monthly_rate: item.monthlyRate,
+        period: item.period,
+        contract_amount: item.contractAmount,
+        has_personnel_info: !!item.personnelInfo // 관리 정보 존재 여부
+      };
+    });
+
+    res.json(externalPersonnel);
+  } catch (error) {
+    console.error('외주인력 조회 오류:', error);
+    res.status(500).json({ error: '외주인력 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 외주인력 관리 정보 수정
+app.put('/api/external-personnel/:serviceItemId', async (req, res) => {
+  try {
+    const { serviceItemId } = req.params;
+    const { employee_number, rank, work_type, is_onsite, work_load } = req.body;
+
+    // ServiceItem 존재 확인
+    const serviceItem = await models.ServiceItem.findByPk(serviceItemId);
+    if (!serviceItem) {
+      return res.status(404).json({ error: '용역항목을 찾을 수 없습니다.' });
+    }
+
+    // ExternalPersonnelInfo가 있으면 업데이트, 없으면 생성
+    const [personnelInfo, created] = await models.ExternalPersonnelInfo.findOrCreate({
+      where: { serviceItemId },
+      defaults: {
+        serviceItemId,
+        employeeNumber: employee_number,
+        rank,
+        workType: work_type,
+        isOnsite: is_onsite,
+        workLoad: work_load
+      }
+    });
+
+    if (!created) {
+      // 이미 존재하면 업데이트
+      await personnelInfo.update({
+        employeeNumber: employee_number,
+        rank,
+        workType: work_type,
+        isOnsite: is_onsite,
+        workLoad: work_load
+      });
+    }
+
+    res.json({ 
+      message: '외주인력 관리 정보가 업데이트되었습니다.',
+      data: personnelInfo
+    });
+  } catch (error) {
+    console.error('외주인력 정보 수정 오류:', error);
+    res.status(500).json({ error: '외주인력 정보 수정 중 오류가 발생했습니다.' });
   }
 });
 

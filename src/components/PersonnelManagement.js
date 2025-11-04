@@ -152,12 +152,26 @@ function PersonnelManagement() {
   // 검색 및 필터링
   const filterPersonnel = () => {
     let filtered = [...personnel];
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     // 재직 상태 필터
     if (employmentFilter === 'active') {
-      filtered = filtered.filter(p => !p.resignation_date);
+      // 재직중: 퇴사일 없고, 입사일이 오늘 이전
+      filtered = filtered.filter(p => {
+        const joinDate = p.join_date ? new Date(p.join_date) : null;
+        return !p.resignation_date && joinDate && joinDate <= today;
+      });
     } else if (employmentFilter === 'resigned') {
+      // 퇴사자: 퇴사일이 있음
       filtered = filtered.filter(p => p.resignation_date);
+    } else if (employmentFilter === 'scheduled') {
+      // 입사예정자: 퇴사일 없고, 입사일이 미래
+      filtered = filtered.filter(p => {
+        const joinDate = p.join_date ? new Date(p.join_date) : null;
+        return !p.resignation_date && joinDate && joinDate > today;
+      });
     }
 
     // 검색 필터
@@ -433,12 +447,15 @@ function PersonnelManagement() {
   // 본부별/부서별 계층 구조로 인력 현황 계산
   const calculateHierarchicalStats = (targetDate = null) => {
     const divisionStats = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
     personnel.forEach(person => {
+      const joinDate = person.join_date ? new Date(person.join_date) : null;
+      const resignDate = person.resignation_date ? new Date(person.resignation_date) : null;
+      
       if (targetDate) {
         // 비교 날짜가 있는 경우: 해당 날짜 시점에 재직 중이었는지 확인
-        const joinDate = person.join_date ? new Date(person.join_date) : null;
-        const resignDate = person.resignation_date ? new Date(person.resignation_date) : null;
         const compareDate = new Date(targetDate);
         
         // 입사일이 비교 날짜보다 나중이면 제외
@@ -453,7 +470,56 @@ function PersonnelManagement() {
       } else {
         // 현재 기준: 퇴사자는 제외 (재직자만)
         if (person.resignation_date) return;
+        
+        // 입사일이 미래인 경우도 제외 (아직 입사 전)
+        if (!joinDate || joinDate > today) return;
       }
+      
+      const division = person.division || '미지정';
+      const department = person.department || '미지정';
+      
+      if (!divisionStats[division]) {
+        divisionStats[division] = {
+          count: 0,
+          departments: {}
+        };
+      }
+      
+      divisionStats[division].count++;
+      
+      if (!divisionStats[division].departments[department]) {
+        divisionStats[division].departments[department] = 0;
+      }
+      divisionStats[division].departments[department]++;
+    });
+    
+    // 정렬된 배열로 변환
+    return Object.entries(divisionStats)
+      .map(([divisionName, data]) => ({
+        division: divisionName,
+        count: data.count,
+        departments: Object.entries(data.departments)
+          .map(([deptName, count]) => ({
+            name: deptName,
+            count
+          }))
+          .sort((a, b) => b.count - a.count)
+      }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  // 입사예정자 계산
+  const calculateScheduledStats = () => {
+    const divisionStats = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    personnel.forEach(person => {
+      const joinDate = person.join_date ? new Date(person.join_date) : null;
+      
+      // 입사예정자: 퇴사일 없고, 입사일이 미래
+      if (person.resignation_date) return;
+      if (!joinDate || joinDate <= today) return;
       
       const division = person.division || '미지정';
       const department = person.department || '미지정';
@@ -493,6 +559,9 @@ function PersonnelManagement() {
   
   // 비교 날짜 기준 인력
   const comparisonStats = calculateHierarchicalStats(comparisonDate);
+  
+  // 입사예정자
+  const scheduledStats = calculateScheduledStats();
   
   // 증감 계산 (본부)
   const getDivisionDiff = (division) => {
@@ -535,6 +604,12 @@ function PersonnelManagement() {
               onClick={() => setEmploymentFilter('resigned')}
             >
               퇴사자
+            </button>
+            <button 
+              className={`filter-btn ${employmentFilter === 'scheduled' ? 'active' : ''}`}
+              onClick={() => setEmploymentFilter('scheduled')}
+            >
+              입사예정자
             </button>
           </div>
 
@@ -671,42 +746,62 @@ function PersonnelManagement() {
 
             {/* 현재 인력 현황 및 증감 */}
             <div className="stats-table-wrapper">
-              <h3>📊 현재 기준 (증감 표시)</h3>
+              <h3>📊 현재 기준 (증감 표시 및 입사예정자)</h3>
               <table className="stats-table hierarchical">
                 <thead>
                   <tr>
                     <th>본부 / 부서</th>
                     <th>인원</th>
                     <th>증감</th>
+                    <th>입사예정자</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {currentStats.length === 0 ? (
+                  {currentStats.length === 0 && scheduledStats.length === 0 ? (
                     <tr>
-                      <td colSpan="3" style={{ textAlign: 'center' }}>데이터가 없습니다.</td>
+                      <td colSpan="4" style={{ textAlign: 'center' }}>데이터가 없습니다.</td>
                     </tr>
                   ) : (
                     <>
-                      {currentStats.map((divisionData) => {
-                        const divDiff = getDivisionDiff(divisionData.division);
+                      {/* 모든 본부를 currentStats와 scheduledStats에서 가져오기 */}
+                      {[...new Set([
+                        ...currentStats.map(s => s.division), 
+                        ...scheduledStats.map(s => s.division)
+                      ])].sort().map((division) => {
+                        const currentDivData = currentStats.find(s => s.division === division);
+                        const scheduledDivData = scheduledStats.find(s => s.division === division);
+                        const divDiff = getDivisionDiff(division);
+                        
+                        // 모든 부서를 currentStats와 scheduledStats에서 가져오기
+                        const allDepartments = [
+                          ...(currentDivData?.departments.map(d => d.name) || []),
+                          ...(scheduledDivData?.departments.map(d => d.name) || [])
+                        ];
+                        const uniqueDepartments = [...new Set(allDepartments)];
+                        
                         return (
-                          <React.Fragment key={divisionData.division}>
+                          <React.Fragment key={division}>
                             <tr className="division-row">
-                              <td className="division-name"><strong>{divisionData.division}</strong></td>
-                              <td className="count"><strong>{divisionData.count}명</strong></td>
+                              <td className="division-name"><strong>{division}</strong></td>
+                              <td className="count"><strong>{currentDivData?.count || 0}명</strong></td>
                               <td className={`diff ${divDiff > 0 ? 'positive' : divDiff < 0 ? 'negative' : 'neutral'}`}>
                                 <strong>{divDiff > 0 ? `+${divDiff}` : divDiff === 0 ? '-' : divDiff}</strong>
                               </td>
+                              <td className="count scheduled"><strong>{scheduledDivData?.count || 0}명</strong></td>
                             </tr>
-                            {divisionData.departments.map((dept) => {
-                              const deptDiff = getDepartmentDiff(divisionData.division, dept.name);
+                            {uniqueDepartments.map((deptName) => {
+                              const currentDept = currentDivData?.departments.find(d => d.name === deptName);
+                              const scheduledDept = scheduledDivData?.departments.find(d => d.name === deptName);
+                              const deptDiff = getDepartmentDiff(division, deptName);
+                              
                               return (
-                                <tr key={`${divisionData.division}-${dept.name}`} className="department-row">
-                                  <td className="department-name">└ {dept.name}</td>
-                                  <td className="count">{dept.count}명</td>
+                                <tr key={`${division}-${deptName}`} className="department-row">
+                                  <td className="department-name">└ {deptName}</td>
+                                  <td className="count">{currentDept?.count || 0}명</td>
                                   <td className={`diff ${deptDiff > 0 ? 'positive' : deptDiff < 0 ? 'negative' : 'neutral'}`}>
                                     {deptDiff > 0 ? `+${deptDiff}` : deptDiff === 0 ? '-' : deptDiff}
                                   </td>
+                                  <td className="count scheduled">{scheduledDept?.count || 0}명</td>
                                 </tr>
                               );
                             })}
@@ -727,6 +822,7 @@ function PersonnelManagement() {
                             })()}
                           </strong>
                         </td>
+                        <td className="count scheduled"><strong>{scheduledStats.reduce((sum, s) => sum + s.count, 0)}명</strong></td>
                       </tr>
                     </>
                   )}

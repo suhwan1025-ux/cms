@@ -1,7 +1,8 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { generatePreviewHTML } from '../utils/previewGenerator';
 import { getApiUrl } from '../config/api';
+import { getStatusLabel } from '../utils/statusHelper';
 import * as XLSX from 'xlsx';
 
 // API 베이스 URL 설정
@@ -97,18 +98,10 @@ const ContractList = () => {
     
     html += '<div class="action-buttons">';
     
-    // 디버깅: 상태값 확인
-    console.log('=== 재활용 버튼 조건 확인 (기존 함수) ===');
-    console.log('contract.status:', contract.status);
-    
-    // 테스트를 위해 임시로 항상 표시
-    html += '<button class="action-btn recycle-btn" onclick="handleRecycle()">♻️ 재활용</button>';
-    
-    // 원래 조건 (주석 처리)
-    // if (contract.status === '결재완료' || contract.status === '계약완료' || contract.status === '완료' || 
-    //     contract.status === 'completed' || contract.status === '계약체결' || contract.status === '승인됨') {
-    //   html += '<button class="action-btn recycle-btn" onclick="handleRecycle()">♻️ 재활용</button>';
-    // }
+    // 결재완료된 품의서만 재활용 버튼 표시
+    if (contract.status === 'approved') {
+      html += '<button class="action-btn recycle-btn" onclick="handleRecycle()">♻️ 재활용</button>';
+    }
     html += '<button class="action-btn status-btn" onclick="handleStatusUpdate()">🔄 상태변경</button>';
     html += '<button class="action-btn copy-btn" onclick="copyToClipboard()">📋 복사</button>';
     html += '</div>';
@@ -128,12 +121,9 @@ const ContractList = () => {
     html += '<tr><th>작성자</th><td>' + (contract.author || '-') + '</td></tr>';
               const getStatusColorInline = (status) => {
        switch (status) {
-         case '완료': return '#28a745';
-         case '진행중': return '#007bff';
-         case '지연': return '#dc3545';
-         case '검토중': return '#ffc107';
-         case '승인대기': return '#6f42c1';
-         case '작성중': return '#17a2b8';
+         case 'approved': return '#28a745';  // 결재완료: 초록색
+         case 'pending': return '#007bff';   // 결재대기: 파란색
+         case 'draft': return '#6c757d';     // 작성중: 회색
          default: return '#6c757d';
        }
      };
@@ -148,7 +138,16 @@ const ContractList = () => {
        }).replace(/\./g, '.');
      };
      
-     html += '<tr><th>상태</th><td><span style="padding: 4px 12px; border-radius: 12px; color: white; background-color: ' + getStatusColorInline(contract.status) + ';">' + contract.status + '</span></td></tr>';
+     const getStatusLabelInline = (status) => {
+       const labels = {
+         'draft': '작성중',
+         'pending': '결재대기',
+         'approved': '결재완료'
+       };
+       return labels[status] || status;
+     };
+     
+     html += '<tr><th>상태</th><td><span style="padding: 4px 12px; border-radius: 12px; color: white; background-color: ' + getStatusColorInline(contract.status) + ';">' + getStatusLabelInline(contract.status) + '</span></td></tr>';
      html += '<tr><th>등록일</th><td>' + formatDateInline(contract.createdAt) + '</td></tr>';
     html += '</tbody></table>';
     
@@ -217,6 +216,27 @@ const ContractList = () => {
 
   // 다중정렬 상태
   const [sortConfigs, setSortConfigs] = useState([]);
+
+  // 컬럼 리사이징 관련 상태
+  const [columnWidths, setColumnWidths] = useState(() => {
+    const saved = localStorage.getItem('proposalTableColumnWidths');
+    return saved ? JSON.parse(saved) : {
+      순번: 60,
+      품의서번호: 100,
+      계약명: 300,
+      요청부서: 120,
+      계약금액: 150,
+      계약유형: 120,
+      상태: 100,
+      계약기간: 200,
+      등록일: 120,
+      결재완료일: 120,
+      작성자: 100
+    };
+  });
+  const [resizingColumn, setResizingColumn] = useState(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
 
   // 필터 옵션들
   const statusOptions = ['전체', '결재대기', '결재완료'];
@@ -620,6 +640,82 @@ const ContractList = () => {
     }
   }, [displayPage]);
 
+  // 리사이저 공통 스타일
+  const resizerStyle = {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '10px',
+    cursor: 'col-resize',
+    userSelect: 'none',
+    zIndex: 999,
+    backgroundColor: 'transparent'
+  };
+
+  // 컬럼 리사이징 핸들러
+  const handleMouseDown = (e, columnName) => {
+    setResizingColumn(columnName);
+    setStartX(e.clientX);
+    setStartWidth(columnWidths[columnName]);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = useCallback((e) => {
+    if (!resizingColumn) return;
+    
+    const diff = e.clientX - startX;
+    const newWidth = Math.max(50, startWidth + diff); // 최소 너비 50px
+    
+    setColumnWidths(prev => ({
+      ...prev,
+      [resizingColumn]: newWidth
+    }));
+  }, [resizingColumn, startX, startWidth]);
+
+  const handleMouseUp = useCallback(() => {
+    if (resizingColumn) {
+      // localStorage에 저장
+      setColumnWidths(prev => {
+        localStorage.setItem('proposalTableColumnWidths', JSON.stringify(prev));
+        return prev;
+      });
+      setResizingColumn(null);
+    }
+  }, [resizingColumn]);
+
+  // 전역 마우스 이벤트 리스너
+  useEffect(() => {
+    if (resizingColumn) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [resizingColumn, handleMouseMove, handleMouseUp]);
+
+  // 컬럼 너비 초기화
+  const resetColumnWidths = () => {
+    const defaultWidths = {
+      순번: 60,
+      품의서번호: 100,
+      계약명: 300,
+      요청부서: 120,
+      계약금액: 150,
+      계약유형: 120,
+      상태: 100,
+      계약기간: 200,
+      등록일: 120,
+      결재완료일: 120,
+      작성자: 100
+    };
+    setColumnWidths(defaultWidths);
+    localStorage.removeItem('proposalTableColumnWidths');
+  };
+
   // 필터 초기화
   const resetFilters = () => {
     setFilters({
@@ -836,20 +932,18 @@ const ContractList = () => {
   };
 
   const getStatusColor = (status) => {
-    // 결재대기: 파란색, 결재완료: 초록색
+    // 상태별 색상 매핑 (영어 상태 기준)
     switch (status) {
-      case '결재대기': return '#007bff';  // 파란색
-      case '결재완료': return '#28a745';  // 초록색
-      case '임시저장': return '#6c757d';  // 회색
-      case '반려': return '#dc3545';      // 빨간색
-      case '취소': return '#6c757d';      // 회색
+      case 'pending': return '#007bff';   // 결재대기: 파란색
+      case 'approved': return '#28a745';  // 결재완료: 초록색
+      case 'draft': return '#6c757d';     // 작성중: 회색
       default: return '#6c757d';
     }
   };
 
   const getStatusDisplay = (status) => {
-    // 상태를 그대로 표시 (이미 한글로 변환됨)
-    return status;
+    // 상태를 한글로 변환하여 표시
+    return getStatusLabel(status);
   };
 
   // 미리보기 열기 (리스트 클릭 시)
@@ -948,9 +1042,7 @@ const ContractList = () => {
             };
             
             // 수정 버튼 추가 (결재대기 상태만)
-            const isWaitingApproval = enhancedContract.status === '결재대기' || 
-                                     enhancedContract.status === 'submitted' ||
-                                     enhancedContract.status === '임시저장' ||
+            const isWaitingApproval = enhancedContract.status === 'pending' || 
                                      enhancedContract.status === 'draft';
             
             if (isWaitingApproval) {
@@ -1072,10 +1164,8 @@ const ContractList = () => {
               }
             };
             
-            // 수정 버튼 추가 (결재대기 상태만) - 기본 데이터
-            const isWaitingApproval2 = contract.status === '결재대기' || 
-                                      contract.status === 'submitted' ||
-                                      contract.status === '임시저장' ||
+            // 수정 버튼 추가 (결재대기 또는 작성중 상태만) - 기본 데이터
+            const isWaitingApproval2 = contract.status === 'pending' || 
                                       contract.status === 'draft';
             
             if (isWaitingApproval2) {
@@ -1419,19 +1509,19 @@ const ContractList = () => {
     console.log('현재 품의서 상태:', targetContract.status);
     
     // 이미 결재완료된 경우 변경 불가
-    if (targetContract.status === '결재완료') {
+    if (targetContract.status === 'approved') {
       alert('이미 결재완료된 품의서는 상태를 변경할 수 없습니다.');
       return;
     }
     
     // 결재대기 상태만 결재완료로 변경 가능
-    if (targetContract.status !== '결재대기') {
+    if (targetContract.status !== 'pending') {
       alert('결재대기 상태의 품의서만 결재완료로 변경할 수 있습니다.');
       return;
     }
     
     // 결재완료로만 변경 가능하도록 자동 설정
-    setNewStatus('결재완료');
+    setNewStatus('approved');
     setStatusDate(new Date().toISOString().split('T')[0]); // 오늘 날짜를 기본값으로 설정
     setChangeReason('');
     setShowStatusUpdate(true);
@@ -1755,9 +1845,28 @@ const ContractList = () => {
       <div className="proposals-list-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3>품의서 목록 {hasActiveFilters() ? `(검색결과 ${filteredContracts.length}건)` : `(전체 ${totalCount > 0 ? totalCount : contracts.length}건)`}</h3>
-          {sortConfigs.length > 0 && (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {sortConfigs.length > 0 && (
+              <button 
+                onClick={resetFilters}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: '500'
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
+                onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
+              >
+                🔄 정렬 초기화
+              </button>
+            )}
             <button 
-              onClick={resetFilters}
+              onClick={resetColumnWidths}
               style={{
                 padding: '0.5rem 1rem',
                 backgroundColor: '#6c757d',
@@ -1771,17 +1880,23 @@ const ContractList = () => {
               onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
               onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
             >
-              🔄 정렬 초기화
+              ↔️ 컬럼 너비 초기화
             </button>
-          )}
+          </div>
         </div>
         <div className="table-responsive">
           <table className="proposals-list-table">
           <thead>
             <tr>
-              <th style={{ width: '60px', textAlign: 'center' }}>순번</th>
+              <th style={{ width: `${columnWidths['순번']}px`, textAlign: 'center', position: 'relative' }}>
+                순번
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => handleMouseDown(e, '순번')}
+                />
+              </th>
               <th 
-                style={{ width: '80px', textAlign: 'center' }}
+                style={{ width: `${columnWidths['품의서번호']}px`, textAlign: 'center', position: 'relative' }}
                 className="sortable-header"
                 onClick={() => handleSort('id')}
               >
@@ -1792,8 +1907,13 @@ const ContractList = () => {
                     <span className="sort-priority">{getSortPriority('id')}</span>
                   </span>
                 )}
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '품의서번호'); }}
+                />
               </th>
               <th 
+                style={{ width: `${columnWidths['계약명']}px`, position: 'relative' }}
                 className="sortable-header"
                 onClick={() => handleSort('title')}
               >
@@ -1804,8 +1924,13 @@ const ContractList = () => {
                     <span className="sort-priority">{getSortPriority('title')}</span>
                   </span>
                 )}
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '계약명'); }}
+                />
               </th>
               <th 
+                style={{ width: `${columnWidths['요청부서']}px`, position: 'relative' }}
                 className="sortable-header"
                 onClick={() => handleSort('department')}
               >
@@ -1816,8 +1941,13 @@ const ContractList = () => {
                     <span className="sort-priority">{getSortPriority('department')}</span>
                   </span>
                 )}
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '요청부서'); }}
+                />
               </th>
               <th 
+                style={{ width: `${columnWidths['계약금액']}px`, position: 'relative' }}
                 className="sortable-header"
                 onClick={() => handleSort('amount')}
               >
@@ -1828,8 +1958,13 @@ const ContractList = () => {
                     <span className="sort-priority">{getSortPriority('amount')}</span>
                   </span>
                 )}
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '계약금액'); }}
+                />
               </th>
               <th 
+                style={{ width: `${columnWidths['계약유형']}px`, position: 'relative' }}
                 className="sortable-header"
                 onClick={() => handleSort('type')}
               >
@@ -1840,8 +1975,13 @@ const ContractList = () => {
                     <span className="sort-priority">{getSortPriority('type')}</span>
                   </span>
                 )}
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '계약유형'); }}
+                />
               </th>
               <th 
+                style={{ width: `${columnWidths['상태']}px`, position: 'relative' }}
                 className="sortable-header"
                 onClick={() => handleSort('status')}
               >
@@ -1852,8 +1992,13 @@ const ContractList = () => {
                     <span className="sort-priority">{getSortPriority('status')}</span>
                   </span>
                 )}
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '상태'); }}
+                />
               </th>
               <th 
+                style={{ width: `${columnWidths['계약기간']}px`, position: 'relative' }}
                 className="sortable-header"
                 onClick={() => handleSort('startDate')}
               >
@@ -1864,8 +2009,13 @@ const ContractList = () => {
                     <span className="sort-priority">{getSortPriority('startDate')}</span>
                   </span>
                 )}
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '계약기간'); }}
+                />
               </th>
               <th 
+                style={{ width: `${columnWidths['등록일']}px`, position: 'relative' }}
                 className="sortable-header"
                 onClick={() => handleSort('createdAt')}
               >
@@ -1876,8 +2026,13 @@ const ContractList = () => {
                     <span className="sort-priority">{getSortPriority('createdAt')}</span>
                   </span>
                 )}
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '등록일'); }}
+                />
               </th>
               <th 
+                style={{ width: `${columnWidths['결재완료일']}px`, position: 'relative' }}
                 className="sortable-header"
                 onClick={() => handleSort('approvalDate')}
               >
@@ -1888,8 +2043,13 @@ const ContractList = () => {
                     <span className="sort-priority">{getSortPriority('approvalDate')}</span>
                   </span>
                 )}
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '결재완료일'); }}
+                />
               </th>
               <th 
+                style={{ width: `${columnWidths['작성자']}px`, position: 'relative' }}
                 className="sortable-header"
                 onClick={() => handleSort('author')}
               >
@@ -1900,6 +2060,10 @@ const ContractList = () => {
                     <span className="sort-priority">{getSortPriority('author')}</span>
                   </span>
                 )}
+                <div 
+                  style={resizerStyle}
+                  onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '작성자'); }}
+                />
               </th>
             </tr>
           </thead>
@@ -1977,12 +2141,7 @@ const ContractList = () => {
             <div className="detail-header">
               <h2>품의서 상세 정보</h2>
               <div className="detail-actions">
-                {(selectedContract.status === '결재완료' || 
-                  selectedContract.status === '계약완료' || 
-                  selectedContract.status === '완료' ||
-                  selectedContract.status === 'completed' ||
-                  selectedContract.status === '계약체결' ||
-                  selectedContract.status === '승인됨') && (
+                {selectedContract.status === 'approved' && (
                   <button onClick={() => handleRecycleProposal(selectedContract)} className="recycle-btn">
                     재활용
                   </button>
@@ -2011,7 +2170,7 @@ const ContractList = () => {
                   <div className="detail-item">
                     <label>상태:</label>
                     <span className="status-badge" style={{ backgroundColor: getStatusColor(selectedContract.status) }}>
-                      {selectedContract.status}
+                      {getStatusLabel(selectedContract.status)}
                     </span>
                   </div>
                   <div className="detail-item">
@@ -2574,6 +2733,7 @@ const ContractList = () => {
           width: 100%;
           border-collapse: collapse;
           font-size: 0.9rem;
+          table-layout: fixed;
         }
 
         .proposals-list-table thead {
@@ -2611,6 +2771,25 @@ const ContractList = () => {
           cursor: pointer;
           user-select: none;
           transition: background-color 0.2s;
+        }
+
+        .column-resizer {
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: 5px;
+          cursor: col-resize;
+          user-select: none;
+          z-index: 11;
+        }
+
+        .column-resizer:hover {
+          background-color: #667eea;
+        }
+
+        .column-resizer:active {
+          background-color: #5568d3;
         }
 
         .sortable-header:hover {
