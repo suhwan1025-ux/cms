@@ -14,6 +14,7 @@ import AIAssistantPage from './components/AIAssistantPage';
 import TaskManagement from './components/TaskManagement';
 import TemplateManagement from './components/TemplateManagement';
 import WorkReport from './components/WorkReport';
+import PersonnelManagement from './components/PersonnelManagement';
 
 
 
@@ -22,6 +23,7 @@ function App() {
   const [proposalMenuOpen, setProposalMenuOpen] = useState(false);
   const [budgetMenuOpen, setBudgetMenuOpen] = useState(false);
   const [taskMenuOpen, setTaskMenuOpen] = useState(false);
+  const [personnelMenuOpen, setPersonnelMenuOpen] = useState(false);
 
   return (
     <Router>
@@ -77,6 +79,9 @@ function App() {
                     <Link to="/proposal?new=true" className="dropdown-item">
                       품의서 작성
                     </Link>
+                    <Link to="/templates" className="dropdown-item">
+                      템플릿 관리
+                    </Link>
                   </div>
                 )}
               </div>
@@ -115,10 +120,24 @@ function App() {
                 업무관리
               </Link>
               
-              <Link to="/templates" className="nav-link">
-                <span className="nav-icon">📝</span>
-                품의서 템플릿 관리
-              </Link>
+              {/* 인력관리 드롭다운 메뉴 */}
+              <div className="nav-dropdown">
+                <button 
+                  className="nav-link dropdown-toggle"
+                  onClick={() => setPersonnelMenuOpen(!personnelMenuOpen)}
+                >
+                  <span className="nav-icon">👥</span>
+                  인력관리
+                  <span className="dropdown-arrow">{personnelMenuOpen ? '▼' : '▶'}</span>
+                </button>
+                {personnelMenuOpen && (
+                  <div className="dropdown-menu">
+                    <Link to="/personnel" className="dropdown-item">
+                      내부인력
+                    </Link>
+                  </div>
+                )}
+              </div>
               
               <Link to="/work-report" className="nav-link">
                 <span className="nav-icon">📊</span>
@@ -145,6 +164,7 @@ function App() {
              <Route path="/approval-line" element={<ApprovalLine />} />
              <Route path="/tasks" element={<TaskManagement />} />
              <Route path="/templates" element={<TemplateManagement />} />
+             <Route path="/personnel" element={<PersonnelManagement />} />
              <Route path="/work-report" element={<WorkReport />} />
              <Route path="/ai-assistant" element={<AIAssistantPage />} />
            </Routes>

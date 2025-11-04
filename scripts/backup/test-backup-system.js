@@ -39,7 +39,8 @@ const BACKUP_TABLES = [
   { backup: 'cost_departments_backup', original: 'cost_departments' },
   { backup: 'request_departments_backup', original: 'request_departments' },
   { backup: 'contract_methods_backup', original: 'contract_methods' },
-  { backup: 'service_items_backup', original: 'service_items' }
+  { backup: 'service_items_backup', original: 'service_items' },
+  { backup: 'personnel_backup', original: 'personnel' }
 ];
 
 /**

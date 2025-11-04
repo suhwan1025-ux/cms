@@ -46,31 +46,31 @@ const TABLES_TO_BACKUP = [
   },
   {
     table: 'proposals',
-    columns: ['id', 'title', 'type', 'department', 'requester', 'request_date', 'amount', 'budget_id', 'supplier_id', 'contract_type', 'description', 'status', 'approval_status', 'content', 'created_at', 'updated_at']
+    columns: ['id', 'contract_type', 'title', 'purpose', 'basis', 'budget_id', 'contract_method', 'contract_method_id', 'account_subject', 'total_amount', 'change_reason', 'extension_reason', 'contract_period', 'contract_start_date', 'contract_end_date', 'payment_method', 'status', 'created_by', 'proposal_date', 'approval_date', 'is_draft', 'wysiwyg_content', 'other', 'created_at', 'updated_at']
   },
   {
     table: 'contracts',
-    columns: ['id', 'contract_number', 'contract_name', 'supplier_id', 'contract_type', 'contract_amount', 'start_date', 'end_date', 'status', 'department', 'manager', 'description', 'created_at', 'updated_at']
+    columns: ['id', 'proposal_id', 'contract_number', 'contract_type', 'supplier_id', 'contract_amount', 'start_date', 'end_date', 'payment_method', 'status', 'description', 'attachments', 'created_at', 'updated_at']
   },
   {
     table: 'approval_lines',
-    columns: ['id', 'proposal_id', 'approver_name', 'approver_position', 'approval_order', 'status', 'approved_at', 'comments', 'created_at', 'updated_at']
+    columns: ['id', 'proposal_id', 'step', 'name', 'title', 'description', 'is_conditional', 'is_final', 'status', 'approved_at', 'approved_by', 'comment', 'created_at', 'updated_at']
   },
   {
     table: 'proposal_histories',
-    columns: ['id', 'proposal_id', 'action', 'actor', 'description', 'created_at', 'updated_at']
+    columns: ['id', 'proposal_id', 'changed_by', 'changed_at', 'change_type', 'field_name', 'old_value', 'new_value', 'description', 'created_at', 'updated_at']
   },
   {
     table: 'purchase_items',
-    columns: ['id', 'proposal_id', 'item_name', 'specification', 'quantity', 'unit_price', 'total_price', 'notes', 'created_at', 'updated_at']
+    columns: ['id', 'proposal_id', 'supplier_id', 'item', 'product_name', 'quantity', 'unit_price', 'amount', 'supplier', 'request_department', 'contract_period_type', 'custom_contract_period', 'contract_start_date', 'contract_end_date', 'created_at', 'updated_at']
   },
   {
     table: 'cost_departments',
-    columns: ['id', 'proposal_id', 'department_id', 'department_name', 'amount', 'percentage', 'created_at', 'updated_at']
+    columns: ['id', 'proposal_id', 'department_id', 'department', 'amount', 'ratio', 'purchase_item_id', 'allocation_type', 'service_item_id', 'created_at', 'updated_at']
   },
   {
     table: 'request_departments',
-    columns: ['id', 'name', 'code', 'is_active', 'created_at', 'updated_at']
+    columns: ['id', 'proposal_id', 'department_id', 'department', 'name', 'code', 'created_at', 'updated_at']
   },
   {
     table: 'contract_methods',
@@ -78,7 +78,11 @@ const TABLES_TO_BACKUP = [
   },
   {
     table: 'service_items',
-    columns: ['id', 'name', 'category', 'description', 'unit_price', 'supplier_id', 'is_active', 'created_at', 'updated_at']
+    columns: ['id', 'proposal_id', 'supplier_id', 'item', 'name', 'personnel', 'skill_level', 'period', 'monthly_rate', 'contract_amount', 'supplier', 'credit_rating', 'contract_period_start', 'contract_period_end', 'payment_method', 'created_at', 'updated_at']
+  },
+  {
+    table: 'personnel',
+    columns: ['id', 'division', 'department', 'position', 'employee_number', 'name', 'rank', 'duties', 'job_function', 'bok_job_function', 'job_category', 'is_it_personnel', 'is_security_personnel', 'birth_date', 'gender', 'age', 'group_join_date', 'join_date', 'resignation_date', 'total_service_years', 'career_base_date', 'it_career_years', 'current_duty_date', 'current_duty_period', 'previous_department', 'major', 'is_it_major', 'it_certificate_1', 'it_certificate_2', 'it_certificate_3', 'it_certificate_4', 'is_active', 'notes', 'created_at', 'updated_at']
   }
 ];
 

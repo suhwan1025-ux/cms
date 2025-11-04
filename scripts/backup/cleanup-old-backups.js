@@ -40,7 +40,8 @@ const BACKUP_TABLES = [
   'cost_departments_backup',
   'request_departments_backup',
   'contract_methods_backup',
-  'service_items_backup'
+  'service_items_backup',
+  'personnel_backup'
 ];
 
 /**

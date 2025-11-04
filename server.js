@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { Sequelize, Op } = require('sequelize');
 const axios = require('axios');
+const XLSX = require('xlsx');
 require('dotenv').config();
 
 const app = express();
@@ -3978,6 +3979,255 @@ app.delete('/api/document-templates/:id', async (req, res) => {
   } catch (error) {
     console.error('템플릿 삭제 오류:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== 인력현황 관리 API ====================
+
+// 1. 백업 일자 목록 조회 (구체적인 경로를 먼저 정의)
+app.get('/api/personnel/backups/dates', async (req, res) => {
+  try {
+    const query = `
+      SELECT DISTINCT backup_date 
+      FROM personnel_backup 
+      ORDER BY backup_date DESC 
+      LIMIT 30
+    `;
+    const dates = await sequelize.query(query, {
+      type: Sequelize.QueryTypes.SELECT
+    });
+    
+    res.json(dates.map(d => d.backup_date));
+  } catch (error) {
+    console.error('백업 일자 조회 오류:', error);
+    res.status(500).json({ error: '백업 일자 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 2. 엑셀 다운로드 (구체적인 경로를 먼저 정의)
+app.get('/api/personnel/export/excel', async (req, res) => {
+  try {
+    const { date } = req.query;
+    
+    let personnel;
+    
+    if (date) {
+      // 특정 일자의 백업 데이터
+      const query = `
+        SELECT * FROM personnel_backup 
+        WHERE backup_date = :date
+        ORDER BY id
+      `;
+      personnel = await sequelize.query(query, {
+        replacements: { date },
+        type: Sequelize.QueryTypes.SELECT
+      });
+    } else {
+      // 현재 데이터
+      personnel = await models.Personnel.findAll({
+        order: [['id', 'ASC']],
+        raw: true
+      });
+    }
+    
+    // 엑셀 데이터 변환
+    const excelData = personnel.map((p, index) => ({
+      'No': index + 1,
+      '본부': p.division || '',
+      '부서': p.department || '',
+      '직책': p.position || '',
+      '사번': p.employee_number || '',
+      '성명': p.name || '',
+      '직위': p.rank || '',
+      '담당업무': p.duties || '',
+      '직능': p.job_function || '',
+      '한국은행직능': p.bok_job_function || '',
+      '직종구분': p.job_category || '',
+      '정보기술인력': p.is_it_personnel ? 'O' : 'X',
+      '정보보호인력': p.is_security_personnel ? 'O' : 'X',
+      '생년월일': p.birth_date || '',
+      '성별': p.gender || '',
+      '나이': p.age || '',
+      '그룹입사일': p.group_join_date || '',
+      '입사일': p.join_date || '',
+      '퇴사일': p.resignation_date || '',
+      '총재직기간(년)': p.total_service_years || '',
+      '정산경력기준일': p.career_base_date || '',
+      '전산경력': p.it_career_years || '',
+      '현업무발령일': p.current_duty_date || '',
+      '현업무기간': p.current_duty_period || '',
+      '직전소속': p.previous_department || '',
+      '전공': p.major || '',
+      '전산전공여부': p.is_it_major ? 'O' : 'X',
+      '전산자격증1': p.it_certificate_1 || '',
+      '전산자격증2': p.it_certificate_2 || '',
+      '전산자격증3': p.it_certificate_3 || '',
+      '전산자격증4': p.it_certificate_4 || ''
+    }));
+    
+    // 워크북 생성
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    
+    // 컬럼 너비 설정
+    ws['!cols'] = [
+      { wch: 5 },  // No
+      { wch: 15 }, // 본부
+      { wch: 15 }, // 부서
+      { wch: 12 }, // 직책
+      { wch: 12 }, // 사번
+      { wch: 10 }, // 성명
+      { wch: 10 }, // 직위
+      { wch: 30 }, // 담당업무
+      { wch: 15 }, // 직능
+      { wch: 15 }, // 한국은행직능
+      { wch: 12 }, // 직종구분
+      { wch: 12 }, // 정보기술인력
+      { wch: 12 }, // 정보보호인력
+      { wch: 12 }, // 생년월일
+      { wch: 8 },  // 성별
+      { wch: 8 },  // 나이
+      { wch: 12 }, // 그룹입사일
+      { wch: 12 }, // 입사일
+      { wch: 12 }, // 퇴사일
+      { wch: 15 }, // 총재직기간
+      { wch: 15 }, // 정산경력기준일
+      { wch: 12 }, // 전산경력
+      { wch: 12 }, // 현업무발령일
+      { wch: 12 }, // 현업무기간
+      { wch: 15 }, // 직전소속
+      { wch: 15 }, // 전공
+      { wch: 12 }, // 전산전공여부
+      { wch: 20 }, // 전산자격증1
+      { wch: 20 }, // 전산자격증2
+      { wch: 20 }, // 전산자격증3
+      { wch: 20 }  // 전산자격증4
+    ];
+    
+    XLSX.utils.book_append_sheet(wb, ws, '인력현황');
+    
+    // 버퍼로 변환
+    const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    
+    // 파일명 설정
+    const filename = date 
+      ? `인력현황_${date}.xlsx`
+      : `인력현황_${new Date().toISOString().split('T')[0]}.xlsx`;
+    
+    // 응답 헤더 설정
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error('엑셀 다운로드 오류:', error);
+    res.status(500).json({ error: '엑셀 다운로드 중 오류가 발생했습니다.' });
+  }
+});
+
+// 3. 인력현황 목록 조회 (일자별 조회 포함)
+app.get('/api/personnel', async (req, res) => {
+  try {
+    const { date } = req.query;
+    
+    let personnel;
+    
+    if (date) {
+      // 특정 일자의 백업 데이터 조회
+      const query = `
+        SELECT * FROM personnel_backup 
+        WHERE backup_date = :date
+        ORDER BY id
+      `;
+      personnel = await sequelize.query(query, {
+        replacements: { date },
+        type: Sequelize.QueryTypes.SELECT
+      });
+    } else {
+      // 현재 데이터 조회
+      personnel = await models.Personnel.findAll({
+        order: [['id', 'ASC']]
+      });
+    }
+    
+    res.json(personnel);
+  } catch (error) {
+    console.error('인력현황 조회 오류:', error);
+    res.status(500).json({ error: '인력현황 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 4. 인력현황 상세 조회
+app.get('/api/personnel/:id', async (req, res) => {
+  try {
+    const personnel = await models.Personnel.findByPk(req.params.id);
+    
+    if (!personnel) {
+      return res.status(404).json({ error: '인력 정보를 찾을 수 없습니다.' });
+    }
+    
+    res.json(personnel);
+  } catch (error) {
+    console.error('인력현황 상세 조회 오류:', error);
+    res.status(500).json({ error: '인력현황 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 5. 인력현황 등록
+app.post('/api/personnel', async (req, res) => {
+  try {
+    console.log('POST /api/personnel 요청 받음');
+    console.log('요청 데이터:', JSON.stringify(req.body, null, 2));
+    
+    if (!models.Personnel) {
+      console.error('Personnel 모델을 찾을 수 없습니다!');
+      return res.status(500).json({ error: 'Personnel 모델을 찾을 수 없습니다.' });
+    }
+    
+    const personnel = await models.Personnel.create(req.body);
+    console.log('인력현황 등록 성공:', personnel.id);
+    res.status(201).json(personnel);
+  } catch (error) {
+    console.error('인력현황 등록 오류 (상세):', error.message);
+    console.error('오류 스택:', error.stack);
+    res.status(500).json({ 
+      error: '인력현황 등록 중 오류가 발생했습니다.',
+      details: error.message 
+    });
+  }
+});
+
+// 6. 인력현황 수정
+app.put('/api/personnel/:id', async (req, res) => {
+  try {
+    const personnel = await models.Personnel.findByPk(req.params.id);
+    
+    if (!personnel) {
+      return res.status(404).json({ error: '인력 정보를 찾을 수 없습니다.' });
+    }
+    
+    await personnel.update(req.body);
+    res.json(personnel);
+  } catch (error) {
+    console.error('인력현황 수정 오류:', error);
+    res.status(500).json({ error: '인력현황 수정 중 오류가 발생했습니다.' });
+  }
+});
+
+// 7. 인력현황 삭제
+app.delete('/api/personnel/:id', async (req, res) => {
+  try {
+    const personnel = await models.Personnel.findByPk(req.params.id);
+    
+    if (!personnel) {
+      return res.status(404).json({ error: '인력 정보를 찾을 수 없습니다.' });
+    }
+    
+    await personnel.destroy();
+    res.json({ message: '인력 정보가 삭제되었습니다.' });
+  } catch (error) {
+    console.error('인력현황 삭제 오류:', error);
+    res.status(500).json({ error: '인력현황 삭제 중 오류가 발생했습니다.' });
   }
 });
 
