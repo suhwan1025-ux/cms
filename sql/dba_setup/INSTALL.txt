@@ -1,0 +1,151 @@
+================================================================================
+  계약관리시스템(CMS) - 데이터베이스 빠른 설치 가이드
+  버전: 1.0 | 작성일: 2025-11-05
+================================================================================
+
+[사전 준비]
+1. PostgreSQL 12 이상 설치 완료
+2. PostgreSQL 서비스 실행 중
+3. postgres 사용자 비밀번호 알고 있음
+
+[설치 순서]
+
+■ Windows 환경
+
+1. PowerShell 관리자 권한으로 실행
+
+2. PostgreSQL 디렉토리로 이동
+   cd "C:\Program Files\PostgreSQL\14\bin"
+
+3. 비밀번호 변경 (필수!)
+   메모장으로 01_create_database.sql 열어서 
+   CHANGE_THIS_PASSWORD 부분을 실제 비밀번호로 변경
+
+4. 전체 설치 실행
+   .\psql.exe -U postgres -f "D:\CMS_NEW\sql\dba_setup\00_run_all.sql"
+
+5. 비밀번호 입력
+   postgres 사용자의 비밀번호 입력
+
+6. 완료 확인
+   "✅ 설치 완료!" 메시지 확인
+
+
+■ Linux 환경
+
+1. 터미널 실행
+
+2. SQL 스크립트 디렉토리로 이동
+   cd /path/to/CMS_NEW/sql/dba_setup
+
+3. 비밀번호 변경 (필수!)
+   vi 01_create_database.sql
+   CHANGE_THIS_PASSWORD를 실제 비밀번호로 변경
+   
+4. 전체 설치 실행
+   sudo -u postgres psql -f 00_run_all.sql
+
+5. 완료 확인
+   "✅ 설치 완료!" 메시지 확인
+
+
+[단계별 설치 (문제 발생 시)]
+
+개별 스크립트를 순차적으로 실행:
+
+Windows:
+  psql -U postgres -f 01_create_database.sql
+  psql -U cms_admin -d contract_management -f 02_create_tables.sql
+  psql -U cms_admin -d contract_management -f 03_create_foreign_keys.sql
+  psql -U cms_admin -d contract_management -f 04_create_indexes.sql
+  psql -U cms_admin -d contract_management -f 05_insert_master_data.sql
+  psql -U cms_admin -d contract_management -f 06_verification_queries.sql
+
+Linux:
+  sudo -u postgres psql -f 01_create_database.sql
+  sudo -u postgres psql -U cms_admin -d contract_management -f 02_create_tables.sql
+  sudo -u postgres psql -U cms_admin -d contract_management -f 03_create_foreign_keys.sql
+  sudo -u postgres psql -U cms_admin -d contract_management -f 04_create_indexes.sql
+  sudo -u postgres psql -U cms_admin -d contract_management -f 05_insert_master_data.sql
+  sudo -u postgres psql -U cms_admin -d contract_management -f 06_verification_queries.sql
+
+
+[설치 검증]
+
+설치 완료 후 다음 쿼리로 확인:
+
+  psql -U cms_admin -d contract_management
+
+  SELECT COUNT(*) FROM information_schema.tables 
+  WHERE table_schema = 'public';
+  -- 결과: 26~27개
+
+  SELECT COUNT(*) FROM departments;
+  -- 결과: 6개
+
+  SELECT COUNT(*) FROM contract_methods;
+  -- 결과: 10개
+
+
+[연결 정보]
+
+설치 완료 후 애플리케이션에서 사용할 연결 정보:
+
+  Host: localhost
+  Port: 5432
+  Database: contract_management
+  Username: cms_admin
+  Password: (01_create_database.sql에서 설정한 비밀번호)
+
+
+[재설치 방법]
+
+기존 설치를 완전히 제거 후 재설치:
+
+  psql -U postgres
+
+  DROP DATABASE IF EXISTS contract_management;
+  DROP USER IF EXISTS cms_admin;
+  DROP USER IF EXISTS cms_reader;
+  \q
+
+  그 다음 위의 설치 순서를 다시 진행
+
+
+[문제 해결]
+
+▶ "permission denied" 오류
+   → postgres 사용자로 실행했는지 확인
+
+▶ "database already exists" 오류
+   → 재설치 방법 참고하여 기존 DB 삭제
+
+▶ "collation does not exist" 오류
+   → 01_create_database.sql에서 ko_KR.UTF-8을 C로 변경
+
+▶ "psql: command not found" 오류
+   → PostgreSQL bin 디렉토리를 PATH에 추가하거나
+     전체 경로로 psql 실행
+
+
+[소요 시간]
+
+전체 설치: 약 2-3분
+- 데이터베이스 생성: 10초
+- 테이블 생성: 30초
+- 외래키 생성: 20초
+- 인덱스 생성: 30초
+- 데이터 삽입: 20초
+- 검증: 10초
+
+
+[지원]
+
+문제 발생 시:
+1. README.md 파일 참고
+2. docs/DBA_DATABASE_SETUP_GUIDE.md 상세 가이드 확인
+3. 06_verification_queries.sql 실행 결과 확인
+
+
+================================================================================
+

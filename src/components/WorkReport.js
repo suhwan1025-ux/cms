@@ -277,6 +277,46 @@ const WorkReport = () => {
             </div>
           )}
 
+          {/* 상세 계약 목록 */}
+          <div className="report-section">
+            <h2>📝 상세 계약 목록</h2>
+            <table className="report-table detailed-table">
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>제목</th>
+                  <th>계약유형</th>
+                  <th>금액</th>
+                  <th>사업예산</th>
+                  <th>요청부서</th>
+                  <th>작성자</th>
+                  <th>작성일</th>
+                  <th>결재일</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.proposals.map((proposal, index) => (
+                  <tr key={proposal.id}>
+                    <td>{index + 1}</td>
+                    <td>{proposal.title || '제목없음'}</td>
+                    <td>{getContractTypeName(proposal.contractType, proposal.contractMethod)}</td>
+                    <td>{formatAmount(proposal.totalAmount)} 원</td>
+                    <td>{proposal.budgetName}</td>
+                    <td>{proposal.requestDepartments.join(', ') || '-'}</td>
+                    <td>{proposal.createdBy || '-'}</td>
+                    <td>{new Date(proposal.createdAt).toLocaleDateString('ko-KR')}</td>
+                    <td>
+                      {proposal.approvalDate 
+                        ? new Date(proposal.approvalDate).toLocaleDateString('ko-KR')
+                        : '-'
+                      }
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           {/* 예산별 집행 현황 */}
           {reportData.budgetStats && Object.keys(reportData.budgetStats).length > 0 && (
             <div className="report-section">
@@ -379,10 +419,12 @@ const WorkReport = () => {
                 </div>
               </div>
 
-              {/* 부서별 인력 증감 */}
+              {/* 내부인력 증감 */}
               {Object.keys(reportData.personnelStats.current.byDepartment).length > 0 && (
                 <div style={{ marginTop: '30px' }}>
-                  <h3>부서별 인력 증감</h3>
+                  <h3>내부인력 증감</h3>
+                  
+                  {/* 부서별 인력 증감 테이블 */}
                   <table className="report-table">
                     <thead>
                       <tr>
@@ -430,6 +472,72 @@ const WorkReport = () => {
                       </tr>
                     </tfoot>
                   </table>
+                  
+                  {/* 신규 입사 인력 */}
+                  {reportData.personnelStats.newPersonnel && reportData.personnelStats.newPersonnel.length > 0 && (
+                    <div style={{ marginTop: '30px' }}>
+                      <h4 style={{ color: '#28a745', marginBottom: '15px' }}>✅ 신규 입사 인력 ({reportData.personnelStats.newPersonnel.length}명)</h4>
+                      <table className="report-table">
+                        <thead>
+                          <tr>
+                            <th>부서</th>
+                            <th>성명</th>
+                            <th>직위</th>
+                            <th>입사일</th>
+                            <th>퇴사일</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reportData.personnelStats.newPersonnel.map((person, index) => (
+                            <tr key={person.id || index}>
+                              <td>{person.department}</td>
+                              <td>{person.name}</td>
+                              <td>{person.position}</td>
+                              <td>{person.joinDate}</td>
+                              <td>{person.resignationDate}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  
+                  {/* 퇴사 인력 */}
+                  {reportData.personnelStats.endedPersonnel && reportData.personnelStats.endedPersonnel.length > 0 && (
+                    <div style={{ marginTop: '30px' }}>
+                      <h4 style={{ color: '#dc3545', marginBottom: '15px' }}>❌ 퇴사 인력 ({reportData.personnelStats.endedPersonnel.length}명)</h4>
+                      <table className="report-table">
+                        <thead>
+                          <tr>
+                            <th>부서</th>
+                            <th>성명</th>
+                            <th>직위</th>
+                            <th>입사일</th>
+                            <th>퇴사일</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reportData.personnelStats.endedPersonnel.map((person, index) => (
+                            <tr key={person.id || index}>
+                              <td>{person.department}</td>
+                              <td>{person.name}</td>
+                              <td>{person.position}</td>
+                              <td>{person.joinDate}</td>
+                              <td>{person.resignationDate}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  
+                  {/* 증감이 없는 경우 */}
+                  {(!reportData.personnelStats.newPersonnel || reportData.personnelStats.newPersonnel.length === 0) &&
+                   (!reportData.personnelStats.endedPersonnel || reportData.personnelStats.endedPersonnel.length === 0) && (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#666', marginTop: '20px' }}>
+                      내부인력 증감이 없습니다.
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -545,46 +653,6 @@ const WorkReport = () => {
               )}
             </div>
           )}
-
-          {/* 상세 목록 */}
-          <div className="report-section">
-            <h2>📝 상세 계약 목록</h2>
-            <table className="report-table detailed-table">
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>제목</th>
-                  <th>계약유형</th>
-                  <th>금액</th>
-                  <th>사업예산</th>
-                  <th>요청부서</th>
-                  <th>작성자</th>
-                  <th>작성일</th>
-                  <th>결재일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportData.proposals.map((proposal, index) => (
-                  <tr key={proposal.id}>
-                    <td>{index + 1}</td>
-                    <td>{proposal.title || '제목없음'}</td>
-                    <td>{getContractTypeName(proposal.contractType, proposal.contractMethod)}</td>
-                    <td>{formatAmount(proposal.totalAmount)} 원</td>
-                    <td>{proposal.budgetName}</td>
-                    <td>{proposal.requestDepartments.join(', ') || '-'}</td>
-                    <td>{proposal.createdBy || '-'}</td>
-                    <td>{new Date(proposal.createdAt).toLocaleDateString('ko-KR')}</td>
-                    <td>
-                      {proposal.approvalDate 
-                        ? new Date(proposal.approvalDate).toLocaleDateString('ko-KR')
-                        : '-'
-                      }
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
 

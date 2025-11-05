@@ -53,7 +53,7 @@
     "webpack-cli": "^6.0.1",
     "xlsx": "^0.18.5"
   },
-  "proxy": "http://172.22.32.200:3002",
+  "proxy": "http://localhost:3002",
   "scripts": {
     "start": "set PORT=3001 && set DANGEROUSLY_DISABLE_HOST_CHECK=true && set BROWSER=chrome && npx craco start",
     "start:local": "set PORT=3001 && set BROWSER=chrome && npx craco start",

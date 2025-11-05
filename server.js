@@ -5,6 +5,9 @@ const axios = require('axios');
 const XLSX = require('xlsx');
 require('dotenv').config();
 
+// 외부 DB 설정 (부서 정보 등)
+const { getDepartmentsFromExternalDb, testExternalDbConnection } = require('./config/externalDatabase');
+
 const app = express();
 const PORT = process.env.PORT || 3002;
 
@@ -41,16 +44,29 @@ const models = require('./src/models');
 
 // API 라우트
 
-// 1. 부서 목록 조회
+// 1. 부서 목록 조회 (외부 DB 연동)
 app.get('/api/departments', async (req, res) => {
   try {
-    const departments = await models.Department.findAll({
-      where: { isActive: true },
-      order: [['name', 'ASC']]
-    });
+    // 외부 DB에서 부서 정보 조회 (외부 DB가 설정되지 않았으면 기본 부서 목록 반환)
+    const departments = await getDepartmentsFromExternalDb();
     res.json(departments);
   } catch (error) {
+    console.error('부서 목록 조회 실패:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// 1-1. 외부 DB 연결 테스트
+app.get('/api/external-db/test', async (req, res) => {
+  try {
+    const result = await testExternalDbConnection();
+    res.json(result);
+  } catch (error) {
+    console.error('외부 DB 연결 테스트 실패:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 
@@ -548,11 +564,32 @@ app.put('/api/business-budgets/:id', async (req, res) => {
 app.delete('/api/business-budgets/:id', async (req, res) => {
   try {
     const budgetId = req.params.id;
+    const { deletedBy } = req.query; // 삭제자 정보 받기
+    
+    // 변경이력 저장을 위해 삭제 전에 예산 정보 조회
+    const [budgetInfo] = await sequelize.query(`
+      SELECT project_name, budget_year FROM business_budgets WHERE id = ?
+    `, { 
+      replacements: [budgetId],
+      type: Sequelize.QueryTypes.SELECT 
+    });
     
     // 사업예산 삭제 (CASCADE로 상세내역과 승인이력도 함께 삭제됨)
     await sequelize.query(`
       DELETE FROM business_budgets WHERE id = ?
     `, { replacements: [budgetId] });
+    
+    // 변경이력 저장 (삭제)
+    if (budgetInfo) {
+      await saveBusinessBudgetHistory(
+        budgetId,
+        'DELETE',
+        null,
+        null,
+        '사업예산 삭제',
+        deletedBy || 'system'
+      );
+    }
     
     res.json({ message: '사업예산이 성공적으로 삭제되었습니다.' });
   } catch (error) {
@@ -1293,6 +1330,11 @@ app.get('/api/proposals', async (req, res) => {
     // isDraft 필터링 (작성중 여부)
     if (req.query.isDraft !== undefined) {
       whereClause.isDraft = req.query.isDraft === 'true';
+    }
+    
+    // createdBy 필터링 (작성자)
+    if (req.query.createdBy) {
+      whereClause.createdBy = req.query.createdBy;
     }
     
     // status 필터링 (승인 상태)
@@ -3945,6 +3987,42 @@ app.get('/api/work-reports', async (req, res) => {
         const current = personnelStats.current.byDepartment[dept] || 0;
         const previous = personnelStats.previous.byDepartment[dept] || 0;
         personnelStats.changes.byDepartment[dept] = current - previous;
+      });
+      
+      // 증감된 내부인력 상세 정보 추출
+      personnelStats.newPersonnel = []; // 신규 입사
+      personnelStats.endedPersonnel = []; // 퇴사
+      
+      // 이전 기간의 인력 ID 목록
+      const previousPersonnelIds = new Set(previousPersonnel.map(p => p.id));
+      const currentPersonnelIds = new Set(currentPersonnel.map(p => p.id));
+      
+      // 신규 입사: 현재에는 있지만 이전에는 없는 인력
+      currentPersonnel.forEach(person => {
+        if (!previousPersonnelIds.has(person.id)) {
+          personnelStats.newPersonnel.push({
+            id: person.id,
+            name: person.name || '-',
+            department: person.department || '미지정',
+            position: person.position || '-',
+            joinDate: person.join_date ? new Date(person.join_date).toISOString().split('T')[0] : '-',
+            resignationDate: '-'
+          });
+        }
+      });
+      
+      // 퇴사: 이전에는 있었지만 현재에는 없는 인력
+      previousPersonnel.forEach(person => {
+        if (!currentPersonnelIds.has(person.id)) {
+          personnelStats.endedPersonnel.push({
+            id: person.id,
+            name: person.name || '-',
+            department: person.department || '미지정',
+            position: person.position || '-',
+            joinDate: person.join_date ? new Date(person.join_date).toISOString().split('T')[0] : '-',
+            resignationDate: person.resignation_date ? new Date(person.resignation_date).toISOString().split('T')[0] : '-'
+          });
+        }
       });
       
       // ===== 외주인력 증감 조회 =====

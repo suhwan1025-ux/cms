@@ -1,0 +1,508 @@
+-- =====================================================
+-- 계약관리시스템(CMS) - 전체 테이블 생성 스크립트
+-- 파일명: 02_create_tables.sql
+-- 실행: cms_admin 사용자로 contract_management DB에 연결하여 실행
+-- 버전: 1.0
+-- 생성일: 2025-11-05
+-- =====================================================
+
+\c contract_management cms_admin
+
+-- =====================================================
+-- 1. SequelizeMeta (마이그레이션 이력)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS "SequelizeMeta" (
+    name VARCHAR(255) PRIMARY KEY
+);
+COMMENT ON TABLE "SequelizeMeta" IS 'Sequelize 마이그레이션 이력';
+
+-- =====================================================
+-- 2. departments (부서)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS departments (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    code VARCHAR(50) UNIQUE,
+    parent_id INTEGER,
+    manager VARCHAR(255),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE departments IS '부서 정보';
+COMMENT ON COLUMN departments.parent_id IS '상위 부서 ID (계층 구조)';
+
+-- =====================================================
+-- 3. suppliers (공급업체)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS suppliers (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    business_number VARCHAR(50) UNIQUE,
+    representative VARCHAR(255),
+    address TEXT,
+    phone VARCHAR(50),
+    email VARCHAR(255),
+    credit_rating VARCHAR(10),
+    business_type VARCHAR(255),
+    registration_date DATE,
+    is_active BOOLEAN DEFAULT TRUE,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE suppliers IS '공급업체 정보';
+COMMENT ON COLUMN suppliers.business_number IS '사업자등록번호';
+COMMENT ON COLUMN suppliers.credit_rating IS '신용등급';
+
+-- =====================================================
+-- 4. budgets (예산)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS budgets (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    year INTEGER NOT NULL,
+    type VARCHAR(20) DEFAULT 'general' CHECK (type IN ('general', 'business')),
+    total_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    used_amount NUMERIC(15,2) DEFAULT 0,
+    remaining_amount NUMERIC(15,2),
+    department VARCHAR(255),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE budgets IS '일반 예산';
+COMMENT ON COLUMN budgets.type IS '예산 유형: general(일반), business(사업)';
+COMMENT ON COLUMN budgets.remaining_amount IS '잔여금액 (자동계산)';
+
+-- =====================================================
+-- 5. contract_methods (계약방식)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS contract_methods (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    value VARCHAR(255),
+    description TEXT,
+    basis TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE contract_methods IS '계약방식 마스터 데이터';
+COMMENT ON COLUMN contract_methods.basis IS '법적 근거';
+
+-- =====================================================
+-- 6. business_budgets (사업예산)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS business_budgets (
+    id SERIAL PRIMARY KEY,
+    project_name VARCHAR(255) NOT NULL,
+    initiator_department VARCHAR(100) NOT NULL,
+    executor_department VARCHAR(100) NOT NULL,
+    budget_type VARCHAR(50) NOT NULL,
+    budget_category VARCHAR(100) NOT NULL,
+    budget_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    additional_budget NUMERIC(15,2) DEFAULT 0,
+    executed_amount NUMERIC(15,2) DEFAULT 0,
+    pending_amount NUMERIC(15,2) DEFAULT 0,
+    confirmed_execution_amount NUMERIC(15,2) DEFAULT 0,
+    unexecuted_amount NUMERIC(15,2) DEFAULT 0,
+    start_date VARCHAR(7) NOT NULL,
+    end_date VARCHAR(7) NOT NULL,
+    is_essential BOOLEAN DEFAULT FALSE,
+    project_purpose VARCHAR(10) NOT NULL,
+    budget_year INTEGER NOT NULL,
+    status VARCHAR(20) DEFAULT '승인대기',
+    created_by VARCHAR(100) DEFAULT '작성자',
+    hold_cancel_reason TEXT,
+    notes TEXT,
+    it_plan_reported BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE business_budgets IS '사업예산';
+COMMENT ON COLUMN business_budgets.confirmed_execution_amount IS '확정집행액 (결재완료 품의서 합계)';
+COMMENT ON COLUMN business_budgets.unexecuted_amount IS '미집행액 (자동계산)';
+
+-- =====================================================
+-- 7. business_budget_details (사업예산 상세)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS business_budget_details (
+    id SERIAL PRIMARY KEY,
+    budget_id INTEGER,
+    item_name VARCHAR(255) NOT NULL,
+    item_description TEXT,
+    unit_price NUMERIC(15,2) NOT NULL,
+    quantity INTEGER NOT NULL,
+    total_amount NUMERIC(15,2) NOT NULL,
+    executed_amount NUMERIC(15,2) DEFAULT 0,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE business_budget_details IS '사업예산 상세 항목';
+
+-- =====================================================
+-- 8. business_budget_history (사업예산 변경이력)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS business_budget_history (
+    id SERIAL PRIMARY KEY,
+    budget_id INTEGER NOT NULL,
+    change_type VARCHAR(20) NOT NULL,
+    changed_field VARCHAR(100),
+    old_value TEXT,
+    new_value TEXT,
+    changed_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    changed_by VARCHAR(100),
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE business_budget_history IS '사업예산 변경 이력';
+COMMENT ON COLUMN business_budget_history.change_type IS '변경유형: created, updated, deleted';
+
+-- =====================================================
+-- 9. business_budget_approvals (사업예산 결재)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS business_budget_approvals (
+    id SERIAL PRIMARY KEY,
+    budget_id INTEGER,
+    approver_name VARCHAR(100) NOT NULL,
+    approver_title VARCHAR(100) NOT NULL,
+    approval_status VARCHAR(20) NOT NULL,
+    approval_comment TEXT,
+    approved_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE business_budget_approvals IS '사업예산 결재';
+
+-- =====================================================
+-- 10. proposals (품의서) - 핵심 테이블
+-- =====================================================
+CREATE TABLE IF NOT EXISTS proposals (
+    id SERIAL PRIMARY KEY,
+    contract_type VARCHAR(50) NOT NULL,
+    title VARCHAR(500),
+    purpose TEXT NOT NULL,
+    basis TEXT NOT NULL,
+    budget_id INTEGER,
+    contract_method VARCHAR(50),
+    contract_method_id INTEGER,
+    account_subject VARCHAR(255),
+    total_amount NUMERIC(15,2) DEFAULT 0,
+    change_reason TEXT,
+    extension_reason TEXT,
+    contract_period VARCHAR(255),
+    contract_start_date DATE,
+    contract_end_date DATE,
+    payment_method VARCHAR(50),
+    status VARCHAR(50) DEFAULT 'draft',
+    created_by VARCHAR(255),
+    proposal_date DATE,
+    approval_date DATE,
+    is_draft BOOLEAN DEFAULT FALSE,
+    wysiwyg_content TEXT,
+    other TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE proposals IS '품의서 (시스템 핵심 테이블)';
+COMMENT ON COLUMN proposals.contract_type IS '계약유형: 구매/변경/연장/용역/입찰';
+COMMENT ON COLUMN proposals.status IS '상태: draft/pending/approved/rejected';
+COMMENT ON COLUMN proposals.is_draft IS '임시저장 여부';
+
+-- =====================================================
+-- 11. purchase_items (구매품목)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS purchase_items (
+    id SERIAL PRIMARY KEY,
+    proposal_id INTEGER NOT NULL,
+    supplier_id INTEGER,
+    item VARCHAR(255) NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    quantity INTEGER NOT NULL,
+    unit_price NUMERIC(15,2) NOT NULL,
+    amount NUMERIC(15,2) NOT NULL,
+    supplier VARCHAR(255) NOT NULL,
+    request_department VARCHAR(255),
+    contract_period_type VARCHAR(50) DEFAULT 'permanent',
+    custom_contract_period TEXT,
+    contract_start_date DATE,
+    contract_end_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE purchase_items IS '구매품목';
+COMMENT ON COLUMN purchase_items.contract_period_type IS '계약기간 유형: permanent/temporary';
+
+-- =====================================================
+-- 12. service_items (용역항목)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS service_items (
+    id SERIAL PRIMARY KEY,
+    proposal_id INTEGER NOT NULL,
+    supplier_id INTEGER,
+    item VARCHAR(255) NOT NULL,
+    name VARCHAR(255),
+    personnel INTEGER NOT NULL DEFAULT 1,
+    skill_level VARCHAR(50),
+    period NUMERIC(10,2) NOT NULL DEFAULT 1,
+    monthly_rate NUMERIC(15,2) NOT NULL,
+    contract_amount NUMERIC(15,2) NOT NULL,
+    supplier VARCHAR(255) NOT NULL,
+    credit_rating VARCHAR(255),
+    contract_period_start TIMESTAMP WITH TIME ZONE,
+    contract_period_end TIMESTAMP WITH TIME ZONE,
+    payment_method VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE service_items IS '용역항목';
+COMMENT ON COLUMN service_items.period IS '용역기간 (개월, 소수점 가능)';
+COMMENT ON COLUMN service_items.personnel IS '투입인원';
+
+-- =====================================================
+-- 13. cost_departments (비용귀속부서)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS cost_departments (
+    id SERIAL PRIMARY KEY,
+    proposal_id INTEGER NOT NULL,
+    department_id INTEGER,
+    department VARCHAR(255) NOT NULL,
+    amount NUMERIC(15,2) NOT NULL,
+    ratio NUMERIC(5,2) DEFAULT 0,
+    purchase_item_id INTEGER,
+    service_item_id INTEGER,
+    allocation_type VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE cost_departments IS '비용귀속부서 (품의서별 비용 배분)';
+COMMENT ON COLUMN cost_departments.ratio IS '배분 비율 (%)';
+
+-- =====================================================
+-- 14. request_departments (요청부서)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS request_departments (
+    id SERIAL PRIMARY KEY,
+    proposal_id INTEGER NOT NULL,
+    department_id INTEGER,
+    department VARCHAR(255) NOT NULL,
+    name VARCHAR(255),
+    code VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE request_departments IS '요청부서';
+
+-- =====================================================
+-- 15. approval_lines (결재라인)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS approval_lines (
+    id SERIAL PRIMARY KEY,
+    proposal_id INTEGER NOT NULL,
+    step INTEGER NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    is_conditional BOOLEAN DEFAULT FALSE,
+    is_final BOOLEAN DEFAULT FALSE,
+    status VARCHAR(50) DEFAULT 'pending',
+    approved_at TIMESTAMP WITH TIME ZONE,
+    approved_by VARCHAR(255),
+    comment TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE approval_lines IS '품의서 결재라인';
+COMMENT ON COLUMN approval_lines.step IS '결재 순서';
+COMMENT ON COLUMN approval_lines.status IS '결재상태: pending/approved/rejected';
+
+-- =====================================================
+-- 16. approval_rules (결재규칙)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS approval_rules (
+    id SERIAL PRIMARY KEY,
+    rule_type VARCHAR(50) NOT NULL,
+    rule_name VARCHAR(255) NOT NULL,
+    rule_content TEXT NOT NULL,
+    basis TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE approval_rules IS '결재 규칙';
+
+-- =====================================================
+-- 17. approval_approvers (결재자)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS approval_approvers (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    department VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    basis TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE approval_approvers IS '결재자 정보';
+
+-- =====================================================
+-- 18. approval_conditions (결재조건)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS approval_conditions (
+    id SERIAL PRIMARY KEY,
+    approver_id INTEGER NOT NULL,
+    condition_type VARCHAR(50) NOT NULL,
+    condition_value VARCHAR(255) NOT NULL,
+    condition_label VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE approval_conditions IS '결재조건 (금액별, 유형별)';
+
+-- =====================================================
+-- 19. approval_references (결재참조)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS approval_references (
+    id SERIAL PRIMARY KEY,
+    amount_range VARCHAR(255) NOT NULL,
+    min_amount NUMERIC(15,2),
+    max_amount NUMERIC(15,2),
+    included_approvers TEXT NOT NULL,
+    final_approver VARCHAR(255) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE approval_references IS '결재 참조표';
+
+-- =====================================================
+-- 20. contracts (계약)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS contracts (
+    id SERIAL PRIMARY KEY,
+    proposal_id INTEGER NOT NULL,
+    contract_number VARCHAR(255) NOT NULL UNIQUE,
+    contract_type VARCHAR(50) NOT NULL,
+    supplier_id INTEGER,
+    contract_amount NUMERIC(15,2) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    payment_method VARCHAR(50),
+    status VARCHAR(50) DEFAULT 'draft',
+    description TEXT,
+    attachments JSON,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE contracts IS '계약 정보';
+COMMENT ON COLUMN contracts.contract_number IS '계약번호 (UNIQUE)';
+
+-- =====================================================
+-- 21. proposal_histories (품의서 변경이력)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS proposal_histories (
+    id SERIAL PRIMARY KEY,
+    proposal_id INTEGER NOT NULL,
+    changed_by VARCHAR(255) NOT NULL,
+    changed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    change_type VARCHAR(50) NOT NULL,
+    field_name VARCHAR(255),
+    old_value TEXT,
+    new_value TEXT,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE proposal_histories IS '품의서 변경 이력';
+
+-- =====================================================
+-- 22. purchase_item_cost_allocations (구매품목 비용배분)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS purchase_item_cost_allocations (
+    id SERIAL PRIMARY KEY,
+    purchase_item_id INTEGER NOT NULL,
+    department_id INTEGER,
+    department VARCHAR(255) NOT NULL,
+    amount NUMERIC(15,2) NOT NULL,
+    ratio NUMERIC(5,2) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+COMMENT ON TABLE purchase_item_cost_allocations IS '구매품목별 비용 배분';
+
+-- =====================================================
+-- 23. project_purposes (사업목적)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS project_purposes (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(10) NOT NULL,
+    description TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    is_fixed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(code, year)
+);
+COMMENT ON TABLE project_purposes IS '사업목적 템플릿';
+COMMENT ON COLUMN project_purposes.is_fixed IS '고정 사업목적 여부';
+
+-- =====================================================
+-- 24. document_templates (문서템플릿)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS document_templates (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    content TEXT NOT NULL,
+    category VARCHAR(50) DEFAULT 'general',
+    is_active BOOLEAN DEFAULT TRUE,
+    display_order INTEGER DEFAULT 0,
+    created_by VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+COMMENT ON TABLE document_templates IS '문서 템플릿 (계약서 등)';
+
+-- =====================================================
+-- 25. tasks (작업)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS tasks (
+    id SERIAL PRIMARY KEY,
+    task_name VARCHAR(200) NOT NULL,
+    description TEXT,
+    shared_folder_path VARCHAR(500),
+    start_date DATE,
+    end_date DATE,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    assigned_department VARCHAR(100),
+    assigned_person VARCHAR(100),
+    priority VARCHAR(10) NOT NULL DEFAULT 'medium',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE tasks IS '작업 관리';
+
+-- =====================================================
+-- 26. purchase_history (구매이력)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS purchase_history (
+    id SERIAL PRIMARY KEY,
+    proposal_id INTEGER,
+    supplier_id INTEGER,
+    purchase_date DATE,
+    purchase_amount NUMERIC(15,2) DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE purchase_history IS '구매 이력';
+
+-- 완료 메시지
+SELECT 'All tables created successfully!' AS status;
+

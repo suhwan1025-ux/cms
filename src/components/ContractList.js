@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { generatePreviewHTML } from '../utils/previewGenerator';
 import { getApiUrl } from '../config/api';
 import { getStatusLabel } from '../utils/statusHelper';
+import { getCurrentUserName } from '../utils/userHelper';
 import * as XLSX from 'xlsx';
 
 // API 베이스 URL 설정
@@ -65,7 +66,6 @@ const ContractList = () => {
         '구매계약': '구매계약',
         '용역계약': '용역계약',
         '변경계약': '변경계약',
-        '연장계약': '연장계약',
         '입찰계약': '입찰계약'
       };
       return typeMapping[type] || type;
@@ -76,7 +76,8 @@ const ContractList = () => {
     html += '<meta charset="UTF-8">';
     html += '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
     html += '<title>📋 품의서 미리보기 - ' + (contract.title || '품의서') + '</title>';
-    html += '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>';
+    // CDN 제거: 폐쇄망 대비 로컬 파일 사용 (필요시 활성화)
+    // html += '<script src="/js/html2canvas.min.js"></script>';
     html += '<style>';
     html += 'body { font-family: "Malgun Gothic", sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f5f5f5; }';
     html += '.preview-container { max-width: 1200px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }';
@@ -240,7 +241,7 @@ const ContractList = () => {
 
   // 필터 옵션들
   const statusOptions = ['전체', '결재대기', '결재완료'];
-  const typeOptions = ['전체', '구매계약', '용역계약', '변경계약', '연장계약', '입찰계약'];
+  const typeOptions = ['전체', '구매계약', '용역계약', '변경계약', '입찰계약'];
   const departmentOptions = ['전체', 'IT팀', '총무팀', '기획팀', '영업팀', '재무팀', '법무팀'];
   const dateRangeOptions = ['전체', '최근 1개월', '최근 3개월', '최근 6개월', '최근 1년'];
   const amountRangeOptions = ['전체', '1천만원 미만', '1천만원~5천만원', '5천만원~1억원', '1억원 이상'];
@@ -1565,7 +1566,7 @@ const ContractList = () => {
           status: 'approved', // submitted → approved로 변경
           statusDate: statusDate,
           changeReason: changeReason,
-          changedBy: '관리자' // 실제로는 로그인한 사용자 정보를 사용
+          changedBy: getCurrentUserName() // 현재 로그인한 사용자 (향후 인증 시스템 연동)
         })
       });
 

@@ -214,30 +214,56 @@
 /* 인력 목록 테이블 */
 .personnel-list {
   background: white;
-  padding: 1.5rem;
+  padding: 0;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow-x: auto;
+  position: relative;
+  height: 70vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .personnel-table {
   width: 100%;
   border-collapse: collapse;
   min-width: 1400px;
+  display: block;
 }
 
 .personnel-table thead {
-  background: #f8f9fa;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  background-color: #f8f9fa;
+}
+
+.personnel-table thead th {
+  background-color: #f8f9fa;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.personnel-table tbody {
+  display: block;
+  overflow-y: auto;
+  overflow-x: auto;
+  max-height: calc(70vh - 50px);
+}
+
+.personnel-table tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
 }
 
 .personnel-table th {
   padding: 12px;
   text-align: left;
   font-weight: 600;
-  border-bottom: 2px solid #dee2e6;
   white-space: nowrap;
   font-size: 14px;
 }

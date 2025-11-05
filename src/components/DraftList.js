@@ -2,6 +2,7 @@
 import { useLocation } from 'react-router-dom';
 import { generatePreviewHTML, formatNumberWithComma, formatCurrency } from '../utils/previewGenerator';
 import { getApiUrl } from '../config/api';
+import { getCurrentUserName } from '../utils/userHelper';
 import * as XLSX from 'xlsx';
 
 // API 베이스 URL 설정
@@ -22,13 +23,16 @@ const DraftList = () => {
   });
 
   // 필터 옵션들
-  const typeOptions = ['전체', '구매계약', '용역계약', '변경계약', '연장계약', '입찰계약'];
+  const typeOptions = ['전체', '구매계약', '용역계약', '변경계약', '입찰계약'];
 
   // 품의서 데이터를 가져오는 함수
   const fetchDrafts = async () => {
     try {
-      // 작성중인 품의서만 조회 (isDraft=true)
-      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=true`);
+      // 현재 로그인한 사용자 이름 가져오기
+      const currentUser = getCurrentUserName();
+      
+      // 작성중인 품의서만 조회 (isDraft=true, 작성자 필터링)
+      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=true&createdBy=${encodeURIComponent(currentUser)}`);
       
       if (!response.ok) {
         throw new Error('API 호출 실패');
@@ -57,7 +61,6 @@ const DraftList = () => {
         contractType: proposal.contractType === 'purchase' ? '구매계약' :
                      proposal.contractType === 'service' ? '용역계약' :
                      proposal.contractType === 'change' ? '변경계약' :
-                     proposal.contractType === 'extension' ? '연장계약' :
                      proposal.contractType === 'bidding' ? '입찰계약' :
                      proposal.contractType === 'freeform' ? 
                        // 자유양식일 때 contractMethod에 템플릿 이름(한글)이 있으면 표시, 아니면 "기타"
@@ -241,8 +244,11 @@ const DraftList = () => {
     try {
       console.log('전체 데이터를 가져오는 중...');
       
-      // 서버에서 전체 작성중인 품의서 데이터 가져오기
-      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=true`);
+      // 현재 로그인한 사용자 이름 가져오기
+      const currentUser = getCurrentUserName();
+      
+      // 서버에서 현재 사용자가 작성한 품의서만 가져오기
+      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=true&createdBy=${encodeURIComponent(currentUser)}`);
       
       if (!response.ok) {
         throw new Error('데이터 조회 실패');
@@ -259,7 +265,6 @@ const DraftList = () => {
         contractType: proposal.contractType === 'purchase' ? '구매계약' :
                      proposal.contractType === 'service' ? '용역계약' :
                      proposal.contractType === 'change' ? '변경계약' :
-                     proposal.contractType === 'extension' ? '연장계약' :
                      proposal.contractType === 'bidding' ? '입찰계약' :
                      proposal.contractType === 'freeform' ? 
                        (proposal.contractMethod && 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '../config/api';
+import { getCurrentUserName } from '../utils/userHelper';
 
 // API 베이스 URL 설정
 const API_BASE_URL = getApiUrl();
@@ -63,11 +64,8 @@ const BudgetRegistration = ({ year = 2024 }) => {
     '전산운용비': ['증권전산운용비', '전산수선비', '전산임차료', '전산용역비', '전산회선료', '기타']
   };
 
-  // 부서 목록
-  const departments = [
-    'IT팀', 'IT기획팀', 'IT개발팀', 'IT운영팀', '보안팀', '총무팀', '기획팀', 
-    '영업팀', '마케팅팀', '재무팀', '증권팀', '데이터팀', '인사팀'
-  ];
+  // 부서 목록 (API에서 로드)
+  const [departments, setDepartments] = useState([]);
 
   // 사업목적 옵션
   const projectPurposes = [
@@ -80,6 +78,24 @@ const BudgetRegistration = ({ year = 2024 }) => {
   ];
 
 
+
+  // API에서 부서 목록 로드
+  const fetchDepartments = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/departments`);
+      if (response.ok) {
+        const data = await response.json();
+        // 부서명만 추출하여 배열로 변환
+        const departmentNames = data.map(dept => dept.deptName || dept.name || dept);
+        setDepartments(departmentNames);
+        console.log('✅ 부서 목록 로드 완료:', departmentNames.length, '개');
+      } else {
+        console.error('부서 목록 로드 실패:', response.statusText);
+      }
+    } catch (error) {
+      console.error('부서 목록 API 호출 오류:', error);
+    }
+  };
 
   // API에서 사업예산 데이터 로드
   const fetchBudgets = async () => {
@@ -101,6 +117,7 @@ const BudgetRegistration = ({ year = 2024 }) => {
   };
 
   useEffect(() => {
+    fetchDepartments(); // 부서 목록 로드
     fetchBudgets();
   }, [year]);
 
@@ -635,29 +652,55 @@ const BudgetRegistration = ({ year = 2024 }) => {
     setBudgets(initialData);
   }, [year]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newBudget = {
-      id: Date.now(),
-      ...formData,
-      budgetYear: year,
-      status: '승인대기',
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    setBudgets([newBudget, ...budgets]);
-    setFormData({
-      projectName: '',
-      initiatorDepartment: '',
-      executorDepartment: '',
-      budgetType: '',
-      budgetCategory: '',
-      budgetAmount: '',
-      startDate: '',
-      endDate: '',
-      isEssential: false,
-      projectPurpose: ''
-    });
-    alert('예산이 등록되었습니다.');
+    
+    try {
+      // 현재 로그인한 사용자 정보 가져오기
+      const currentUser = getCurrentUserName();
+      
+      // API 호출하여 서버에 저장
+      const response = await fetch(`${API_BASE_URL}/api/business-budgets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          budgetYear: year,
+          createdBy: currentUser // 작성자 정보 추가
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '예산 등록 실패');
+      }
+      
+      const result = await response.json();
+      
+      // 폼 초기화
+      setFormData({
+        projectName: '',
+        initiatorDepartment: '',
+        executorDepartment: '',
+        budgetType: '',
+        budgetCategory: '',
+        budgetAmount: '',
+        startDate: '',
+        endDate: '',
+        isEssential: false,
+        projectPurpose: ''
+      });
+      
+      alert('예산이 등록되었습니다.');
+      
+      // 목록 새로고침
+      fetchBudgets();
+    } catch (error) {
+      console.error('예산 등록 실패:', error);
+      alert(`예산 등록에 실패했습니다: ${error.message}`);
+    }
   };
 
   const handleChange = (e) => {
@@ -910,35 +953,89 @@ const BudgetRegistration = ({ year = 2024 }) => {
   };
 
   // 예산 수정 저장
-  const handleSaveEdit = (budgetId) => {
+  const handleSaveEdit = async (budgetId) => {
     if (editForm.projectName.trim()) {
-      setBudgets(budgets.map(budget => 
-        budget.id === budgetId 
-          ? { ...budget, ...editForm, budgetYear: year }
-          : budget
-      ));
-      setEditingBudget(null);
-      setEditForm({
-        projectName: '',
-        initiatorDepartment: '',
-        executorDepartment: '',
-        budgetType: '',
-        budgetCategory: '',
-        budgetAmount: '',
-        startDate: '',
-        endDate: '',
-        isEssential: false,
-        projectPurpose: ''
-      });
-      alert('예산이 수정되었습니다.');
+      try {
+        // 현재 로그인한 사용자 정보 가져오기
+        const currentUser = getCurrentUserName();
+        
+        // API 호출하여 서버에 저장
+        const response = await fetch(`${API_BASE_URL}/api/business-budgets/${budgetId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...editForm,
+            changedBy: currentUser // 변경자 정보 추가
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || '예산 수정 실패');
+        }
+        
+        // 로컬 상태 업데이트
+        setBudgets(budgets.map(budget => 
+          budget.id === budgetId 
+            ? { ...budget, ...editForm, budgetYear: year }
+            : budget
+        ));
+        
+        setEditingBudget(null);
+        setEditForm({
+          projectName: '',
+          initiatorDepartment: '',
+          executorDepartment: '',
+          budgetType: '',
+          budgetCategory: '',
+          budgetAmount: '',
+          startDate: '',
+          endDate: '',
+          isEssential: false,
+          projectPurpose: ''
+        });
+        
+        alert('예산이 수정되었습니다.');
+        
+        // 목록 새로고침
+        fetchBudgets();
+      } catch (error) {
+        console.error('예산 수정 실패:', error);
+        alert(`예산 수정에 실패했습니다: ${error.message}`);
+      }
     }
   };
 
   // 예산 삭제
-  const handleDelete = (budgetId) => {
+  const handleDelete = async (budgetId) => {
     if (window.confirm('정말로 이 예산을 삭제하시겠습니까?')) {
-      setBudgets(budgets.filter(budget => budget.id !== budgetId));
-      alert('예산이 삭제되었습니다.');
+      try {
+        // 현재 로그인한 사용자 정보 가져오기
+        const currentUser = getCurrentUserName();
+        
+        // API 호출하여 서버에서 삭제
+        const response = await fetch(`${API_BASE_URL}/api/business-budgets/${budgetId}?deletedBy=${encodeURIComponent(currentUser)}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || '예산 삭제 실패');
+        }
+        
+        // 로컬 상태 업데이트
+        setBudgets(budgets.filter(budget => budget.id !== budgetId));
+        
+        alert('예산이 삭제되었습니다.');
+        
+        // 목록 새로고침
+        fetchBudgets();
+      } catch (error) {
+        console.error('예산 삭제 실패:', error);
+        alert(`예산 삭제에 실패했습니다: ${error.message}`);
+      }
     }
   };
 

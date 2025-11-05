@@ -5,6 +5,7 @@ import CKEditorComponent from './CKEditorComponent';
 import DocumentTemplates from './DocumentTemplates';
 import { generatePreviewHTML } from '../utils/previewGenerator';
 import { getApiUrl } from '../config/api';
+import { getCurrentUserName } from '../utils/userHelper';
 
 // API 베이스 URL 설정
 const API_BASE_URL = getApiUrl();
@@ -55,13 +56,12 @@ const ProposalForm = () => {
     other: '', // 기타 사항
     requestDepartments: [], // 다중 선택 가능한 요청부서 배열
     
-    // 구매/변경/연장 계약용
+    // 구매/변경 계약용
     purchaseItems: [], // N개 구매품목
     suppliers: [],
     
-    // 변경/연장 계약용
+    // 변경 계약용
     changeReason: '',
-    extensionReason: '',
     beforeItems: [],
     afterItems: [],
     
@@ -212,7 +212,7 @@ const ProposalForm = () => {
     } else {
       console.log('변경사항 없음, 바로 이동');
       // 변경사항이 없으면 바로 이동
-      if (navigationTarget && ['purchase', 'change', 'extension', 'service', 'bidding'].includes(navigationTarget)) {
+      if (navigationTarget && ['purchase', 'change', 'service', 'bidding'].includes(navigationTarget)) {
         setContractType(navigationTarget);
       } else if (navigationTarget) {
         navigate(navigationTarget);
@@ -247,13 +247,12 @@ const ProposalForm = () => {
       accountSubject: '',
       requestDepartments: [], // 빈 배열로 초기화
       
-      // 구매/변경/연장 계약용
+      // 구매/변경 계약용
       purchaseItems: [], // 빈 배열로 초기화
       suppliers: [],
       
-      // 변경/연장 계약용
+      // 변경 계약용
       changeReason: '',
-      extensionReason: '',
       beforeItems: [],
       afterItems: [],
       
@@ -305,7 +304,7 @@ const ProposalForm = () => {
       setHasUnsavedChanges(false);
       
       // 계약 유형 변경인지 URL 이동인지 확인
-      if (targetNavigation && ['purchase', 'change', 'extension', 'service', 'bidding'].includes(targetNavigation)) {
+      if (targetNavigation && ['purchase', 'change', 'service', 'bidding'].includes(targetNavigation)) {
         console.log('계약 유형 변경:', targetNavigation);
         setContractType(targetNavigation);
         // 폼 데이터 초기화
@@ -331,7 +330,7 @@ const ProposalForm = () => {
     setHasUnsavedChanges(false);
     
     // 계약 유형 변경인지 URL 이동인지 확인
-    if (targetNavigation && ['purchase', 'change', 'extension', 'service', 'bidding'].includes(targetNavigation)) {
+    if (targetNavigation && ['purchase', 'change', 'service', 'bidding'].includes(targetNavigation)) {
       console.log('계약 유형 변경 (저장 없이):', targetNavigation);
       setContractType(targetNavigation);
       // 폼 데이터 초기화
@@ -353,7 +352,7 @@ const ProposalForm = () => {
   const calculateTotalAmount = () => {
     let total = 0;
     
-    if (['purchase', 'change', 'extension'].includes(contractType)) {
+    if (['purchase', 'change'].includes(contractType)) {
       total = (formData.purchaseItems || []).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     } else if (contractType === 'service') {
       total = (formData.serviceItems || []).reduce((sum, item) => sum + (parseFloat(item.contractAmount) || 0), 0);
@@ -733,7 +732,6 @@ const ProposalForm = () => {
             purchaseItems: editData.purchaseItems || [],
             suppliers: editData.suppliers || [],
             changeReason: editData.changeReason || '',
-            extensionReason: editData.extensionReason || '',
             beforeItems: editData.beforeItems || [],
             afterItems: editData.afterItems || [],
             serviceItems: editData.serviceItems || [],
@@ -792,7 +790,6 @@ const ProposalForm = () => {
             purchaseItems: recycleData.purchaseItems || [],
             suppliers: recycleData.suppliers || [],
             changeReason: recycleData.changeReason || '',
-            extensionReason: recycleData.extensionReason || '',
             beforeItems: recycleData.beforeItems || [],
             afterItems: recycleData.afterItems || [],
             // 용역품목도 이미 기존 수정 기능과 동일한 형태로 처리됨
@@ -874,7 +871,6 @@ const ProposalForm = () => {
           setContractType(draftData.contractType === '구매계약' ? 'purchase' :
                          draftData.contractType === '용역계약' ? 'service' :
                          draftData.contractType === '변경계약' ? 'change' :
-                         draftData.contractType === '연장계약' ? 'extension' :
                          draftData.contractType === '자유양식' ? 'freeform' : '');
           
           // 요청부서 데이터 정규화 (강화된 구조)
@@ -1006,7 +1002,6 @@ const ProposalForm = () => {
             purchaseItems: normalizedPurchaseItems,
             suppliers: draftData.suppliers || [],
             changeReason: draftData.changeReason || '',
-            extensionReason: draftData.extensionReason || '',
             beforeItems: draftData.beforeItems || [],
             afterItems: draftData.afterItems || [],
             serviceItems: (draftData.serviceItems || []).map(item => ({
@@ -1209,7 +1204,7 @@ const ProposalForm = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const typeParam = urlParams.get('type');
     
-    if (typeParam && ['purchase', 'change', 'extension', 'service', 'bidding'].includes(typeParam)) {
+    if (typeParam && ['purchase', 'change', 'service', 'bidding'].includes(typeParam)) {
       setContractType(typeParam);
     }
 
@@ -1418,7 +1413,6 @@ const ProposalForm = () => {
         }),
         suppliers: proposalData.suppliers || [],
         changeReason: proposalData.changeReason || '',
-        extensionReason: proposalData.extensionReason || '',
         beforeItems: proposalData.beforeItems || [],
         afterItems: proposalData.afterItems || [],
         contractPeriod: proposalData.contractPeriod || '',
@@ -2391,7 +2385,6 @@ const ProposalForm = () => {
       serviceItems: formData.serviceItems || [],
       suppliers: formData.suppliers || [],
       changeReason: formData.changeReason || '',
-      extensionReason: formData.extensionReason || '',
       beforeItems: formData.beforeItems || [],
       afterItems: formData.afterItems || [],
       contractPeriod: formData.contractPeriod || '',
@@ -2410,6 +2403,27 @@ const ProposalForm = () => {
   const handleProposalSave = async (isDraft = true, preventNavigation = false) => {
     try {
       console.log(isDraft ? '임시저장 시작...' : '작성완료 저장 시작...');
+      
+      // 확인 팝업
+      if (isDraft) {
+        const confirmMessage = isEditMode 
+          ? '품의서를 임시저장하시겠습니까?\n임시저장하면 나중에 다시 수정할 수 있습니다.'
+          : '품의서를 임시저장하시겠습니까?\n임시저장하면 나중에 이어서 작성할 수 있습니다.';
+        
+        if (!window.confirm(confirmMessage)) {
+          console.log('임시저장 취소됨');
+          return;
+        }
+      } else {
+        const confirmMessage = isEditMode
+          ? '품의서를 최종 제출하시겠습니까?\n제출 후에는 결재 대기 상태가 됩니다.'
+          : '품의서를 최종 제출하시겠습니까?\n제출 후에는 결재 대기 상태가 됩니다.';
+        
+        if (!window.confirm(confirmMessage)) {
+          console.log('작성완료 취소됨');
+          return;
+        }
+      }
       
       // 데이터 검증
       if (isDraft) {
@@ -2452,7 +2466,7 @@ const ProposalForm = () => {
 
         
         // 계약 유형별 필수 항목 검증
-        if (contractType === 'purchase' || contractType === 'change' || contractType === 'extension') {
+        if (contractType === 'purchase' || contractType === 'change') {
           if (!formData.purchaseItems || formData.purchaseItems.length === 0) {
             alert('구매품목을 추가해주세요.');
             return;
@@ -2540,7 +2554,7 @@ const ProposalForm = () => {
         }
         
         // 비용귀속분배 필수 검증 (구매계약의 경우)
-        if (contractType === 'purchase' || contractType === 'change' || contractType === 'extension') {
+        if (contractType === 'purchase' || contractType === 'change') {
           for (let i = 0; i < formData.purchaseItems.length; i++) {
             const item = formData.purchaseItems[i];
             if (!item.costAllocation || !item.costAllocation.allocations || item.costAllocation.allocations.length === 0) {
@@ -2773,7 +2787,6 @@ const ProposalForm = () => {
         serviceItems: serviceItemsWithAllocations, // 비용분배 정보가 포함된 용역품목
         suppliers: formData.suppliers || [],
         changeReason: formData.changeReason || '',
-        extensionReason: formData.extensionReason || '',
         beforeItems: formData.beforeItems || [],
         afterItems: formData.afterItems || [],
         contractPeriod: formData.contractPeriod || '',
@@ -2784,7 +2797,7 @@ const ProposalForm = () => {
         priceComparison: formData.priceComparison || [],
         wysiwygContent: formData.wysiwygContent || '', // 자유양식 문서 내용 추가
         other: formData.other || '', // 기타 사항 추가
-        createdBy: '사용자1', // 고정값으로 설정
+        createdBy: getCurrentUserName(), // 현재 로그인한 사용자 (향후 인증 시스템 연동)
         isDraft: isDraft, // 매개변수에 따라 설정
         status: isDraft ? 'draft' : 'submitted', // 임시저장: draft, 작성완료: submitted
         purchaseItemCostAllocations, // 구매품목 비용분배 (백업용)
@@ -3012,7 +3025,7 @@ const ProposalForm = () => {
   const getItemsForAccountSubject = () => {
     let items = [];
     
-    if (['purchase', 'change', 'extension'].includes(contractType) && formData.purchaseItems?.length > 0) {
+    if (['purchase', 'change'].includes(contractType) && formData.purchaseItems?.length > 0) {
       items = formData.purchaseItems
         .map(item => item.productName || item.item)
         .filter(item => item && item.trim())
@@ -3034,7 +3047,7 @@ const ProposalForm = () => {
     const groups = [];
     
     // 구매계약의 경우
-    if (['purchase', 'change', 'extension'].includes(contractType) && formData.purchaseItems?.length > 0) {
+    if (['purchase', 'change'].includes(contractType) && formData.purchaseItems?.length > 0) {
       formData.purchaseItems.forEach(item => {
         if (item.productName && item.item) {
           const accountSubject = getAccountSubjectByCategory(item.item);
@@ -3154,7 +3167,6 @@ const ProposalForm = () => {
       'purchase': '구매계약',
       'service': '용역계약', 
       'change': '변경계약',
-      'extension': '연장계약',
       'freeform': '자유양식'
     };
     return types[contractType] || '기타';
@@ -3417,7 +3429,7 @@ const ProposalForm = () => {
       `;
     }
 
-    if (['purchase', 'change', 'extension'].includes(contractType) && formData.purchaseItems?.length > 0) {
+    if (['purchase', 'change'].includes(contractType) && formData.purchaseItems?.length > 0) {
       return `
         <div class="section-title">2. 구매 상세 내역</div>
         <table class="details-table">
@@ -3756,7 +3768,7 @@ const ProposalForm = () => {
       // 필수 필드 검증 및 기본값 설정
       // contractType은 사용자가 선택한 계약 유형을 정확히 저장
       if (!contractType) {
-        throw new Error('계약 유형을 선택해주세요. (구매계약, 용역계약, 변경계약, 연장계약, 자유양식 중 선택)');
+        throw new Error('계약 유형을 선택해주세요. (구매계약, 용역계약, 변경계약, 자유양식 중 선택)');
       }
       
       // 필수 필드 검증
@@ -3770,8 +3782,8 @@ const ProposalForm = () => {
         throw new Error('근거를 입력해주세요.');
       }
       
-      // createdBy는 고정값 '사용자1'로 설정
-      const finalCreatedBy = '사용자1';
+      // createdBy는 현재 로그인한 사용자로 설정 (향후 인증 시스템 연동)
+      const finalCreatedBy = getCurrentUserName();
       
       console.log('=== 데이터 검증 결과 ===');
       console.log('사용자 선택 계약 유형:', contractType);
@@ -3958,7 +3970,7 @@ const ProposalForm = () => {
       
       if (!proposalData.createdBy) {
         console.log('⚠️ createdBy 누락, 강제 설정');
-        proposalData.createdBy = '사용자1';
+        proposalData.createdBy = getCurrentUserName();
       }
       
       if (!proposalData.purpose) {
@@ -4078,7 +4090,7 @@ const ProposalForm = () => {
               title: formData.purpose || '품의서',
               department: formData.requestDepartments?.[0] || '미지정',
               contractor: formData.purchaseItems?.[0]?.supplier || formData.serviceItems?.[0]?.supplier || '미지정',
-              author: '작성자',
+              author: getCurrentUserName(),
               amount: calculateTotalAmount() || 0,
               status: '제출완료',
               startDate: new Date().toISOString().split('T')[0],
@@ -4240,12 +4252,6 @@ const ProposalForm = () => {
             onClick={() => changeContractType('change')}
           >
             변경 계약
-          </button>
-          <button
-            className={`type-btn ${contractType === 'extension' ? 'active' : ''}`}
-            onClick={() => changeContractType('extension')}
-          >
-            연장 계약
           </button>
           <button
             className={`type-btn ${contractType === 'service' ? 'active' : ''}`}
