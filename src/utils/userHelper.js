@@ -25,6 +25,14 @@ export const getCurrentUser = async () => {
     
     // 2. 서버에서 사용자 정보 조회 (IP 기반)
     const response = await fetch(`${getApiUrl()}/api/auth/me`);
+    
+    // IP 접근 제어로 차단된 경우 (403 Forbidden)
+    if (response.status === 403) {
+      const errorData = await response.json();
+      alert(`❌ 접근 권한이 없습니다.\n\n${errorData.message || '허가되지 않은 IP 주소에서의 접근입니다.'}\n\n클라이언트 IP: ${errorData.clientIP || '알 수 없음'}\n\n시스템 관리자에게 문의하세요.`);
+      throw new Error('IP 접근 제어: 접근 거부됨');
+    }
+    
     if (!response.ok) {
       throw new Error('사용자 정보 조회 실패');
     }

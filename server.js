@@ -3,6 +3,8 @@ const cors = require('cors');
 const { Sequelize, Op } = require('sequelize');
 const axios = require('axios');
 const XLSX = require('xlsx');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 // 외부 DB 설정 (부서 정보, 사용자 정보 등)
@@ -54,15 +56,95 @@ function matchIPPattern(ip, pattern) {
   return false;
 }
 
+// IP 접근 제어 설정을 메모리에 캐시 (런타임 변경 가능)
+let ipAccessControlConfig = {
+  enabled: process.env.IP_ACCESS_CONTROL_ENABLED === 'true',
+  allowedIPs: process.env.ALLOWED_IPS?.split(',').map(ip => ip.trim()) || []
+};
+
+// .env 파일 경로
+const envPath = path.join(__dirname, '.env');
+
+// .env 파일 자동 갱신 함수
+function reloadEnvConfig() {
+  try {
+    // .env 파일 직접 읽어서 파싱 (dotenv 캐시 우회)
+    const envConfig = fs.readFileSync(envPath, 'utf8');
+    const envLines = envConfig.split('\n');
+    
+    let newAllowedIPs = '';
+    let newEnabled = 'false';
+    
+    // .env 파일 파싱
+    envLines.forEach(line => {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !trimmedLine.startsWith('#')) {
+        if (trimmedLine.startsWith('ALLOWED_IPS=')) {
+          newAllowedIPs = trimmedLine.substring('ALLOWED_IPS='.length).trim();
+        } else if (trimmedLine.startsWith('IP_ACCESS_CONTROL_ENABLED=')) {
+          newEnabled = trimmedLine.substring('IP_ACCESS_CONTROL_ENABLED='.length).trim();
+        }
+      }
+    });
+    
+    // 메모리 캐시 업데이트
+    const previousEnabled = ipAccessControlConfig.enabled;
+    const previousIPs = [...ipAccessControlConfig.allowedIPs];
+    
+    ipAccessControlConfig.enabled = newEnabled === 'true';
+    ipAccessControlConfig.allowedIPs = newAllowedIPs ? newAllowedIPs.split(',').map(ip => ip.trim()) : [];
+    
+    // 변경사항이 있을 경우에만 로그 출력
+    if (previousEnabled !== ipAccessControlConfig.enabled || 
+        JSON.stringify(previousIPs) !== JSON.stringify(ipAccessControlConfig.allowedIPs)) {
+      console.log('🔄 IP 접근 제어 설정 자동 갱신됨');
+      console.log(`   - 활성화: ${ipAccessControlConfig.enabled}`);
+      console.log(`   - 허용 IP: ${ipAccessControlConfig.allowedIPs.join(', ')}`);
+    }
+  } catch (error) {
+    console.error('❌ .env 파일 갱신 실패:', error.message);
+  }
+}
+
+// .env 파일 감시 - 파일 변경 시 자동으로 갱신
+let watchTimeout = null; // 중복 이벤트 방지용
+
+if (fs.existsSync(envPath)) {
+  // watchFile 사용 (Windows에서 더 안정적)
+  fs.watchFile(envPath, { interval: 500 }, (curr, prev) => {
+    // 파일이 실제로 변경되었는지 확인 (수정 시간 비교)
+    if (curr.mtime !== prev.mtime) {
+      console.log('📝 .env 파일 변경 감지 (자동 갱신 중...)');
+      
+      // 중복 실행 방지
+      if (watchTimeout) {
+        clearTimeout(watchTimeout);
+      }
+      
+      // 파일 쓰기가 완료될 때까지 대기
+      watchTimeout = setTimeout(() => {
+        reloadEnvConfig();
+        watchTimeout = null;
+      }, 300);
+    }
+  });
+  
+  console.log('👁️  .env 파일 자동 감시 시작 (500ms 간격)');
+  console.log(`   📁 감시 중: ${envPath}`);
+} else {
+  console.warn('⚠️  .env 파일을 찾을 수 없습니다. IP 접근 제어 자동 갱신이 비활성화됩니다.');
+  console.warn(`   📁 경로: ${envPath}`);
+}
+
 // IP 접근 제어 미들웨어
 function ipAccessControl(req, res, next) {
   // IP 접근 제어가 비활성화된 경우 통과
-  if (process.env.IP_ACCESS_CONTROL_ENABLED !== 'true') {
+  if (!ipAccessControlConfig.enabled) {
     return next();
   }
   
   // 허용 IP 목록 가져오기
-  const allowedIPs = process.env.ALLOWED_IPS?.split(',').map(ip => ip.trim()) || [];
+  const allowedIPs = ipAccessControlConfig.allowedIPs;
   
   if (allowedIPs.length === 0) {
     console.warn('⚠️  경고: 허용 IP 목록이 비어있습니다. 모든 접근을 허용합니다.');
@@ -97,8 +179,24 @@ app.use(cors());
 app.use(express.json());
 app.use(ipAccessControl); // IP 접근 제어 적용
 
+// API 로깅 미들웨어 (간략한 로그)
+app.use((req, res, next) => {
+  // 정적 파일 요청은 로깅하지 않음
+  if (req.path.startsWith('/static') || req.path.match(/\.(js|css|png|jpg|ico|svg)$/)) {
+    return next();
+  }
+  
+  // API 요청만 로깅
+  if (req.path.startsWith('/api')) {
+    const timestamp = new Date().toLocaleString('ko-KR');
+    const clientIP = req.clientIP || req.ip || 'unknown';
+    console.log(`[${timestamp}] ${req.method} ${req.path} - IP: ${clientIP}`);
+  }
+  
+  next();
+});
+
 // 절대 경로로 정적 파일 제공
-const path = require('path');
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'build'))); // React 빌드 파일 서빙
@@ -121,7 +219,7 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
-    logging: false
+    logging: false // SQL 로그 비활성화
   }
 );
 
@@ -209,6 +307,51 @@ app.get('/api/external-db/test', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: error.message 
+    });
+  }
+});
+
+// 1-2. IP 접근 제어 설정 조회 (관리자용)
+app.get('/api/admin/ip-access-control', async (req, res) => {
+  try {
+    res.json({
+      enabled: ipAccessControlConfig.enabled,
+      allowedIPs: ipAccessControlConfig.allowedIPs,
+      currentClientIP: req.clientIP || req.ip
+    });
+  } catch (error) {
+    console.error('IP 접근 제어 설정 조회 실패:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 1-3. IP 접근 제어 설정 갱신 (관리자용 - 서버 재시작 불필요)
+app.post('/api/admin/ip-access-control/reload', async (req, res) => {
+  try {
+    // .env 파일 다시 로드
+    require('dotenv').config();
+    
+    // 메모리 캐시 업데이트
+    ipAccessControlConfig.enabled = process.env.IP_ACCESS_CONTROL_ENABLED === 'true';
+    ipAccessControlConfig.allowedIPs = process.env.ALLOWED_IPS?.split(',').map(ip => ip.trim()) || [];
+    
+    console.log('✅ IP 접근 제어 설정 갱신 완료');
+    console.log(`   - 활성화: ${ipAccessControlConfig.enabled}`);
+    console.log(`   - 허용 IP: ${ipAccessControlConfig.allowedIPs.join(', ')}`);
+    
+    res.json({
+      success: true,
+      message: 'IP 접근 제어 설정이 갱신되었습니다.',
+      config: {
+        enabled: ipAccessControlConfig.enabled,
+        allowedIPs: ipAccessControlConfig.allowedIPs
+      }
+    });
+  } catch (error) {
+    console.error('IP 접근 제어 설정 갱신 실패:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
     });
   }
 });

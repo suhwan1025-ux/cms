@@ -8,7 +8,7 @@ module.exports = {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
-    logging: console.log,
+    logging: false, // SQL 로그 비활성화
     pool: {
       max: 5,
       min: 0,
