@@ -2,7 +2,7 @@
 import { useLocation } from 'react-router-dom';
 import { generatePreviewHTML, formatNumberWithComma, formatCurrency } from '../utils/previewGenerator';
 import { getApiUrl } from '../config/api';
-import { getCurrentUserName } from '../utils/userHelper';
+import { getCurrentUser } from '../utils/userHelper';
 import * as XLSX from 'xlsx';
 
 // API 베이스 URL 설정
@@ -28,11 +28,12 @@ const DraftList = () => {
   // 품의서 데이터를 가져오는 함수
   const fetchDrafts = async () => {
     try {
-      // 현재 로그인한 사용자 이름 가져오기
-      const currentUser = getCurrentUserName();
+      // 현재 로그인한 사용자 정보 가져오기 (IP 기반 자동 인식)
+      const user = await getCurrentUser();
+      const currentUserName = user.name;
       
       // 작성중인 품의서만 조회 (isDraft=true, 작성자 필터링)
-      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=true&createdBy=${encodeURIComponent(currentUser)}`);
+      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=true&createdBy=${encodeURIComponent(currentUserName)}`);
       
       if (!response.ok) {
         throw new Error('API 호출 실패');
@@ -244,11 +245,12 @@ const DraftList = () => {
     try {
       console.log('전체 데이터를 가져오는 중...');
       
-      // 현재 로그인한 사용자 이름 가져오기
-      const currentUser = getCurrentUserName();
+      // 현재 로그인한 사용자 정보 가져오기 (IP 기반 자동 인식)
+      const user = await getCurrentUser();
+      const currentUserName = user.name;
       
       // 서버에서 현재 사용자가 작성한 품의서만 가져오기
-      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=true&createdBy=${encodeURIComponent(currentUser)}`);
+      const response = await fetch(`${API_BASE_URL}/api/proposals?isDraft=true&createdBy=${encodeURIComponent(currentUserName)}`);
       
       if (!response.ok) {
         throw new Error('데이터 조회 실패');

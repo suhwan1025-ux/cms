@@ -69,12 +69,12 @@ if (isExternalDbEnabled) {
 
 // 부서 테이블 설정
 const deptTableConfig = {
-  tableName: process.env.EXTERNAL_DEPT_TABLE || 'departments',
+  tableName: process.env.EXTERNAL_DEPT_TABLE || 'TBCPPD001M00',
   columns: {
-    code: process.env.EXTERNAL_DEPT_CODE_COLUMN || 'dept_code',
-    name: process.env.EXTERNAL_DEPT_NAME_COLUMN || 'dept_name',
-    parent: process.env.EXTERNAL_DEPT_PARENT_COLUMN || 'parent_dept',
-    active: process.env.EXTERNAL_DEPT_ACTIVE_COLUMN || 'is_active'
+    code: process.env.EXTERNAL_DEPT_CODE_COLUMN || 'DPCD',
+    name: process.env.EXTERNAL_DEPT_NAME_COLUMN || 'DPNM',
+    parent: process.env.EXTERNAL_DEPT_PARENT_COLUMN || null,  // 상위 부서 없음
+    active: process.env.EXTERNAL_DEPT_ACTIVE_COLUMN || null   // 활성화 컬럼 없음
   }
 };
 
@@ -89,20 +89,19 @@ async function getDepartmentsFromExternalDb() {
     // 외부 DB 연결 테스트
     await externalDb.authenticate();
 
-    // 부서 목록 조회
+    // 부서 목록 조회 (Oracle)
     const query = `
       SELECT 
         ${deptTableConfig.columns.code} as "deptCode",
-        ${deptTableConfig.columns.name} as "deptName",
-        ${deptTableConfig.columns.parent} as "parentDept"
+        ${deptTableConfig.columns.name} as "deptName"
       FROM ${deptTableConfig.tableName}
-      ${deptTableConfig.columns.active ? `WHERE ${deptTableConfig.columns.active} = true` : ''}
       ORDER BY ${deptTableConfig.columns.code}
     `;
 
     const [results] = await externalDb.query(query);
     
     console.log(`✅ 외부 DB에서 ${results.length}개의 부서 정보를 가져왔습니다.`);
+    console.log(`📋 테이블: ${deptTableConfig.tableName}`);
     return results;
   } catch (error) {
     console.error('❌ 외부 DB 부서 조회 실패:', error.message);
@@ -153,12 +152,79 @@ async function testExternalDbConnection() {
   }
 }
 
+/**
+ * IP 주소로 사용자 정보 조회 (Oracle DB)
+ * @param {string} clientIP - 클라이언트 IP 주소
+ * @returns {Promise<Object|null>} 사용자 정보 또는 null
+ */
+async function getUserByIP(clientIP) {
+  // 외부 DB가 비활성화된 경우 null 반환
+  if (!isExternalDbEnabled()) {
+    console.log('⚠️  외부 DB 비활성화 - 사용자 정보 조회 불가');
+    return null;
+  }
+
+  try {
+    // 외부 DB 연결 확인
+    if (!externalDb) {
+      console.log('⚠️  외부 DB 연결 실패 - 사용자 정보 조회 불가');
+      return null;
+    }
+
+    // 환경변수에서 테이블/컬럼 정보 가져오기
+    const userTable = process.env.EXTERNAL_USER_TABLE || 'TBCPPU001I01';
+    const ipTable = process.env.EXTERNAL_IP_TABLE || 'TBCPPD001I01';
+    const userNameColumn = process.env.EXTERNAL_USER_NAME_COLUMN || 'FLNM';
+    const userEmpnoColumn = process.env.EXTERNAL_USER_EMPNO_COLUMN || 'EMPNO';
+    const ipAddressColumn = process.env.EXTERNAL_IP_ADDRESS_COLUMN || 'IPAD';
+    const ipEmpnoColumn = process.env.EXTERNAL_IP_EMPNO_COLUMN || 'EMPNO';
+
+    console.log(`🔍 사용자 정보 조회 시도: IP ${clientIP}`);
+
+    // Oracle DB에서 사용자 정보 조회
+    const query = `
+      SELECT 
+        A.${userEmpnoColumn} AS empno,
+        A.${userNameColumn} AS userName,
+        B.${ipAddressColumn} AS ipAddress
+      FROM ${userTable} A
+      LEFT JOIN ${ipTable} B
+      ON A.${userEmpnoColumn} = B.${ipEmpnoColumn}
+      WHERE B.${ipAddressColumn} = :clientIP
+    `;
+
+    const result = await externalDb.query(query, {
+      replacements: { clientIP },
+      type: QueryTypes.SELECT
+    });
+
+    if (result && result.length > 0) {
+      const user = result[0];
+      console.log(`✅ 사용자 정보 조회 성공: ${user.userName} (${user.empno})`);
+      
+      return {
+        id: user.empno,
+        name: user.userName,
+        empno: user.empno,
+        ipAddress: user.ipAddress
+      };
+    }
+
+    console.log(`⚠️  사용자 정보 없음: IP ${clientIP}`);
+    return null;
+  } catch (error) {
+    console.error('❌ 사용자 정보 조회 실패:', error);
+    return null;
+  }
+}
+
 module.exports = {
   externalDb,
   isExternalDbEnabled,
   deptTableConfig,
   getDepartmentsFromExternalDb,
   getDefaultDepartments,
-  testExternalDbConnection
+  testExternalDbConnection,
+  getUserByIP
 };
 

@@ -12,6 +12,8 @@ import { Bold, Italic, Underline, Strikethrough } from '@ckeditor/ckeditor5-basi
 import { Heading } from '@ckeditor/ckeditor5-heading';
 import { List, ListProperties } from '@ckeditor/ckeditor5-list';
 import { Link } from '@ckeditor/ckeditor5-link';
+
+// 정렬 및 폰트 플러그인 (명시적으로 설치됨)
 import { Alignment } from '@ckeditor/ckeditor5-alignment';
 import { FontSize, FontFamily, FontColor, FontBackgroundColor } from '@ckeditor/ckeditor5-font';
 

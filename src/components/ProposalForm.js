@@ -5,7 +5,7 @@ import CKEditorComponent from './CKEditorComponent';
 import DocumentTemplates from './DocumentTemplates';
 import { generatePreviewHTML } from '../utils/previewGenerator';
 import { getApiUrl } from '../config/api';
-import { getCurrentUserName } from '../utils/userHelper';
+import { getCurrentUser } from '../utils/userHelper';
 
 // API 베이스 URL 설정
 const API_BASE_URL = getApiUrl();
@@ -88,6 +88,15 @@ const ProposalForm = () => {
   const [departments, setDepartments] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // 사용자 정보 (IP 기반 자동 인식)
+  const [currentUser, setCurrentUser] = useState({
+    id: 'admin',
+    name: '작성자',
+    department: 'IT팀',
+    position: '과장',
+    email: 'admin@company.com'
+  });
 
   const [contractMethods, setContractMethods] = useState([]);
   const [proposalId, setProposalId] = useState(null); // 품의서 키값
@@ -116,6 +125,21 @@ const ProposalForm = () => {
   }, [hasUnsavedChanges, showSaveConfirm, originalNavigate]);
 
   // 폼 데이터 변경 감지
+  // 사용자 정보 자동 로드 (IP 기반)
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+        console.log('✅ 사용자 정보 로드 완료:', user);
+      } catch (error) {
+        console.error('❌ 사용자 정보 로드 실패:', error);
+      }
+    };
+    
+    loadUserInfo();
+  }, []);
+
   useEffect(() => {
     if (initialFormData === null) {
       setInitialFormData(JSON.stringify(formData));
@@ -2797,7 +2821,7 @@ const ProposalForm = () => {
         priceComparison: formData.priceComparison || [],
         wysiwygContent: formData.wysiwygContent || '', // 자유양식 문서 내용 추가
         other: formData.other || '', // 기타 사항 추가
-        createdBy: getCurrentUserName(), // 현재 로그인한 사용자 (향후 인증 시스템 연동)
+        createdBy: currentUser.name, // 현재 로그인한 사용자 (IP 기반 자동 인식)
         isDraft: isDraft, // 매개변수에 따라 설정
         status: isDraft ? 'draft' : 'submitted', // 임시저장: draft, 작성완료: submitted
         purchaseItemCostAllocations, // 구매품목 비용분배 (백업용)
@@ -3782,8 +3806,8 @@ const ProposalForm = () => {
         throw new Error('근거를 입력해주세요.');
       }
       
-      // createdBy는 현재 로그인한 사용자로 설정 (향후 인증 시스템 연동)
-      const finalCreatedBy = getCurrentUserName();
+      // createdBy는 현재 로그인한 사용자로 설정 (IP 기반 자동 인식)
+      const finalCreatedBy = currentUser.name;
       
       console.log('=== 데이터 검증 결과 ===');
       console.log('사용자 선택 계약 유형:', contractType);
@@ -3970,7 +3994,7 @@ const ProposalForm = () => {
       
       if (!proposalData.createdBy) {
         console.log('⚠️ createdBy 누락, 강제 설정');
-        proposalData.createdBy = getCurrentUserName();
+        proposalData.createdBy = currentUser.name;
       }
       
       if (!proposalData.purpose) {
@@ -4090,7 +4114,7 @@ const ProposalForm = () => {
               title: formData.purpose || '품의서',
               department: formData.requestDepartments?.[0] || '미지정',
               contractor: formData.purchaseItems?.[0]?.supplier || formData.serviceItems?.[0]?.supplier || '미지정',
-              author: getCurrentUserName(),
+              author: currentUser.name,
               amount: calculateTotalAmount() || 0,
               status: '제출완료',
               startDate: new Date().toISOString().split('T')[0],

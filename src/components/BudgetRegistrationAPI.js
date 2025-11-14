@@ -164,7 +164,7 @@ const BudgetRegistrationAPI = () => {
           const departmentResponse = await fetch(`${API_BASE_URL}/api/departments`);
           if (departmentResponse.ok) {
             const departmentData = await departmentResponse.json();
-            const departmentNames = departmentData.map(dept => dept.name);
+            const departmentNames = departmentData.map(dept => dept.deptName);
             setDepartments(departmentNames);
           } else {
             console.error('부서 데이터 로드 실패:', departmentResponse.statusText);

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { generatePreviewHTML } from '../utils/previewGenerator';
 import { getApiUrl } from '../config/api';
 import { getStatusLabel } from '../utils/statusHelper';
-import { getCurrentUserName } from '../utils/userHelper';
+import { getCurrentUser } from '../utils/userHelper';
 import * as XLSX from 'xlsx';
 
 // API 베이스 URL 설정
@@ -1550,11 +1550,16 @@ const ContractList = () => {
     try {
       setUpdatingStatus(true);
       
+      // 현재 로그인한 사용자 정보 가져오기 (IP 기반 자동 인식)
+      const user = await getCurrentUser();
+      const currentUserName = user.name;
+      
       console.log('상태 업데이트 요청:', {
         id: selectedContract.id,
         status: 'approved',
         statusDate,
-        changeReason
+        changeReason,
+        changedBy: currentUserName
       });
       
       const response = await fetch(`${API_BASE_URL}/api/proposals/${selectedContract.id}/status`, {
@@ -1566,7 +1571,7 @@ const ContractList = () => {
           status: 'approved', // submitted → approved로 변경
           statusDate: statusDate,
           changeReason: changeReason,
-          changedBy: getCurrentUserName() // 현재 로그인한 사용자 (향후 인증 시스템 연동)
+          changedBy: currentUserName // 현재 로그인한 사용자 (IP 기반 자동 인식)
         })
       });
 

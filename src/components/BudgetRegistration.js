@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '../config/api';
-import { getCurrentUserName } from '../utils/userHelper';
+import { getCurrentUser } from '../utils/userHelper';
 
 // API 베이스 URL 설정
 const API_BASE_URL = getApiUrl();
@@ -656,8 +656,9 @@ const BudgetRegistration = ({ year = 2024 }) => {
     e.preventDefault();
     
     try {
-      // 현재 로그인한 사용자 정보 가져오기
-      const currentUser = getCurrentUserName();
+      // 현재 로그인한 사용자 정보 가져오기 (IP 기반 자동 인식)
+      const user = await getCurrentUser();
+      const currentUserName = user.name;
       
       // API 호출하여 서버에 저장
       const response = await fetch(`${API_BASE_URL}/api/business-budgets`, {
@@ -668,7 +669,7 @@ const BudgetRegistration = ({ year = 2024 }) => {
         body: JSON.stringify({
           ...formData,
           budgetYear: year,
-          createdBy: currentUser // 작성자 정보 추가
+          createdBy: currentUserName // 작성자 정보 추가
         })
       });
       
@@ -956,8 +957,9 @@ const BudgetRegistration = ({ year = 2024 }) => {
   const handleSaveEdit = async (budgetId) => {
     if (editForm.projectName.trim()) {
       try {
-        // 현재 로그인한 사용자 정보 가져오기
-        const currentUser = getCurrentUserName();
+        // 현재 로그인한 사용자 정보 가져오기 (IP 기반 자동 인식)
+        const user = await getCurrentUser();
+        const currentUserName = user.name;
         
         // API 호출하여 서버에 저장
         const response = await fetch(`${API_BASE_URL}/api/business-budgets/${budgetId}`, {
@@ -967,7 +969,7 @@ const BudgetRegistration = ({ year = 2024 }) => {
           },
           body: JSON.stringify({
             ...editForm,
-            changedBy: currentUser // 변경자 정보 추가
+            changedBy: currentUserName // 변경자 정보 추가
           })
         });
         
@@ -1012,11 +1014,12 @@ const BudgetRegistration = ({ year = 2024 }) => {
   const handleDelete = async (budgetId) => {
     if (window.confirm('정말로 이 예산을 삭제하시겠습니까?')) {
       try {
-        // 현재 로그인한 사용자 정보 가져오기
-        const currentUser = getCurrentUserName();
+        // 현재 로그인한 사용자 정보 가져오기 (IP 기반 자동 인식)
+        const user = await getCurrentUser();
+        const currentUserName = user.name;
         
         // API 호출하여 서버에서 삭제
-        const response = await fetch(`${API_BASE_URL}/api/business-budgets/${budgetId}?deletedBy=${encodeURIComponent(currentUser)}`, {
+        const response = await fetch(`${API_BASE_URL}/api/business-budgets/${budgetId}?deletedBy=${encodeURIComponent(currentUserName)}`, {
           method: 'DELETE'
         });
         

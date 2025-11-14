@@ -5,34 +5,120 @@ const axios = require('axios');
 const XLSX = require('xlsx');
 require('dotenv').config();
 
-// 외부 DB 설정 (부서 정보 등)
-const { getDepartmentsFromExternalDb, testExternalDbConnection } = require('./config/externalDatabase');
+// 외부 DB 설정 (부서 정보, 사용자 정보 등)
+const { getDepartmentsFromExternalDb, testExternalDbConnection, getUserByIP } = require('./config/externalDatabase');
 
 const app = express();
-const PORT = process.env.PORT || 3002;
 
-// AI 서버 설정
-const AI_SERVER_URL = process.env.AI_SERVER_URL || 'http://localhost:8000';
+// 환경변수 필수 체크
+if (!process.env.PORT) {
+  console.error('❌ 환경변수 설정 오류: PORT가 설정되지 않았습니다.');
+  console.error('env.development 또는 env.production을 .env로 복사하세요.');
+  process.exit(1);
+}
+const PORT = process.env.PORT;
+
+// AI 서버 설정 (사용 안 함)
+// const AI_SERVER_URL = process.env.AI_SERVER_URL;
+
+// =====================================================
+// IP 접근 제어 미들웨어
+// =====================================================
+// IP 패턴 매칭 함수 (와일드카드 지원: 172.22.*.*)
+function matchIPPattern(ip, pattern) {
+  // localhost 처리
+  if (pattern === 'localhost' && (ip === '::1' || ip === '127.0.0.1' || ip === 'localhost')) {
+    return true;
+  }
+  
+  // IPv6 형식의 localhost (::1)를 127.0.0.1로 변환
+  const normalizedIP = ip === '::1' ? '127.0.0.1' : ip;
+  
+  // IPv6 형식의 IPv4 매핑 주소 처리 (::ffff:192.168.1.1 → 192.168.1.1)
+  const cleanIP = normalizedIP.replace(/^::ffff:/, '');
+  
+  // 정확한 매칭
+  if (cleanIP === pattern) {
+    return true;
+  }
+  
+  // 와일드카드 패턴 매칭 (172.22.*.* 형식)
+  if (pattern.includes('*')) {
+    const regexPattern = pattern
+      .replace(/\./g, '\\.')  // . → \.
+      .replace(/\*/g, '\\d+'); // * → \d+
+    const regex = new RegExp(`^${regexPattern}$`);
+    return regex.test(cleanIP);
+  }
+  
+  return false;
+}
+
+// IP 접근 제어 미들웨어
+function ipAccessControl(req, res, next) {
+  // IP 접근 제어가 비활성화된 경우 통과
+  if (process.env.IP_ACCESS_CONTROL_ENABLED !== 'true') {
+    return next();
+  }
+  
+  // 허용 IP 목록 가져오기
+  const allowedIPs = process.env.ALLOWED_IPS?.split(',').map(ip => ip.trim()) || [];
+  
+  if (allowedIPs.length === 0) {
+    console.warn('⚠️  경고: 허용 IP 목록이 비어있습니다. 모든 접근을 허용합니다.');
+    return next();
+  }
+  
+  // 클라이언트 IP 추출
+  const clientIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || 
+                   req.socket.remoteAddress || 
+                   req.ip;
+  
+  // IP 매칭 확인
+  const isAllowed = allowedIPs.some(pattern => matchIPPattern(clientIP, pattern));
+  
+  if (isAllowed) {
+    // req 객체에 IP 저장 (나중에 사용)
+    req.clientIP = clientIP;
+    return next();
+  }
+  
+  // 접근 거부
+  console.warn(`❌ 접근 거부: IP ${clientIP} (허용 목록: ${allowedIPs.join(', ')})`);
+  return res.status(403).json({ 
+    error: '접근 권한이 없습니다.',
+    message: '허가되지 않은 IP 주소에서의 접근입니다.',
+    clientIP: clientIP
+  });
+}
 
 // 미들웨어 설정
 app.use(cors());
 app.use(express.json());
+app.use(ipAccessControl); // IP 접근 제어 적용
 
-// 정적 파일 제공
-app.use(express.static('public'));
-app.use(express.static('.'));
-app.use(express.static('build')); // React 빌드 파일 서빙
+// 절대 경로로 정적 파일 제공
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'build'))); // React 빌드 파일 서빙
 
 // 사업예산 확정집행액 동기화 함수 (결재완료된 품의서 기준)
 // 확정집행액은 JOIN으로 실시간 계산하므로 별도 동기화 함수 불필요
 
 // 데이터베이스 연결
+if (!process.env.DB_NAME || !process.env.DB_USERNAME || !process.env.DB_PASSWORD || !process.env.DB_HOST) {
+  console.error('❌ 환경변수 설정 오류: DB 연결 정보가 없습니다.');
+  console.error('env.development 또는 env.production을 .env로 복사하세요.');
+  process.exit(1);
+}
+
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'contract_management',
-  process.env.DB_USERNAME || 'postgres',
-  process.env.DB_PASSWORD || 'meritz123!',
+  process.env.DB_NAME,
+  process.env.DB_USERNAME,
+  process.env.DB_PASSWORD,
   {
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST,
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
     logging: false
@@ -43,6 +129,63 @@ const sequelize = new Sequelize(
 const models = require('./src/models');
 
 // API 라우트
+
+// 0. 현재 사용자 정보 조회 (IP 기반 자동 인식)
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const clientIP = req.clientIP || req.ip;
+    
+    console.log(`[사용자 정보 조회 요청] IP: ${clientIP}`);
+    
+    // 외부 Oracle DB에서 사용자 정보 조회
+    const externalUser = await getUserByIP(clientIP);
+    
+    if (externalUser) {
+      // Oracle DB에서 사용자 정보를 찾은 경우
+      const userInfo = {
+        id: externalUser.empno || externalUser.id,
+        name: externalUser.name || '사용자',
+        empno: externalUser.empno,
+        department: '미지정', // 부서 정보는 별도 조회 필요 시 추가
+        position: '미지정', // 직급 정보는 별도 조회 필요 시 추가
+        email: '', // 이메일 정보는 별도 조회 필요 시 추가
+        clientIP: clientIP,
+        source: 'external_db' // 데이터 출처 표시
+      };
+      
+      console.log(`✅ [외부 DB] 사용자 정보 조회 성공: ${userInfo.name} (${userInfo.empno})`);
+      return res.json(userInfo);
+    }
+    
+    // 외부 DB에서 사용자 정보를 찾지 못한 경우 기본값 반환
+    const defaultUser = {
+      id: 'admin',
+      name: '작성자',
+      department: 'IT팀',
+      position: '과장',
+      email: 'admin@company.com',
+      clientIP: clientIP,
+      source: 'default' // 데이터 출처 표시
+    };
+    
+    console.log(`⚠️  [기본값] 사용자 정보 없음, 기본값 반환: ${defaultUser.name}`);
+    res.json(defaultUser);
+  } catch (error) {
+    console.error('❌ 사용자 정보 조회 실패:', error);
+    
+    // 오류 발생 시에도 기본값 반환 (시스템 중단 방지)
+    res.json({
+      id: 'admin',
+      name: '작성자',
+      department: 'IT팀',
+      position: '과장',
+      email: 'admin@company.com',
+      clientIP: req.clientIP || req.ip,
+      source: 'fallback',
+      error: error.message
+    });
+  }
+});
 
 // 1. 부서 목록 조회 (외부 DB 연동)
 app.get('/api/departments', async (req, res) => {
@@ -3411,7 +3554,6 @@ app.get('/api/budget-history', async (req, res) => {
 });
 
 // React 앱 라우팅 처리 (모든 API 라우트 이후에 위치)
-const path = require('path');
 
 // ========================================
 // AI 어시스턴트 API (프록시)
