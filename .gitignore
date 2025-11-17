@@ -69,3 +69,5 @@ temp/
 
 # 프로덕션 설정 (선택적)
 # env.production
+
+node_modules_essential_part*.zip
