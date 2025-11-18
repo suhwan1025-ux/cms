@@ -140,6 +140,12 @@ if (fs.existsSync(envPath)) {
 function ipAccessControl(req, res, next) {
   // IP 접근 제어가 비활성화된 경우 통과
   if (!ipAccessControlConfig.enabled) {
+    // IP는 추출하되 접근 제어는 하지 않음
+    const clientIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || 
+                     req.socket.remoteAddress || 
+                     req.ip;
+    req.clientIP = clientIP;
+    console.log(`ℹ️  [IP 접근 제어 비활성화] IP: ${clientIP} - 모든 접근 허용`);
     return next();
   }
   
@@ -151,10 +157,24 @@ function ipAccessControl(req, res, next) {
     return next();
   }
   
-  // 클라이언트 IP 추출
-  const clientIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || 
-                   req.socket.remoteAddress || 
-                   req.ip;
+  // 클라이언트 IP 추출 (상세 로그)
+  const xForwardedFor = req.headers['x-forwarded-for'];
+  const socketAddress = req.socket.remoteAddress;
+  const expressIP = req.ip;
+  
+  const clientIP = xForwardedFor?.split(',')[0].trim() || 
+                   socketAddress || 
+                   expressIP;
+  
+  // IP 추출 상세 로그
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🔍 [IP 추출] 클라이언트 IP 정보:');
+  console.log(`   📍 요청 경로: ${req.method} ${req.path}`);
+  console.log(`   📌 x-forwarded-for: ${xForwardedFor || '없음'}`);
+  console.log(`   📌 socket.remoteAddress: ${socketAddress || '없음'}`);
+  console.log(`   📌 req.ip (Express): ${expressIP || '없음'}`);
+  console.log(`   ✅ 최종 선택된 IP: ${clientIP}`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
   // IP 매칭 확인
   const isAllowed = allowedIPs.some(pattern => matchIPPattern(clientIP, pattern));
@@ -162,11 +182,12 @@ function ipAccessControl(req, res, next) {
   if (isAllowed) {
     // req 객체에 IP 저장 (나중에 사용)
     req.clientIP = clientIP;
+    console.log(`✅ [접근 허용] IP: ${clientIP}`);
     return next();
   }
   
   // 접근 거부
-  console.warn(`❌ 접근 거부: IP ${clientIP} (허용 목록: ${allowedIPs.join(', ')})`);
+  console.warn(`❌ [접근 거부] IP: ${clientIP} (허용 목록: ${allowedIPs.join(', ')})`);
   return res.status(403).json({ 
     error: '접근 권한이 없습니다.',
     message: '허가되지 않은 IP 주소에서의 접근입니다.',
@@ -228,12 +249,99 @@ const models = require('./src/models');
 
 // API 라우트
 
-// 0. 현재 사용자 정보 조회 (IP 기반 자동 인식)
+// 0-1. 접속 로그 기록 (사용자 접속 추적)
+app.post('/api/access-log', async (req, res) => {
+  try {
+    const clientIP = req.clientIP || req.ip;
+    const timestamp = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    const userAgent = req.headers['user-agent'] || '알 수 없음';
+    const referer = req.headers['referer'] || '직접 접속';
+    
+    console.log('');
+    console.log('🌐🌐🌐━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🌐🌐🌐');
+    console.log('🔔 [시스템 접속 감지]');
+    console.log(`   ⏰ 시간: ${timestamp}`);
+    console.log(`   📍 IP 주소: ${clientIP}`);
+    console.log(`   🖥️  User Agent: ${userAgent.substring(0, 80)}${userAgent.length > 80 ? '...' : ''}`);
+    console.log(`   🔗 Referer: ${referer}`);
+    
+    // 외부 Oracle DB에서 사용자 정보 조회
+    const externalUser = await getUserByIP(clientIP);
+    
+    if (externalUser) {
+      console.log(`   ✅ 사용자 인식 성공!`);
+      console.log(`      👤 이름: ${externalUser.name}`);
+      console.log(`      🆔 사번: ${externalUser.empno}`);
+      console.log(`      🏢 IP: ${externalUser.ipAddress}`);
+      
+      // 사용자 정보 반환
+      const userInfo = {
+        id: externalUser.empno || externalUser.id,
+        name: externalUser.name || '사용자',
+        empno: externalUser.empno,
+        department: '미지정',
+        position: '미지정',
+        email: '',
+        clientIP: clientIP,
+        source: 'external_db',
+        accessTime: timestamp
+      };
+      
+      console.log(`   💾 접속 기록 저장 완료`);
+      console.log('🌐🌐🌐━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🌐🌐🌐');
+      console.log('');
+      
+      return res.json(userInfo);
+    } else {
+      console.log(`   ⚠️  사용자 인식 실패 (Oracle DB에 IP 매핑 없음)`);
+      console.log(`   💡 기본 사용자 정보로 접속 허용`);
+      
+      const defaultUser = {
+        id: 'admin',
+        name: '작성자',
+        department: 'IT팀',
+        position: '과장',
+        email: 'admin@company.com',
+        clientIP: clientIP,
+        source: 'default',
+        accessTime: timestamp
+      };
+      
+      console.log('🌐🌐🌐━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━🌐🌐🌐');
+      console.log('');
+      
+      return res.json(defaultUser);
+    }
+  } catch (error) {
+    console.error('❌ 접속 로그 기록 실패:', error);
+    
+    // 오류 발생 시에도 기본값 반환
+    const fallbackUser = {
+      id: 'admin',
+      name: '작성자',
+      department: 'IT팀',
+      position: '과장',
+      email: 'admin@company.com',
+      clientIP: req.clientIP || req.ip,
+      source: 'fallback',
+      accessTime: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+    };
+    
+    res.json(fallbackUser);
+  }
+});
+
+// 0-2. 현재 사용자 정보 조회 (IP 기반 자동 인식)
 app.get('/api/auth/me', async (req, res) => {
   try {
     const clientIP = req.clientIP || req.ip;
     
-    console.log(`[사용자 정보 조회 요청] IP: ${clientIP}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('👤 [사용자 조회] /api/auth/me 요청');
+    console.log(`   📌 req.clientIP (미들웨어): ${req.clientIP || '없음'}`);
+    console.log(`   📌 req.ip (Express): ${req.ip || '없음'}`);
+    console.log(`   ✅ 최종 사용 IP: ${clientIP}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // 외부 Oracle DB에서 사용자 정보 조회
     const externalUser = await getUserByIP(clientIP);
@@ -290,7 +398,18 @@ app.get('/api/departments', async (req, res) => {
   try {
     // 외부 DB에서 부서 정보 조회 (외부 DB가 설정되지 않았으면 기본 부서 목록 반환)
     const departments = await getDepartmentsFromExternalDb();
-    res.json(departments);
+    
+    // 프론트엔드에서 사용하는 구조로 변환 (deptCode → id, deptName → name)
+    const formattedDepartments = departments.map(dept => ({
+      id: dept.deptCode || dept.id,
+      name: dept.deptName || dept.name,
+      code: dept.deptCode,
+      description: dept.description || null,
+      parentDept: dept.parentDept || null
+    }));
+    
+    console.log(`✅ /api/departments 반환: ${formattedDepartments.length}개`);
+    res.json(formattedDepartments);
   } catch (error) {
     console.error('부서 목록 조회 실패:', error);
     res.status(500).json({ error: error.message });
@@ -626,15 +745,16 @@ app.post('/api/business-budgets', async (req, res) => {
     const budgetResult = await sequelize.query(`
       INSERT INTO business_budgets (
         project_name, initiator_department, executor_department,
-        budget_category, budget_amount, executed_amount,
+        budget_type, budget_category, budget_amount, executed_amount,
         start_date, end_date, is_essential, project_purpose, budget_year, status, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING id
     `, {
       replacements: [
         budgetData.projectName,
         budgetData.initiatorDepartment,
         budgetData.executorDepartment,
+        budgetData.budgetType,
         budgetData.budgetCategory,
         budgetData.budgetAmount,
         budgetData.executedAmount || 0,
@@ -4684,6 +4804,10 @@ app.delete('/api/document-templates/:id', async (req, res) => {
 // 1. 백업 일자 목록 조회 (구체적인 경로를 먼저 정의)
 app.get('/api/personnel/backups/dates', async (req, res) => {
   try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📅 [API 호출] GET /api/personnel/backups/dates');
+    console.log(`   📍 Client IP: ${req.clientIP || req.ip}`);
+    
     const query = `
       SELECT DISTINCT backup_date 
       FROM personnel_backup 
@@ -4694,10 +4818,23 @@ app.get('/api/personnel/backups/dates', async (req, res) => {
       type: Sequelize.QueryTypes.SELECT
     });
     
+    console.log(`   ✅ 백업 일자 조회 성공: ${dates.length}개`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     res.json(dates.map(d => d.backup_date));
   } catch (error) {
-    console.error('백업 일자 조회 오류:', error);
-    res.status(500).json({ error: '백업 일자 조회 중 오류가 발생했습니다.' });
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('❌ 백업 일자 조회 오류:', error.message);
+    console.error('   전체 에러:', error);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // personnel_backup 테이블이 없으면 빈 배열 반환
+    if (error.message && (error.message.includes('does not exist') || error.message.includes('no such table'))) {
+      console.log('⚠️  personnel_backup 테이블이 없습니다. 빈 배열을 반환합니다.');
+      return res.json([]);
+    }
+    
+    res.status(500).json({ error: '백업 일자 조회 중 오류가 발생했습니다.', details: error.message });
   }
 });
 
@@ -4825,12 +4962,18 @@ app.get('/api/personnel/export/excel', async (req, res) => {
 // 3. 인력현황 목록 조회 (일자별 조회 포함)
 app.get('/api/personnel', async (req, res) => {
   try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📋 [API 호출] GET /api/personnel');
+    console.log(`   📍 Client IP: ${req.clientIP || req.ip}`);
+    console.log(`   🔍 Query: ${JSON.stringify(req.query)}`);
+    
     const { date } = req.query;
     
     let personnel;
     
     if (date) {
       // 특정 일자의 백업 데이터 조회
+      console.log(`   📅 백업 데이터 조회: ${date}`);
       const query = `
         SELECT * FROM personnel_backup 
         WHERE backup_date = :date
@@ -4842,15 +4985,22 @@ app.get('/api/personnel', async (req, res) => {
       });
     } else {
       // 현재 데이터 조회
+      console.log('   📊 현재 데이터 조회');
       personnel = await models.Personnel.findAll({
         order: [['id', 'ASC']]
       });
     }
     
+    console.log(`   ✅ 조회 성공: ${personnel.length}개`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     res.json(personnel);
   } catch (error) {
-    console.error('인력현황 조회 오류:', error);
-    res.status(500).json({ error: '인력현황 조회 중 오류가 발생했습니다.' });
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('❌ 인력현황 조회 오류:', error.message);
+    console.error('   전체 에러:', error);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    res.status(500).json({ error: '인력현황 조회 중 오류가 발생했습니다.', details: error.message });
   }
 });
 
@@ -4933,6 +5083,10 @@ app.delete('/api/personnel/:id', async (req, res) => {
 // 외주인력 목록 조회
 app.get('/api/external-personnel', async (req, res) => {
   try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('👥 [API 호출] GET /api/external-personnel');
+    console.log(`   📍 Client IP: ${req.clientIP || req.ip}`);
+    
     const serviceItems = await models.ServiceItem.findAll({
       include: [
         {
@@ -5019,10 +5173,16 @@ app.get('/api/external-personnel', async (req, res) => {
       };
     });
 
+    console.log(`   ✅ 조회 성공: ${externalPersonnel.length}개`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     res.json(externalPersonnel);
   } catch (error) {
-    console.error('외주인력 조회 오류:', error);
-    res.status(500).json({ error: '외주인력 조회 중 오류가 발생했습니다.' });
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('❌ 외주인력 조회 오류:', error.message);
+    console.error('   전체 에러:', error);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    res.status(500).json({ error: '외주인력 조회 중 오류가 발생했습니다.', details: error.message });
   }
 });
 

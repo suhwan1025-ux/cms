@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getApiUrl } from '../config/api';
+import { getCurrentUser } from '../utils/userHelper';
 import './BudgetRegistrationAPI.css';
 import * as XLSX from 'xlsx';
 
@@ -127,8 +128,9 @@ const BudgetRegistrationAPI = () => {
 
   // 검색된 부서 목록 반환
   const getFilteredDepartments = (searchTerm) => {
+    if (!searchTerm) return departments;
     return departments.filter(dept => 
-      dept.toLowerCase().includes(searchTerm.toLowerCase())
+      dept && typeof dept === 'string' && dept.toLowerCase().includes(searchTerm.toLowerCase())
     );
   };
 
@@ -164,10 +166,26 @@ const BudgetRegistrationAPI = () => {
           const departmentResponse = await fetch(`${API_BASE_URL}/api/departments`);
           if (departmentResponse.ok) {
             const departmentData = await departmentResponse.json();
-            const departmentNames = departmentData.map(dept => dept.deptName);
-            setDepartments(departmentNames);
+            console.log('📋 부서 데이터 로드:', departmentData);
+            
+            // 데이터가 배열인지 확인
+            if (Array.isArray(departmentData) && departmentData.length > 0) {
+              // 서버에서 { id, name, code } 형식으로 반환하므로 name 필드 사용
+              const departmentNames = departmentData
+                .map(dept => dept.name || dept.deptName)
+                .filter(name => name); // null/undefined 제거
+              
+              console.log('📋 부서 이름 목록:', departmentNames);
+              setDepartments(departmentNames);
+            } else {
+              console.error('⚠️ 부서 데이터가 비어있거나 올바른 형식이 아닙니다:', departmentData);
+              // 기본 부서 목록 설정
+              setDepartments(['IT팀', '기획팀', '영업팀', '재무팀', '인사팀', '총무팀']);
+            }
           } else {
             console.error('부서 데이터 로드 실패:', departmentResponse.statusText);
+            // 기본 부서 목록 설정
+            setDepartments(['IT팀', '기획팀', '영업팀', '재무팀', '인사팀', '총무팀']);
           }
         }
 
@@ -351,6 +369,10 @@ const BudgetRegistrationAPI = () => {
     }
 
     try {
+      // 현재 로그인한 사용자 정보 가져오기 (IP 기반 자동 인식)
+      const user = await getCurrentUser();
+      const currentUserName = user.name;
+      
       // 자동 계산 필드를 제외한 데이터 준비
       const { confirmedExecutionAmount, unexecutedAmount, budgetExcessAmount, ...restFormData } = formData;
       
@@ -361,7 +383,8 @@ const BudgetRegistrationAPI = () => {
         executedAmount: formData.executedAmount ? parseInt(formData.executedAmount.replace(/[^\d]/g, '')) : 0,
         pendingAmount: formData.pendingAmount ? parseInt(formData.pendingAmount.replace(/[^\d]/g, '')) : 0,
         additionalBudget: formData.additionalBudget ? parseInt(formData.additionalBudget.replace(/[^\d]/g, '')) : 0,
-        isEssential: formData.isEssential === '필수' ? true : false
+        isEssential: formData.isEssential === '필수' ? true : false,
+        createdBy: currentUserName // 작성자 정보 추가 (IP 기반 자동 인식)
       };
       // confirmedExecutionAmount, unexecutedAmount, budgetExcessAmount는 서버에서 자동 계산되므로 전송하지 않음
 
@@ -369,6 +392,8 @@ const BudgetRegistrationAPI = () => {
       if (isEditMode && editingBudgetId) {
         // 수정 모드: budgetYear 제외 (수정 불가)
         delete submitData.budgetYear;
+        // 변경자 정보 추가 (변경이력 기록용)
+        submitData.changedBy = currentUserName;
         response = await fetch(`${API_BASE_URL}/api/business-budgets/${editingBudgetId}`, {
           method: 'PUT',
           headers: {

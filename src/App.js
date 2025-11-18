@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
+import { getApiUrl } from './config/api';
 import Dashboard from './components/Dashboard';
 import BudgetDashboard from './components/BudgetDashboard';
 import BudgetRegistration from './components/BudgetRegistrationAPI';
@@ -17,7 +18,7 @@ import WorkReport from './components/WorkReport';
 import PersonnelManagement from './components/PersonnelManagement';
 import ExternalPersonnelManagement from './components/ExternalPersonnelManagement';
 
-
+const API_BASE_URL = getApiUrl();
 
 function App() {
   const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
@@ -25,6 +26,37 @@ function App() {
   const [budgetMenuOpen, setBudgetMenuOpen] = useState(false);
   const [taskMenuOpen, setTaskMenuOpen] = useState(false);
   const [personnelMenuOpen, setPersonnelMenuOpen] = useState(false);
+
+  // 앱 초기화 시 접속 로그 기록 (사용자 추적)
+  useEffect(() => {
+    const logAccess = async () => {
+      try {
+        console.log('🔔 시스템 접속 - 사용자 인식 시도 중...');
+        
+        const response = await fetch(`${API_BASE_URL}/api/access-log`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('✅ 접속 로그 기록 완료:', userData);
+          console.log(`   👤 사용자: ${userData.name}`);
+          console.log(`   📍 IP: ${userData.clientIP}`);
+          console.log(`   ⏰ 시간: ${userData.accessTime}`);
+        } else {
+          console.warn('⚠️  접속 로그 기록 실패 (응답 오류)');
+        }
+      } catch (error) {
+        console.error('❌ 접속 로그 기록 실패:', error);
+      }
+    };
+    
+    // 페이지 로드 시 1회만 실행
+    logAccess();
+  }, []);
 
   return (
     <Router>

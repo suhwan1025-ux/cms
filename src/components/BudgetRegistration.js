@@ -85,15 +85,31 @@ const BudgetRegistration = ({ year = 2024 }) => {
       const response = await fetch(`${API_BASE_URL}/api/departments`);
       if (response.ok) {
         const data = await response.json();
-        // 부서명만 추출하여 배열로 변환
-        const departmentNames = data.map(dept => dept.deptName || dept.name || dept);
-        setDepartments(departmentNames);
-        console.log('✅ 부서 목록 로드 완료:', departmentNames.length, '개');
+        console.log('📋 부서 데이터 로드:', data);
+        
+        // 데이터가 배열인지 확인
+        if (Array.isArray(data) && data.length > 0) {
+          // 부서명만 추출하여 배열로 변환
+          const departmentNames = data
+            .map(dept => dept.name || dept.deptName || dept)
+            .filter(name => name && typeof name === 'string'); // null/undefined 제거
+          
+          setDepartments(departmentNames);
+          console.log('✅ 부서 목록 로드 완료:', departmentNames.length, '개');
+        } else {
+          console.error('⚠️ 부서 데이터가 비어있거나 올바른 형식이 아닙니다:', data);
+          // 기본 부서 목록 설정
+          setDepartments(['IT팀', '기획팀', '영업팀', '재무팀', '인사팀', '총무팀']);
+        }
       } else {
         console.error('부서 목록 로드 실패:', response.statusText);
+        // 기본 부서 목록 설정
+        setDepartments(['IT팀', '기획팀', '영업팀', '재무팀', '인사팀', '총무팀']);
       }
     } catch (error) {
       console.error('부서 목록 API 호출 오류:', error);
+      // 기본 부서 목록 설정
+      setDepartments(['IT팀', '기획팀', '영업팀', '재무팀', '인사팀', '총무팀']);
     }
   };
 
@@ -793,9 +809,10 @@ const BudgetRegistration = ({ year = 2024 }) => {
 
   // 부서 검색 결과 반환
   const getFilteredDepartments = (type) => {
-    const searchTerm = departmentSearch[type].toLowerCase();
+    const searchTerm = departmentSearch[type]?.toLowerCase() || '';
+    if (!searchTerm) return departments;
     return departments.filter(dept => 
-      dept.toLowerCase().includes(searchTerm)
+      dept && typeof dept === 'string' && dept.toLowerCase().includes(searchTerm)
     );
   };
 

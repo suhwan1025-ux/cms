@@ -71,3 +71,5 @@ temp/
 # env.production
 
 node_modules_essential_part*.zip
+
+node_modules.z*

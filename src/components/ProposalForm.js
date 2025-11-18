@@ -1539,7 +1539,7 @@ const ProposalForm = () => {
   };
 
   // 부서 검색 및 필터링
-  const filterDepartments = () => {
+  const filterDepartments = useCallback(() => {
     if (!departments || departments.length === 0) {
       setFilteredDepartments([]);
       return;
@@ -1563,7 +1563,14 @@ const ProposalForm = () => {
     );
     
     setFilteredDepartments(filtered);
-  };
+  }, [departments, departmentSearchTerm, formData.requestDepartments]);
+  
+  // 부서 검색어 또는 부서 목록 변경 시 자동 필터링
+  useEffect(() => {
+    if (showDepartmentDropdown) {
+      filterDepartments();
+    }
+  }, [departmentSearchTerm, departments, showDepartmentDropdown, filterDepartments]);
 
   // 구매품목별 부서 검색 및 필터링
   const filterDepartmentsForItem = (searchTerm, itemIndex) => {
@@ -2066,13 +2073,8 @@ const ProposalForm = () => {
   // 부서 드롭다운 열기
   const openDepartmentDropdown = () => {
     setDepartmentSearchTerm('');
-    setFilteredDepartments(departments.filter(dept => 
-      !formData.requestDepartments.some(selectedDept => {
-        const selectedName = typeof selectedDept === 'string' ? selectedDept : selectedDept.name || selectedDept;
-        return selectedName === dept.name;
-      })
-    ));
     setShowDepartmentDropdown(true);
+    // useEffect가 자동으로 filterDepartments()를 호출함
   };
 
   // 구매 내역 가져오기
