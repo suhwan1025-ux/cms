@@ -480,6 +480,92 @@
   color: #666;
 }
 
+/* ============================================================ */
+/* 사업예산 선택 섹션 */
+/* ============================================================ */
+
+.project-management .budget-selection-section {
+  margin-top: 40px;
+  padding: 30px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 2px dashed #dee2e6;
+}
+
+.project-management .section-header {
+  margin-bottom: 20px;
+}
+
+.project-management .section-header h2 {
+  font-size: 20px;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.project-management .section-header p {
+  font-size: 14px;
+  color: #666;
+}
+
+.project-management .budget-table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow-x: auto;
+}
+
+.project-management .budget-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1000px;
+}
+
+.project-management .budget-table thead {
+  background: #e3f2fd;
+}
+
+.project-management .budget-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #1976d2;
+  border-bottom: 2px solid #1976d2;
+  white-space: nowrap;
+}
+
+.project-management .budget-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+}
+
+.project-management .budget-table tbody tr:hover {
+  background: #f5f5f5;
+}
+
+.project-management .budget-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.project-management .btn-add-project {
+  padding: 6px 14px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.project-management .btn-add-project:hover {
+  background: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+}
+
 /* 반응형 */
 @media (max-width: 1400px) {
   .project-management .filter-section {

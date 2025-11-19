@@ -3244,30 +3244,30 @@ async function updateDatabaseSchema() {
           id SERIAL PRIMARY KEY,
           
           -- 기본 정보
-          project_code VARCHAR(50) UNIQUE NOT NULL COMMENT '프로젝트 코드 (MIT-25001)',
-          business_budget_id INTEGER COMMENT '연결된 사업예산 ID',
-          project_name VARCHAR(255) NOT NULL COMMENT '프로젝트명',
-          budget_year INTEGER NOT NULL COMMENT '예산연도',
+          project_code VARCHAR(50) UNIQUE NOT NULL,
+          business_budget_id INTEGER,
+          project_name VARCHAR(255) NOT NULL,
+          budget_year INTEGER NOT NULL,
           
           -- 부서 정보
-          initiator_department VARCHAR(100) COMMENT '발의부서',
-          executor_department VARCHAR(100) COMMENT '추진부서',
+          initiator_department VARCHAR(100),
+          executor_department VARCHAR(100),
           
           -- 예산 정보
-          budget_amount NUMERIC(15, 2) DEFAULT 0 COMMENT '예산금액',
-          executed_amount NUMERIC(15, 2) DEFAULT 0 COMMENT '집행금액',
+          budget_amount NUMERIC(15, 2) DEFAULT 0,
+          executed_amount NUMERIC(15, 2) DEFAULT 0,
           
           -- 프로젝트 관리 정보
-          is_it_committee BOOLEAN DEFAULT false COMMENT '전산 운영위 여부',
-          status VARCHAR(50) DEFAULT '진행중' COMMENT '상태 (준비중/진행중/완료/중단)',
-          progress_rate NUMERIC(5, 2) DEFAULT 0 COMMENT '추진률 (%)',
-          start_date DATE COMMENT '시작일',
-          deadline DATE COMMENT '완료기한',
-          pm VARCHAR(100) COMMENT 'PM (프로젝트 매니저)',
-          issues TEXT COMMENT '이슈사항',
+          is_it_committee BOOLEAN DEFAULT false,
+          status VARCHAR(50) DEFAULT '진행중',
+          progress_rate NUMERIC(5, 2) DEFAULT 0,
+          start_date DATE,
+          deadline DATE,
+          pm VARCHAR(100),
+          issues TEXT,
           
           -- 메타 정보
-          created_by VARCHAR(100) COMMENT '등록자',
+          created_by VARCHAR(100),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           
@@ -3406,6 +3406,27 @@ app.get('/api/projects/:id', async (req, res) => {
   }
 });
 
+// 날짜 유효성 검증 함수 (YYYY-MM-DD 형식)
+function validateDate(dateString) {
+  if (!dateString) return null;
+  
+  // YYYY-MM-DD 형식 검증
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(dateString)) {
+    console.warn(`⚠️  잘못된 날짜 형식: ${dateString} → NULL로 변환`);
+    return null;
+  }
+  
+  // 실제 날짜 유효성 검증
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    console.warn(`⚠️  유효하지 않은 날짜: ${dateString} → NULL로 변환`);
+    return null;
+  }
+  
+  return dateString;
+}
+
 // 4-3. 사업예산에서 프로젝트 생성
 app.post('/api/projects/from-budget/:budgetId', async (req, res) => {
   try {
@@ -3441,6 +3462,14 @@ app.post('/api/projects/from-budget/:budgetId', async (req, res) => {
     // 프로젝트 코드 자동생성
     const projectCode = await generateProjectCode(budgetData.budget_year);
     
+    // 날짜 유효성 검증
+    const startDate = validateDate(budgetData.start_date);
+    const deadline = validateDate(budgetData.end_date);
+    
+    console.log(`📅 날짜 검증:`);
+    console.log(`   원본 start_date: ${budgetData.start_date} → ${startDate}`);
+    console.log(`   원본 end_date: ${budgetData.end_date} → ${deadline}`);
+    
     // 프로젝트 생성
     const [result] = await sequelize.query(`
       INSERT INTO projects (
@@ -3469,8 +3498,8 @@ app.post('/api/projects/from-budget/:budgetId', async (req, res) => {
         budgetData.executor_department,
         budgetData.budget_amount,
         budgetData.executed_amount,
-        budgetData.start_date,
-        budgetData.end_date,
+        startDate,
+        deadline,
         req.body.createdBy || '관리자'
       ]
     });

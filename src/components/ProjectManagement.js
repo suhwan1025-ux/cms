@@ -9,7 +9,6 @@ const ProjectManagement = () => {
   const [projects, setProjects] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [yearFilter, setYearFilter] = useState('all');
@@ -93,9 +92,16 @@ const ProjectManagement = () => {
   // 사업예산을 프로젝트로 추가
   const handleAddProjectFromBudget = async (budgetId) => {
     try {
-      const user = await getCurrentUser();
+      console.log('📊 프로젝트 생성 시작...');
+      console.log(`   사업예산 ID: ${budgetId}`);
       
-      const response = await fetch(`${API_BASE_URL}/api/projects/from-budget/${budgetId}`, {
+      const user = await getCurrentUser();
+      console.log(`   사용자: ${user.name}`);
+      
+      const requestUrl = `${API_BASE_URL}/api/projects/from-budget/${budgetId}`;
+      console.log(`   API URL: ${requestUrl}`);
+      
+      const response = await fetch(requestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -105,18 +111,24 @@ const ProjectManagement = () => {
         })
       });
       
+      console.log(`   응답 상태: ${response.status} ${response.statusText}`);
+      
       const result = await response.json();
+      console.log('   응답 데이터:', result);
       
       if (!response.ok) {
         throw new Error(result.error || '프로젝트 생성 실패');
       }
       
       alert(`✅ ${result.message}`);
-      setShowBudgetModal(false);
       fetchProjects();
+      fetchBudgets(); // 사업예산 목록도 새로고침 (프로젝트로 등록된 항목 제외하기 위해)
     } catch (error) {
-      console.error('프로젝트 생성 오류:', error);
-      alert(`프로젝트 생성 중 오류가 발생했습니다.\n\n${error.message}`);
+      console.error('❌ 프로젝트 생성 오류:', error);
+      console.error('   에러 타입:', error.name);
+      console.error('   에러 메시지:', error.message);
+      console.error('   전체 에러:', error);
+      alert(`프로젝트 생성 중 오류가 발생했습니다.\n\n${error.message}\n\n브라우저 콘솔(F12)에서 상세 로그를 확인하세요.`);
     }
   };
 
@@ -226,6 +238,11 @@ const ProjectManagement = () => {
 
   if (loading) return <div className="project-management loading">로딩 중...</div>;
 
+  // 프로젝트로 등록되지 않은 사업예산 목록
+  const unregisteredBudgets = budgets.filter(budget => 
+    !projects.some(project => project.business_budget_id === budget.id)
+  );
+
   return (
     <div className="project-management">
       <div className="page-header">
@@ -283,9 +300,6 @@ const ProjectManagement = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button className="btn-add" onClick={() => setShowBudgetModal(true)}>
-          + 프로젝트 추가
-        </button>
       </div>
 
       {/* 프로젝트 테이블 */}
@@ -385,40 +399,60 @@ const ProjectManagement = () => {
         </table>
       </div>
 
-      {/* 사업예산 선택 모달 */}
-      {showBudgetModal && (
-        <div className="modal-overlay" onClick={() => setShowBudgetModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>사업예산에서 프로젝트 추가</h2>
-              <button className="modal-close" onClick={() => setShowBudgetModal(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="budget-list">
-                {budgets.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                    등록된 사업예산이 없습니다.
-                  </div>
-                ) : (
-                  budgets.map((budget) => (
-                    <div key={budget.id} className="budget-item">
-                      <div className="budget-info">
-                        <div className="budget-name">{budget.projectName}</div>
-                        <div className="budget-details">
-                          {budget.budgetYear}년 | {formatCurrency(budget.budgetAmount)} | {budget.initiatorDepartment}
-                        </div>
-                      </div>
+      {/* 사업예산 → 프로젝트 추가 섹션 */}
+      {unregisteredBudgets.length > 0 && (
+        <div className="budget-selection-section">
+          <div className="section-header">
+            <h2>사업예산에서 프로젝트 추가</h2>
+            <p>아래 사업예산 중 프로젝트로 관리할 항목을 선택하세요</p>
+          </div>
+          <div className="budget-table-container">
+            <table className="budget-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '50px' }}>선택</th>
+                  <th>사업예산명</th>
+                  <th>연도</th>
+                  <th>예산</th>
+                  <th>집행액</th>
+                  <th>발의부서</th>
+                  <th>추진부서</th>
+                  <th>프로젝트 추가</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unregisteredBudgets.map((budget) => (
+                  <tr key={budget.id}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input 
+                        type="checkbox" 
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            handleAddProjectFromBudget(budget.id);
+                            e.target.checked = false;
+                          }
+                        }}
+                      />
+                    </td>
+                    <td className="project-name">{budget.projectName}</td>
+                    <td>{budget.budgetYear}년</td>
+                    <td className="amount">{formatCurrency(budget.budgetAmount)}</td>
+                    <td className="amount">{formatCurrency(budget.executedAmount)}</td>
+                    <td>{budget.initiatorDepartment || '-'}</td>
+                    <td>{budget.executorDepartment || '-'}</td>
+                    <td style={{ textAlign: 'center' }}>
                       <button 
-                        className="btn-select"
+                        className="btn-add-project"
                         onClick={() => handleAddProjectFromBudget(budget.id)}
                       >
-                        선택
+                        프로젝트로 추가
                       </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
