@@ -20,6 +20,7 @@ const ProjectManagement = () => {
     isItCommittee: false,
     status: '진행중',
     progressRate: 0,
+    healthStatus: '양호',
     startDate: '',
     deadline: '',
     pm: '',
@@ -139,6 +140,7 @@ const ProjectManagement = () => {
       isItCommittee: project.is_it_committee || false,
       status: project.status || '진행중',
       progressRate: project.progress_rate || 0,
+      healthStatus: project.health_status || '양호',
       startDate: project.start_date || '',
       deadline: project.deadline || '',
       pm: project.pm || '',
@@ -159,6 +161,7 @@ const ProjectManagement = () => {
           is_it_committee: editForm.isItCommittee,
           status: editForm.status,
           progress_rate: editForm.progressRate,
+          health_status: editForm.healthStatus,
           start_date: editForm.startDate || null,
           deadline: editForm.deadline || null,
           pm: editForm.pm,
@@ -221,8 +224,13 @@ const ProjectManagement = () => {
     return true;
   });
 
-  // 연도 목록
-  const years = ['all', ...new Set(projects.map(p => p.budget_year))].filter(Boolean);
+  // 연도 목록 (현재 연도 ±3년)
+  const currentYear = new Date().getFullYear();
+  const yearRange = [];
+  for (let i = -3; i <= 3; i++) {
+    yearRange.push(currentYear + i);
+  }
+  const years = ['all', ...yearRange];
 
   // 통계
   const totalProjects = filteredProjects.length;
@@ -233,7 +241,7 @@ const ProjectManagement = () => {
     : 0;
 
   const formatCurrency = (amount) => {
-    return amount ? `${(amount / 10000).toLocaleString()}만원` : '0원';
+    return amount ? `${(amount / 1000).toLocaleString()}천원` : '0원';
   };
 
   if (loading) return <div className="project-management loading">로딩 중...</div>;
@@ -310,10 +318,13 @@ const ProjectManagement = () => {
               <th>프로젝트 코드</th>
               <th>프로젝트명</th>
               <th>연도</th>
+              <th>발의부서</th>
+              <th>추진부서</th>
               <th>예산</th>
               <th>집행액</th>
               <th>전산운영위</th>
               <th>상태</th>
+              <th>건강도</th>
               <th>추진률</th>
               <th>시작일</th>
               <th>완료기한</th>
@@ -324,7 +335,7 @@ const ProjectManagement = () => {
           <tbody>
             {filteredProjects.length === 0 ? (
               <tr>
-                <td colSpan="12" style={{ textAlign: 'center', padding: '40px' }}>
+                <td colSpan="15" style={{ textAlign: 'center', padding: '40px' }}>
                   {loading ? '데이터를 불러오는 중...' : (
                     <div>
                       <div style={{ fontSize: '16px', marginBottom: '10px' }}>
@@ -348,6 +359,8 @@ const ProjectManagement = () => {
                     <td className="project-code">{project.project_code}</td>
                     <td className="project-name">{project.project_name}</td>
                     <td>{project.budget_year}년</td>
+                    <td>{project.initiator_department || '-'}</td>
+                    <td>{project.executor_department || '-'}</td>
                     <td className="amount">{formatCurrency(project.budget_amount)}</td>
                     <td className="amount">{formatCurrency(project.executed_amount)}</td>
                     <td style={{ textAlign: 'center' }}>
@@ -356,6 +369,11 @@ const ProjectManagement = () => {
                     <td>
                       <span className={`status-badge status-${project.status}`}>
                         {project.status}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`health-badge health-${project.health_status}`}>
+                        {project.health_status || '양호'}
                       </span>
                     </td>
                     <td>
@@ -504,6 +522,20 @@ const ProjectManagement = () => {
                       <option value="중단">중단</option>
                     </select>
                   </div>
+                  <div className="form-group">
+                    <label>건강도</label>
+                    <select 
+                      value={editForm.healthStatus}
+                      onChange={(e) => setEditForm({...editForm, healthStatus: e.target.value})}
+                    >
+                      <option value="양호">양호</option>
+                      <option value="지연">지연</option>
+                      <option value="미흡">미흡</option>
+                      <option value="심각">심각</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-row">
                   <div className="form-group">
                     <label>추진률 (%)</label>
                     <input

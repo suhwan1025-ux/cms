@@ -3261,6 +3261,7 @@ async function updateDatabaseSchema() {
           is_it_committee BOOLEAN DEFAULT false,
           status VARCHAR(50) DEFAULT '진행중',
           progress_rate NUMERIC(5, 2) DEFAULT 0,
+          health_status VARCHAR(20) DEFAULT '양호',
           start_date DATE,
           deadline DATE,
           pm VARCHAR(100),
@@ -3283,6 +3284,20 @@ async function updateDatabaseSchema() {
       console.log('✅ projects 테이블 인덱스 생성 완료');
     } else {
       console.log('✅ projects 테이블이 이미 존재합니다');
+      
+      // 기존 테이블에 health_status 컬럼 추가 (없는 경우)
+      const [projectColumns] = await sequelize.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'projects'
+      `);
+      const projectColumnNames = projectColumns.map(col => col.column_name);
+      
+      if (!projectColumnNames.includes('health_status')) {
+        console.log('➕ projects 테이블에 health_status 컬럼 추가 중...');
+        await sequelize.query(`ALTER TABLE projects ADD COLUMN health_status VARCHAR(20) DEFAULT '양호'`);
+        console.log('✅ health_status 컬럼 추가 완료');
+      }
     }
     
   } catch (error) {
@@ -3529,7 +3544,7 @@ app.put('/api/projects/:id', async (req, res) => {
     
     // 수정 가능한 필드들
     const allowedFields = [
-      'is_it_committee', 'status', 'progress_rate', 
+      'is_it_committee', 'status', 'progress_rate', 'health_status',
       'start_date', 'deadline', 'pm', 'issues',
       'budget_amount', 'executed_amount'
     ];

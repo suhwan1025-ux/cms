@@ -116,7 +116,7 @@
 .project-management .project-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1400px;
+  min-width: 1800px;
 }
 
 .project-management .project-table thead {
@@ -193,6 +193,35 @@
 .project-management .status-중단 {
   background: #ffebee;
   color: #d32f2f;
+}
+
+/* 건강도 배지 */
+.project-management .health-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.project-management .health-양호 {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.project-management .health-지연 {
+  background: #fff3e0;
+  color: #ed6c02;
+}
+
+.project-management .health-미흡 {
+  background: #ffe0b2;
+  color: #e65100;
+}
+
+.project-management .health-심각 {
+  background: #ffebee;
+  color: #c62828;
 }
 
 /* 추진률 */
