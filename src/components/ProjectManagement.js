@@ -234,7 +234,7 @@ const ProjectManagement = () => {
 
   // 필터링된 프로젝트 목록
   const filteredProjects = projects.filter(project => {
-    if (yearFilter !== 'all' && project.budget_year !== parseInt(yearFilter)) {
+    if (yearFilter !== 'all' && project.budgetYear !== parseInt(yearFilter)) {
       return false;
     }
     if (statusFilter !== 'all' && project.status !== statusFilter) {
@@ -243,8 +243,8 @@ const ProjectManagement = () => {
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       return (
-        (project.project_name && project.project_name.toLowerCase().includes(search)) ||
-        (project.project_code && project.project_code.toLowerCase().includes(search)) ||
+        (project.projectName && project.projectName.toLowerCase().includes(search)) ||
+        (project.projectCode && project.projectCode.toLowerCase().includes(search)) ||
         (project.pm && project.pm.toLowerCase().includes(search))
       );
     }
@@ -261,11 +261,25 @@ const ProjectManagement = () => {
 
   // 통계
   const totalProjects = filteredProjects.length;
-  const totalBudget = filteredProjects.reduce((sum, p) => sum + (p.budgetAmount || 0), 0);
-  const totalExecuted = filteredProjects.reduce((sum, p) => sum + (p.executedAmount || 0), 0);
+  const totalBudget = filteredProjects.reduce((sum, p) => {
+    console.log('📊 예산 집계:', p.projectName, '→', p.budgetAmount);
+    return sum + (p.budgetAmount || 0);
+  }, 0);
+  const totalExecuted = filteredProjects.reduce((sum, p) => {
+    console.log('💰 집행액 집계:', p.projectName, '→', p.executedAmount);
+    return sum + (p.executedAmount || 0);
+  }, 0);
   const averageProgress = totalProjects > 0 
     ? (filteredProjects.reduce((sum, p) => sum + (p.progressRate || 0), 0) / totalProjects).toFixed(1) 
     : 0;
+  
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📊 [통계] 집계 결과');
+  console.log(`   총 프로젝트: ${totalProjects}건`);
+  console.log(`   총 예산: ${totalBudget}원 → ${formatCurrency(totalBudget)}`);
+  console.log(`   총 확정집행액: ${totalExecuted}원 → ${formatCurrency(totalExecuted)}`);
+  console.log(`   평균 추진률: ${averageProgress}%`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
   const formatCurrency = (amount) => {
     if (!amount) return '0백만원';
@@ -277,10 +291,27 @@ const ProjectManagement = () => {
 
   if (loading) return <div className="project-management loading">로딩 중...</div>;
 
-  // 프로젝트로 등록되지 않은 사업예산 목록
-  const unregisteredBudgets = budgets.filter(budget => 
-    !projects.some(project => project.business_budget_id === budget.id)
-  );
+  // 프로젝트로 등록되지 않은 사업예산 목록 (연도 필터 적용)
+  const unregisteredBudgets = budgets.filter(budget => {
+    // 프로젝트로 이미 등록된 항목 제외
+    if (projects.some(project => project.businessBudgetId === budget.id)) {
+      return false;
+    }
+    // 연도 필터 적용
+    if (yearFilter !== 'all' && budget.budgetYear !== parseInt(yearFilter)) {
+      return false;
+    }
+    // 검색어 필터 적용
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      return (
+        (budget.projectName && budget.projectName.toLowerCase().includes(search)) ||
+        (budget.initiatorDepartment && budget.initiatorDepartment.toLowerCase().includes(search)) ||
+        (budget.executorDepartment && budget.executorDepartment.toLowerCase().includes(search))
+      );
+    }
+    return true;
+  });
 
   return (
     <div className="project-management">
@@ -453,7 +484,15 @@ const ProjectManagement = () => {
         <div className="budget-selection-section">
           <div className="section-header">
             <h2>사업예산에서 프로젝트 추가</h2>
-            <p>아래 사업예산 중 프로젝트로 관리할 항목을 선택하세요</p>
+            <p>
+              아래 사업예산 중 프로젝트로 관리할 항목을 선택하세요
+              {yearFilter !== 'all' && <span style={{ color: '#4CAF50', marginLeft: '10px' }}>
+                (📅 {yearFilter}년 필터 적용 중)
+              </span>}
+              {searchTerm && <span style={{ color: '#2196F3', marginLeft: '10px' }}>
+                (🔍 '{searchTerm}' 검색 중)
+              </span>}
+            </p>
           </div>
           <div className="budget-table-container">
             <table className="budget-table">
