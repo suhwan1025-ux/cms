@@ -13,6 +13,7 @@ const ProjectManagement = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [yearFilter, setYearFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [healthFilter, setHealthFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   
   // 사업예산 전용 필터
@@ -244,6 +245,9 @@ const ProjectManagement = () => {
     if (statusFilter !== 'all' && project.status !== statusFilter) {
       return false;
     }
+    if (healthFilter !== 'all' && project.healthStatus !== healthFilter) {
+      return false;
+    }
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       return (
@@ -367,6 +371,16 @@ const ProjectManagement = () => {
             <option value="진행중">진행중</option>
             <option value="완료">완료</option>
             <option value="중단">중단</option>
+          </select>
+        </div>
+        <div className="filter-group">
+          <label>건강도</label>
+          <select value={healthFilter} onChange={(e) => setHealthFilter(e.target.value)}>
+            <option value="all">전체 건강도</option>
+            <option value="양호">🟢 양호</option>
+            <option value="지연">🟡 지연</option>
+            <option value="미흡">🟠 미흡</option>
+            <option value="심각">🔴 심각</option>
           </select>
         </div>
         <div className="search-box">
