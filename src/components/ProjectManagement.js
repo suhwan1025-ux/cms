@@ -46,8 +46,35 @@ const ProjectManagement = () => {
       
       const data = await response.json();
       console.log('   ✅ 프로젝트 수신:', data.length, '개');
+      console.log('   샘플 데이터 (원본):', data.slice(0, 1));
       
-      setProjects(data);
+      // DB의 snake_case를 camelCase로 변환
+      const convertedData = data.map(item => ({
+        id: item.id,
+        projectCode: item.project_code,
+        businessBudgetId: item.business_budget_id,
+        projectName: item.project_name,
+        budgetYear: item.budget_year,
+        initiatorDepartment: item.initiator_department,
+        executorDepartment: item.executor_department,
+        budgetAmount: item.budget_amount,
+        executedAmount: item.executed_amount,
+        isItCommittee: item.is_it_committee,
+        status: item.status,
+        progressRate: item.progress_rate,
+        healthStatus: item.health_status,
+        startDate: item.start_date,
+        deadline: item.deadline,
+        pm: item.pm,
+        issues: item.issues,
+        createdBy: item.created_by,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at
+      }));
+      
+      console.log('   ✅ 변환된 데이터:', convertedData.slice(0, 1));
+      
+      setProjects(convertedData);
     } catch (error) {
       console.error('❌ 프로젝트 조회 오류:', error);
       alert(`프로젝트 데이터를 불러오는 중 오류가 발생했습니다.\n\n${error.message}`);
@@ -241,7 +268,11 @@ const ProjectManagement = () => {
     : 0;
 
   const formatCurrency = (amount) => {
-    return amount ? `${(amount / 1000).toLocaleString()}천원` : '0원';
+    if (!amount) return '0백만원';
+    const million = (amount / 1000000);
+    return million >= 1 
+      ? `${million.toLocaleString(undefined, {maximumFractionDigits: 1})}백만원`
+      : `${million.toFixed(2)}백만원`;
   };
 
   if (loading) return <div className="project-management loading">로딩 중...</div>;
@@ -269,7 +300,7 @@ const ProjectManagement = () => {
           <div className="stat-value">{formatCurrency(totalBudget)}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">총 집행액</div>
+          <div className="stat-label">총 확정집행액</div>
           <div className="stat-value">{formatCurrency(totalExecuted)}</div>
         </div>
         <div className="stat-card">
@@ -321,7 +352,7 @@ const ProjectManagement = () => {
               <th>발의부서</th>
               <th>추진부서</th>
               <th>예산</th>
-              <th>집행액</th>
+              <th>확정집행액</th>
               <th>전산운영위</th>
               <th>상태</th>
               <th>건강도</th>
@@ -432,7 +463,7 @@ const ProjectManagement = () => {
                   <th>사업예산명</th>
                   <th>연도</th>
                   <th>예산</th>
-                  <th>집행액</th>
+                  <th>확정집행액</th>
                   <th>발의부서</th>
                   <th>추진부서</th>
                   <th>프로젝트 추가</th>
