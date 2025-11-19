@@ -14,6 +14,10 @@ const ProjectManagement = () => {
   const [yearFilter, setYearFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // 사업예산 전용 필터
+  const [budgetYearFilter, setBudgetYearFilter] = useState('all');
+  const [budgetSearchTerm, setBudgetSearchTerm] = useState('');
 
   // 편집 폼 데이터
   const [editForm, setEditForm] = useState({
@@ -292,19 +296,19 @@ const ProjectManagement = () => {
 
   if (loading) return <div className="project-management loading">로딩 중...</div>;
 
-  // 프로젝트로 등록되지 않은 사업예산 목록 (연도 필터 적용)
+  // 프로젝트로 등록되지 않은 사업예산 목록 (독립적인 연도 필터 적용)
   const unregisteredBudgets = budgets.filter(budget => {
     // 프로젝트로 이미 등록된 항목 제외
     if (projects.some(project => project.businessBudgetId === budget.id)) {
       return false;
     }
-    // 연도 필터 적용
-    if (yearFilter !== 'all' && budget.budgetYear !== parseInt(yearFilter)) {
+    // 사업예산 전용 연도 필터 적용
+    if (budgetYearFilter !== 'all' && budget.budgetYear !== parseInt(budgetYearFilter)) {
       return false;
     }
-    // 검색어 필터 적용
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
+    // 사업예산 전용 검색어 필터 적용
+    if (budgetSearchTerm) {
+      const search = budgetSearchTerm.toLowerCase();
       return (
         (budget.projectName && budget.projectName.toLowerCase().includes(search)) ||
         (budget.initiatorDepartment && budget.initiatorDepartment.toLowerCase().includes(search)) ||
@@ -480,20 +484,90 @@ const ProjectManagement = () => {
         </table>
       </div>
 
-      {/* 사업예산 → 프로젝트 추가 섹션 */}
-      {unregisteredBudgets.length > 0 && (
+      {/* 사업예산 → 프로젝트 추가 섹션 (항상 표시) */}
+      {budgets.length > 0 && (
         <div className="budget-selection-section">
           <div className="section-header">
-            <h2>사업예산에서 프로젝트 추가</h2>
-            <p>
-              아래 사업예산 중 프로젝트로 관리할 항목을 선택하세요
-              {yearFilter !== 'all' && <span style={{ color: '#4CAF50', marginLeft: '10px' }}>
-                (📅 {yearFilter}년 필터 적용 중)
-              </span>}
-              {searchTerm && <span style={{ color: '#2196F3', marginLeft: '10px' }}>
-                (🔍 '{searchTerm}' 검색 중)
-              </span>}
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+              <div>
+                <h2>사업예산에서 프로젝트 추가</h2>
+                <p style={{ marginTop: '8px', marginBottom: '0' }}>
+                  아래 사업예산 중 프로젝트로 관리할 항목을 선택하세요
+                </p>
+              </div>
+              
+              {/* 사업예산 전용 필터 */}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ fontSize: '14px', fontWeight: '500', whiteSpace: 'nowrap' }}>연도</label>
+                  <select 
+                    value={budgetYearFilter} 
+                    onChange={(e) => setBudgetYearFilter(e.target.value)}
+                    style={{
+                      padding: '8px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      minWidth: '120px'
+                    }}
+                  >
+                    {years.map(year => (
+                      <option key={year} value={year}>
+                        {year === 'all' ? '전체 연도' : `${year}년`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="사업예산 검색..."
+                    value={budgetSearchTerm}
+                    onChange={(e) => setBudgetSearchTerm(e.target.value)}
+                    style={{
+                      padding: '8px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      minWidth: '200px'
+                    }}
+                  />
+                  {budgetSearchTerm && (
+                    <button
+                      onClick={() => setBudgetSearchTerm('')}
+                      style={{
+                        padding: '6px 10px',
+                        background: '#f0f0f0',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* 필터 상태 표시 */}
+            {(budgetYearFilter !== 'all' || budgetSearchTerm) && (
+              <p style={{ fontSize: '13px', color: '#666', marginTop: '10px' }}>
+                {budgetYearFilter !== 'all' && (
+                  <span style={{ color: '#4CAF50', marginRight: '15px' }}>
+                    📅 {budgetYearFilter}년 필터 적용 중
+                  </span>
+                )}
+                {budgetSearchTerm && (
+                  <span style={{ color: '#2196F3' }}>
+                    🔍 '{budgetSearchTerm}' 검색 중 ({unregisteredBudgets.length}건)
+                  </span>
+                )}
+              </p>
+            )}
           </div>
           <div className="budget-table-container">
             <table className="budget-table">
@@ -510,36 +584,62 @@ const ProjectManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {unregisteredBudgets.map((budget) => (
-                  <tr key={budget.id}>
-                    <td style={{ textAlign: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            handleAddProjectFromBudget(budget.id);
-                            e.target.checked = false;
-                          }
-                        }}
-                      />
-                    </td>
-                    <td className="project-name">{budget.projectName}</td>
-                    <td>{budget.budgetYear}년</td>
-                    <td className="amount">{formatCurrency(budget.budgetAmount)}</td>
-                    <td className="amount">{formatCurrency(budget.executedAmount)}</td>
-                    <td>{budget.initiatorDepartment || '-'}</td>
-                    <td>{budget.executorDepartment || '-'}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <button 
-                        className="btn-add-project"
-                        onClick={() => handleAddProjectFromBudget(budget.id)}
-                      >
-                        프로젝트로 추가
-                      </button>
+                {unregisteredBudgets.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                      {budgetYearFilter !== 'all' || budgetSearchTerm ? (
+                        <div>
+                          <div style={{ fontSize: '16px', marginBottom: '10px' }}>
+                            🔍 검색 조건에 맞는 사업예산이 없습니다.
+                          </div>
+                          <div style={{ fontSize: '14px' }}>
+                            다른 연도를 선택하거나 검색어를 변경해보세요.
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: '16px', marginBottom: '10px' }}>
+                            📋 프로젝트로 추가 가능한 사업예산이 없습니다.
+                          </div>
+                          <div style={{ fontSize: '14px' }}>
+                            모든 사업예산이 이미 프로젝트로 등록되었습니다.
+                          </div>
+                        </div>
+                      )}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  unregisteredBudgets.map((budget) => (
+                    <tr key={budget.id}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input 
+                          type="checkbox" 
+                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              handleAddProjectFromBudget(budget.id);
+                              e.target.checked = false;
+                            }
+                          }}
+                        />
+                      </td>
+                      <td className="project-name">{budget.projectName}</td>
+                      <td>{budget.budgetYear}년</td>
+                      <td className="amount">{formatCurrency(budget.budgetAmount)}</td>
+                      <td className="amount">{formatCurrency(budget.executedAmount)}</td>
+                      <td>{budget.initiatorDepartment || '-'}</td>
+                      <td>{budget.executorDepartment || '-'}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button 
+                          className="btn-add-project"
+                          onClick={() => handleAddProjectFromBudget(budget.id)}
+                        >
+                          프로젝트로 추가
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
