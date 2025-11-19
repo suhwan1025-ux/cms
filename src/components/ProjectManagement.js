@@ -275,15 +275,17 @@ const ProjectManagement = () => {
   // 통계
   const totalProjects = filteredProjects.length;
   const totalBudget = filteredProjects.reduce((sum, p) => {
-    console.log('📊 예산 집계:', p.projectName, '→', p.budgetAmount);
-    return sum + (p.budgetAmount || 0);
+    const amount = Number(p.budgetAmount) || 0;
+    console.log('📊 예산 집계:', p.projectName, '→', amount, `(타입: ${typeof p.budgetAmount})`);
+    return sum + amount;
   }, 0);
   const totalExecuted = filteredProjects.reduce((sum, p) => {
-    console.log('💰 집행액 집계:', p.projectName, '→', p.executedAmount);
-    return sum + (p.executedAmount || 0);
+    const amount = Number(p.executedAmount) || 0;
+    console.log('💰 집행액 집계:', p.projectName, '→', amount, `(타입: ${typeof p.executedAmount})`);
+    return sum + amount;
   }, 0);
   const averageProgress = totalProjects > 0 
-    ? (filteredProjects.reduce((sum, p) => sum + (p.progressRate || 0), 0) / totalProjects).toFixed(1) 
+    ? (filteredProjects.reduce((sum, p) => sum + (Number(p.progressRate) || 0), 0) / totalProjects).toFixed(1) 
     : 0;
   
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
