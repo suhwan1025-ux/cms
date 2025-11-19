@@ -164,11 +164,11 @@ const ProjectManagement = () => {
   const handleEditProject = (project) => {
     setSelectedProject(project);
     setEditForm({
-      isItCommittee: project.is_it_committee || false,
+      isItCommittee: project.isItCommittee || false,
       status: project.status || '진행중',
-      progressRate: project.progress_rate || 0,
-      healthStatus: project.health_status || '양호',
-      startDate: project.start_date || '',
+      progressRate: project.progressRate || 0,
+      healthStatus: project.healthStatus || '양호',
+      startDate: project.startDate || '',
       deadline: project.deadline || '',
       pm: project.pm || '',
       issues: project.issues || ''
@@ -261,10 +261,10 @@ const ProjectManagement = () => {
 
   // 통계
   const totalProjects = filteredProjects.length;
-  const totalBudget = filteredProjects.reduce((sum, p) => sum + (p.budget_amount || 0), 0);
-  const totalExecuted = filteredProjects.reduce((sum, p) => sum + (p.executed_amount || 0), 0);
+  const totalBudget = filteredProjects.reduce((sum, p) => sum + (p.budgetAmount || 0), 0);
+  const totalExecuted = filteredProjects.reduce((sum, p) => sum + (p.executedAmount || 0), 0);
   const averageProgress = totalProjects > 0 
-    ? (filteredProjects.reduce((sum, p) => sum + (p.progress_rate || 0), 0) / totalProjects).toFixed(1) 
+    ? (filteredProjects.reduce((sum, p) => sum + (p.progressRate || 0), 0) / totalProjects).toFixed(1) 
     : 0;
 
   const formatCurrency = (amount) => {
@@ -381,21 +381,21 @@ const ProjectManagement = () => {
               </tr>
             ) : (
               filteredProjects.map((project) => {
-                const executionRate = project.budget_amount > 0
-                  ? ((project.executed_amount / project.budget_amount) * 100).toFixed(1)
+                const executionRate = project.budgetAmount > 0
+                  ? ((project.executedAmount / project.budgetAmount) * 100).toFixed(1)
                   : 0;
 
                 return (
                   <tr key={project.id}>
-                    <td className="project-code">{project.project_code}</td>
-                    <td className="project-name">{project.project_name}</td>
-                    <td>{project.budget_year}년</td>
-                    <td>{project.initiator_department || '-'}</td>
-                    <td>{project.executor_department || '-'}</td>
-                    <td className="amount">{formatCurrency(project.budget_amount)}</td>
-                    <td className="amount">{formatCurrency(project.executed_amount)}</td>
+                    <td className="project-code">{project.projectCode}</td>
+                    <td className="project-name">{project.projectName}</td>
+                    <td>{project.budgetYear}년</td>
+                    <td>{project.initiatorDepartment || '-'}</td>
+                    <td>{project.executorDepartment || '-'}</td>
+                    <td className="amount">{formatCurrency(project.budgetAmount)}</td>
+                    <td className="amount">{formatCurrency(project.executedAmount)}</td>
                     <td style={{ textAlign: 'center' }}>
-                      {project.is_it_committee ? '✅' : ''}
+                      {project.isItCommittee ? '✅' : ''}
                     </td>
                     <td>
                       <span className={`status-badge status-${project.status}`}>
@@ -403,8 +403,8 @@ const ProjectManagement = () => {
                       </span>
                     </td>
                     <td>
-                      <span className={`health-badge health-${project.health_status}`}>
-                        {project.health_status || '양호'}
+                      <span className={`health-badge health-${project.healthStatus}`}>
+                        {project.healthStatus || '양호'}
                       </span>
                     </td>
                     <td>
@@ -413,15 +413,15 @@ const ProjectManagement = () => {
                           <div 
                             className="progress-fill" 
                             style={{ 
-                              width: `${Math.min(project.progress_rate || 0, 100)}%`,
+                              width: `${Math.min(project.progressRate || 0, 100)}%`,
                               backgroundColor: '#4CAF50'
                             }}
                           />
                         </div>
-                        <span className="progress-text">{project.progress_rate || 0}%</span>
+                        <span className="progress-text">{project.progressRate || 0}%</span>
                       </div>
                     </td>
-                    <td>{project.start_date || '-'}</td>
+                    <td>{project.startDate || '-'}</td>
                     <td>{project.deadline || '-'}</td>
                     <td>{project.pm || '-'}</td>
                     <td>
@@ -519,13 +519,13 @@ const ProjectManagement = () => {
                 <div className="form-row">
                   <div className="form-group full-width">
                     <label>프로젝트 코드</label>
-                    <input type="text" value={selectedProject.project_code} disabled />
+                    <input type="text" value={selectedProject.projectCode} disabled />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group full-width">
                     <label>프로젝트명</label>
-                    <input type="text" value={selectedProject.project_name} disabled />
+                    <input type="text" value={selectedProject.projectName} disabled />
                   </div>
                 </div>
                 <div className="form-row">
