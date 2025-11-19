@@ -259,6 +259,15 @@ const ProjectManagement = () => {
   }
   const years = ['all', ...yearRange];
 
+  // 금액 포맷 함수 (통계 계산 전에 정의)
+  const formatCurrency = (amount) => {
+    if (!amount) return '0백만원';
+    const million = (amount / 1000000);
+    return million >= 1 
+      ? `${million.toLocaleString(undefined, {maximumFractionDigits: 1})}백만원`
+      : `${million.toFixed(2)}백만원`;
+  };
+
   // 통계
   const totalProjects = filteredProjects.length;
   const totalBudget = filteredProjects.reduce((sum, p) => {
@@ -280,14 +289,6 @@ const ProjectManagement = () => {
   console.log(`   총 확정집행액: ${totalExecuted}원 → ${formatCurrency(totalExecuted)}`);
   console.log(`   평균 추진률: ${averageProgress}%`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-  const formatCurrency = (amount) => {
-    if (!amount) return '0백만원';
-    const million = (amount / 1000000);
-    return million >= 1 
-      ? `${million.toLocaleString(undefined, {maximumFractionDigits: 1})}백만원`
-      : `${million.toFixed(2)}백만원`;
-  };
 
   if (loading) return <div className="project-management loading">로딩 중...</div>;
 
