@@ -14,7 +14,6 @@ function PersonnelManagement() {
   const [currentPersonnel, setCurrentPersonnel] = useState(null);
   
   // 일자별 조회 상태
-  const [backupDates, setBackupDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');
   const [isBackupView, setIsBackupView] = useState(false);
   
@@ -77,7 +76,6 @@ function PersonnelManagement() {
 
   useEffect(() => {
     fetchPersonnel();
-    fetchBackupDates();
   }, []);
 
   useEffect(() => {
@@ -124,20 +122,16 @@ function PersonnelManagement() {
     }
   };
 
-  // 백업 일자 목록 조회
-  const fetchBackupDates = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/personnel/backups/dates`);
-      if (response.ok) {
-        const dates = await response.json();
-        setBackupDates(Array.isArray(dates) ? dates : []);
-      } else {
-        console.warn('백업 일자를 가져올 수 없습니다:', response.status);
-        setBackupDates([]);
-      }
-    } catch (error) {
-      console.error('백업 일자 조회 오류:', error);
-      setBackupDates([]);
+  // 날짜 선택 핸들러
+  const handleDateChange = (e) => {
+    const date = e.target.value;
+    setSelectedDate(date);
+    if (date) {
+      fetchPersonnel(date);
+      setIsBackupView(true);
+    } else {
+      fetchPersonnel();
+      setIsBackupView(false);
     }
   };
 
@@ -617,23 +611,40 @@ function PersonnelManagement() {
           {/* 일자별 조회 */}
           <div className="date-selector">
             <label>조회 일자:</label>
-            <select
+            <input
+              type="date"
               value={selectedDate}
-              onChange={(e) => {
-                if (e.target.value) {
-                  fetchPersonnel(e.target.value);
-                } else {
-                  fetchPersonnel();
-                }
+              onChange={handleDateChange}
+              max={new Date().toISOString().split('T')[0]}
+              placeholder="날짜를 선택하세요"
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: 'pointer'
               }}
-            >
-              <option value="">현재 데이터</option>
-              {backupDates.map(date => (
-                <option key={date} value={date}>
-                  {new Date(date).toLocaleDateString('ko-KR')}
-                </option>
-              ))}
-            </select>
+            />
+            {selectedDate && (
+              <button
+                onClick={() => {
+                  setSelectedDate('');
+                  fetchPersonnel();
+                  setIsBackupView(false);
+                }}
+                style={{
+                  marginLeft: '8px',
+                  padding: '8px 12px',
+                  background: '#f0f0f0',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                초기화
+              </button>
+            )}
           </div>
 
           {/* 검색 */}

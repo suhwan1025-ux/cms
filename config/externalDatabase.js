@@ -118,8 +118,7 @@ async function getDepartmentsFromExternalDb() {
       FROM ${deptTableConfig.tableName}
       WHERE ${deptTableConfig.columns.code} IS NOT NULL
         AND ${deptTableConfig.columns.name} IS NOT NULL
-        AND TRIM(${deptTableConfig.columns.code}) != ''
-        AND TRIM(${deptTableConfig.columns.name}) != ''
+        AND MANG_YN = 'Y'
       ORDER BY ${deptTableConfig.columns.code}
     `;
 

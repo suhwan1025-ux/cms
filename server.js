@@ -3225,10 +3225,341 @@ async function updateDatabaseSchema() {
     await sequelize.query(`UPDATE purchase_items SET contract_period_type = 'permanent' WHERE contract_period_type IS NULL`);
     console.log('✅ 기존 데이터 업데이트 완료');
     
+    // ============================================================
+    // 프로젝트 관리 테이블 추가
+    // ============================================================
+    console.log('🔄 프로젝트 관리 테이블 확인 중...');
+    
+    // projects 테이블 존재 여부 확인
+    const [tableCheck] = await sequelize.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_name = 'projects'
+    `);
+    
+    if (tableCheck.length === 0) {
+      console.log('➕ projects 테이블 생성 중...');
+      await sequelize.query(`
+        CREATE TABLE projects (
+          id SERIAL PRIMARY KEY,
+          
+          -- 기본 정보
+          project_code VARCHAR(50) UNIQUE NOT NULL COMMENT '프로젝트 코드 (MIT-25001)',
+          business_budget_id INTEGER COMMENT '연결된 사업예산 ID',
+          project_name VARCHAR(255) NOT NULL COMMENT '프로젝트명',
+          budget_year INTEGER NOT NULL COMMENT '예산연도',
+          
+          -- 부서 정보
+          initiator_department VARCHAR(100) COMMENT '발의부서',
+          executor_department VARCHAR(100) COMMENT '추진부서',
+          
+          -- 예산 정보
+          budget_amount NUMERIC(15, 2) DEFAULT 0 COMMENT '예산금액',
+          executed_amount NUMERIC(15, 2) DEFAULT 0 COMMENT '집행금액',
+          
+          -- 프로젝트 관리 정보
+          is_it_committee BOOLEAN DEFAULT false COMMENT '전산 운영위 여부',
+          status VARCHAR(50) DEFAULT '진행중' COMMENT '상태 (준비중/진행중/완료/중단)',
+          progress_rate NUMERIC(5, 2) DEFAULT 0 COMMENT '추진률 (%)',
+          start_date DATE COMMENT '시작일',
+          deadline DATE COMMENT '완료기한',
+          pm VARCHAR(100) COMMENT 'PM (프로젝트 매니저)',
+          issues TEXT COMMENT '이슈사항',
+          
+          -- 메타 정보
+          created_by VARCHAR(100) COMMENT '등록자',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          
+          FOREIGN KEY (business_budget_id) REFERENCES business_budgets(id) ON DELETE SET NULL
+        )
+      `);
+      console.log('✅ projects 테이블 생성 완료');
+      
+      // 인덱스 추가
+      await sequelize.query(`CREATE INDEX idx_projects_code ON projects(project_code)`);
+      await sequelize.query(`CREATE INDEX idx_projects_budget_id ON projects(business_budget_id)`);
+      await sequelize.query(`CREATE INDEX idx_projects_year ON projects(budget_year)`);
+      console.log('✅ projects 테이블 인덱스 생성 완료');
+    } else {
+      console.log('✅ projects 테이블이 이미 존재합니다');
+    }
+    
   } catch (error) {
     console.error('⚠️ 스키마 업데이트 중 오류 (무시하고 계속):', error.message);
   }
 }
+
+// ============================================================
+// 프로젝트 코드 자동생성 함수 (MIT-25001 형식)
+// ============================================================
+async function generateProjectCode(year) {
+  try {
+    const yearPrefix = year.toString().slice(-2); // 2025 → 25
+    
+    // 해당 연도의 마지막 프로젝트 코드 조회
+    const [lastProject] = await sequelize.query(`
+      SELECT project_code 
+      FROM projects 
+      WHERE budget_year = ?
+        AND project_code LIKE 'MIT-${yearPrefix}%'
+      ORDER BY project_code DESC 
+      LIMIT 1
+    `, {
+      replacements: [year]
+    });
+    
+    let nextNumber = 1;
+    
+    if (lastProject.length > 0) {
+      // MIT-25001 → 001 추출 → 1 → 2
+      const lastCode = lastProject[0].project_code;
+      const lastNumber = parseInt(lastCode.split('-')[1].slice(2));
+      nextNumber = lastNumber + 1;
+    }
+    
+    // MIT-25001 형식으로 생성
+    const projectCode = `MIT-${yearPrefix}${String(nextNumber).padStart(3, '0')}`;
+    
+    console.log(`📋 프로젝트 코드 생성: ${projectCode} (${year}년도)`);
+    
+    return projectCode;
+  } catch (error) {
+    console.error('프로젝트 코드 생성 실패:', error);
+    // 실패 시 임시 코드 반환
+    return `MIT-${year.toString().slice(-2)}TMP`;
+  }
+}
+
+// ============================================================
+// 프로젝트 관리 API
+// ============================================================
+
+// 4-1. 프로젝트 목록 조회
+app.get('/api/projects', async (req, res) => {
+  try {
+    const { year, status, department } = req.query;
+    
+    let whereClause = 'WHERE 1=1';
+    const replacements = [];
+    
+    if (year) {
+      whereClause += ' AND p.budget_year = ?';
+      replacements.push(parseInt(year));
+    }
+    
+    if (status) {
+      whereClause += ' AND p.status = ?';
+      replacements.push(status);
+    }
+    
+    if (department) {
+      whereClause += ' AND (p.initiator_department = ? OR p.executor_department = ?)';
+      replacements.push(department, department);
+    }
+    
+    const [projects] = await sequelize.query(`
+      SELECT 
+        p.*,
+        bb.project_name as business_budget_name,
+        bb.budget_category
+      FROM projects p
+      LEFT JOIN business_budgets bb ON p.business_budget_id = bb.id
+      ${whereClause}
+      ORDER BY p.created_at DESC
+    `, {
+      replacements
+    });
+    
+    console.log(`✅ 프로젝트 목록 조회: ${projects.length}개`);
+    res.json(projects);
+  } catch (error) {
+    console.error('프로젝트 목록 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4-2. 프로젝트 상세 조회
+app.get('/api/projects/:id', async (req, res) => {
+  try {
+    const [project] = await sequelize.query(`
+      SELECT 
+        p.*,
+        bb.project_name as business_budget_name,
+        bb.budget_category,
+        bb.project_purpose
+      FROM projects p
+      LEFT JOIN business_budgets bb ON p.business_budget_id = bb.id
+      WHERE p.id = ?
+    `, {
+      replacements: [req.params.id]
+    });
+    
+    if (project.length === 0) {
+      return res.status(404).json({ error: '프로젝트를 찾을 수 없습니다.' });
+    }
+    
+    res.json(project[0]);
+  } catch (error) {
+    console.error('프로젝트 상세 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4-3. 사업예산에서 프로젝트 생성
+app.post('/api/projects/from-budget/:budgetId', async (req, res) => {
+  try {
+    const budgetId = req.params.budgetId;
+    
+    // 사업예산 정보 조회
+    const [budget] = await sequelize.query(`
+      SELECT * FROM business_budgets WHERE id = ?
+    `, {
+      replacements: [budgetId]
+    });
+    
+    if (budget.length === 0) {
+      return res.status(404).json({ error: '사업예산을 찾을 수 없습니다.' });
+    }
+    
+    const budgetData = budget[0];
+    
+    // 이미 프로젝트가 생성되었는지 확인
+    const [existing] = await sequelize.query(`
+      SELECT id FROM projects WHERE business_budget_id = ?
+    `, {
+      replacements: [budgetId]
+    });
+    
+    if (existing.length > 0) {
+      return res.status(400).json({ 
+        error: '이미 프로젝트가 생성된 사업예산입니다.',
+        projectId: existing[0].id 
+      });
+    }
+    
+    // 프로젝트 코드 자동생성
+    const projectCode = await generateProjectCode(budgetData.budget_year);
+    
+    // 프로젝트 생성
+    const [result] = await sequelize.query(`
+      INSERT INTO projects (
+        project_code,
+        business_budget_id,
+        project_name,
+        budget_year,
+        initiator_department,
+        executor_department,
+        budget_amount,
+        executed_amount,
+        status,
+        progress_rate,
+        start_date,
+        deadline,
+        created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '준비중', 0, ?, ?, ?)
+      RETURNING id
+    `, {
+      replacements: [
+        projectCode,
+        budgetId,
+        budgetData.project_name,
+        budgetData.budget_year,
+        budgetData.initiator_department,
+        budgetData.executor_department,
+        budgetData.budget_amount,
+        budgetData.executed_amount,
+        budgetData.start_date,
+        budgetData.end_date,
+        req.body.createdBy || '관리자'
+      ]
+    });
+    
+    console.log(`✅ 프로젝트 생성: ${projectCode} (사업예산 ID: ${budgetId})`);
+    
+    res.json({
+      success: true,
+      projectId: result[0].id,
+      projectCode: projectCode,
+      message: `프로젝트 ${projectCode}가 생성되었습니다.`
+    });
+  } catch (error) {
+    console.error('프로젝트 생성 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4-4. 프로젝트 수정
+app.put('/api/projects/:id', async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const updateData = req.body;
+    
+    const updates = [];
+    const replacements = [];
+    
+    // 수정 가능한 필드들
+    const allowedFields = [
+      'is_it_committee', 'status', 'progress_rate', 
+      'start_date', 'deadline', 'pm', 'issues',
+      'budget_amount', 'executed_amount'
+    ];
+    
+    allowedFields.forEach(field => {
+      if (updateData[field] !== undefined) {
+        updates.push(`${field} = ?`);
+        replacements.push(updateData[field]);
+      }
+    });
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: '수정할 데이터가 없습니다.' });
+    }
+    
+    // updated_at 추가
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    replacements.push(projectId);
+    
+    await sequelize.query(`
+      UPDATE projects 
+      SET ${updates.join(', ')}
+      WHERE id = ?
+    `, {
+      replacements
+    });
+    
+    console.log(`✅ 프로젝트 수정: ID ${projectId}`);
+    
+    res.json({
+      success: true,
+      message: '프로젝트가 수정되었습니다.'
+    });
+  } catch (error) {
+    console.error('프로젝트 수정 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4-5. 프로젝트 삭제
+app.delete('/api/projects/:id', async (req, res) => {
+  try {
+    await sequelize.query(`
+      DELETE FROM projects WHERE id = ?
+    `, {
+      replacements: [req.params.id]
+    });
+    
+    console.log(`✅ 프로젝트 삭제: ID ${req.params.id}`);
+    
+    res.json({
+      success: true,
+      message: '프로젝트가 삭제되었습니다.'
+    });
+  } catch (error) {
+    console.error('프로젝트 삭제 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // AI 어시스턴스 API 엔드포인트들
 // 통계 요약 API
@@ -4812,7 +5143,7 @@ app.get('/api/personnel/backups/dates', async (req, res) => {
       SELECT DISTINCT backup_date 
       FROM personnel_backup 
       ORDER BY backup_date DESC 
-      LIMIT 30
+      LIMIT 365  -- 최근 1년 (365개)
     `;
     const dates = await sequelize.query(query, {
       type: Sequelize.QueryTypes.SELECT
@@ -5242,6 +5573,114 @@ app.use((req, res, next) => {
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
+// ==================== Personnel 자동 백업 ====================
+async function autoBackupPersonnel() {
+  try {
+    console.log('');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📦 Personnel 자동 백업 시작...');
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 오늘 백업이 이미 있는지 확인
+    const [existing] = await sequelize.query(`
+      SELECT COUNT(*) as count 
+      FROM personnel_backup 
+      WHERE backup_date = :today
+    `, {
+      replacements: { today },
+      type: Sequelize.QueryTypes.SELECT
+    });
+    
+    if (existing.count > 0) {
+      console.log(`⚠️  ${today} 백업이 이미 존재합니다. 건너뜁니다.`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      return;
+    }
+    
+    // 백업 실행
+    await sequelize.query(`
+      INSERT INTO personnel_backup (
+        backup_date, original_id,
+        division, department, position, employee_number, name, rank,
+        duties, job_function, bok_job_function, job_category,
+        is_it_personnel, is_security_personnel,
+        birth_date, gender, age,
+        group_join_date, join_date, resignation_date,
+        total_service_years, career_base_date, it_career_years,
+        current_duty_date, current_duty_period, previous_department,
+        major, is_it_major,
+        it_certificate_1, it_certificate_2, it_certificate_3, it_certificate_4,
+        is_active, notes,
+        created_at, updated_at
+      )
+      SELECT
+        :today AS backup_date, id AS original_id,
+        division, department, position, employee_number, name, rank,
+        duties, job_function, bok_job_function, job_category,
+        is_it_personnel, is_security_personnel,
+        birth_date, gender, age,
+        group_join_date, join_date, resignation_date,
+        total_service_years, career_base_date, it_career_years,
+        current_duty_date, current_duty_period, previous_department,
+        major, is_it_major,
+        it_certificate_1, it_certificate_2, it_certificate_3, it_certificate_4,
+        is_active, notes,
+        created_at, updated_at
+      FROM personnel
+      WHERE is_active = TRUE
+    `, {
+      replacements: { today }
+    });
+    
+    const [result] = await sequelize.query(`
+      SELECT COUNT(*) as count 
+      FROM personnel_backup 
+      WHERE backup_date = :today
+    `, {
+      replacements: { today },
+      type: Sequelize.QueryTypes.SELECT
+    });
+    
+    console.log(`✅ 백업 완료! ${result.count}명`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('');
+  } catch (error) {
+    // personnel_backup 테이블이 없으면 무시
+    if (error.message && (error.message.includes('does not exist') || error.message.includes('no such table'))) {
+      console.log('⚠️  personnel_backup 테이블이 없습니다. 백업 건너뜀.');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    } else {
+      console.error('❌ Personnel 백업 실패:', error.message);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
+  }
+}
+
+// 매일 자정에 백업 실행하는 스케줄러
+function schedulePersonnelBackup() {
+  const now = new Date();
+  const night = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1, // 다음 날
+    0, 0, 0 // 자정
+  );
+  const msUntilMidnight = night.getTime() - now.getTime();
+  
+  console.log(`⏰ 다음 백업 예정: ${night.toLocaleString('ko-KR')}`);
+  
+  // 첫 번째 백업 (자정까지 대기)
+  setTimeout(() => {
+    autoBackupPersonnel();
+    
+    // 이후 24시간마다 반복
+    setInterval(() => {
+      autoBackupPersonnel();
+    }, 24 * 60 * 60 * 1000); // 24시간
+  }, msUntilMidnight);
+}
+
 // 서버 시작
 app.listen(PORT, '0.0.0.0', async () => {
   try {
@@ -5256,6 +5695,14 @@ app.listen(PORT, '0.0.0.0', async () => {
     console.log(`🌐 네트워크 접근: http://172.22.32.200:${PORT}`);
     console.log(`📱 React 앱: http://172.22.32.200:${PORT}`);
     console.log('💡 다른 기기에서 접근하려면 방화벽에서 포트 3002를 허용해주세요.');
+    
+    // Personnel 자동 백업 스케줄러 시작
+    console.log('');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📅 Personnel 자동 백업 스케줄러 시작');
+    schedulePersonnelBackup();
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('');
   } catch (error) {
     console.error('❌ 데이터베이스 연결 실패:', error.message);
   }

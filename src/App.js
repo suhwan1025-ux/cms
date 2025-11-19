@@ -17,6 +17,7 @@ import TemplateManagement from './components/TemplateManagement';
 import WorkReport from './components/WorkReport';
 import PersonnelManagement from './components/PersonnelManagement';
 import ExternalPersonnelManagement from './components/ExternalPersonnelManagement';
+import ProjectManagement from './components/ProjectManagement';
 
 const API_BASE_URL = getApiUrl();
 
@@ -180,6 +181,11 @@ function App() {
                 업무보고
               </Link>
 
+              <Link to="/project-management" className="nav-link">
+                <span className="nav-icon">📁</span>
+                프로젝트관리
+              </Link>
+
               <Link to="/ai-assistant" className="nav-link">
                 <span className="nav-icon">🤖</span>
                 AI 어시스턴트
@@ -203,6 +209,7 @@ function App() {
              <Route path="/personnel" element={<PersonnelManagement />} />
              <Route path="/external-personnel" element={<ExternalPersonnelManagement />} />
              <Route path="/work-report" element={<WorkReport />} />
+             <Route path="/project-management" element={<ProjectManagement />} />
              <Route path="/ai-assistant" element={<AIAssistantPage />} />
            </Routes>
           </main>

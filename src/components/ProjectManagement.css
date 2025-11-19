@@ -1,0 +1,515 @@
+.project-management {
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.project-management .page-header {
+  margin-bottom: 30px;
+}
+
+.project-management .page-header h1 {
+  font-size: 28px;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.project-management .page-header p {
+  color: #666;
+  font-size: 14px;
+}
+
+/* 통계 카드 */
+.project-management .statistics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.project-management .stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.project-management .stat-label {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.project-management .stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+}
+
+/* 필터 섹션 */
+.project-management .filter-section {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  align-items: center;
+}
+
+.project-management .filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-management .filter-group label {
+  font-size: 14px;
+  color: #555;
+  font-weight: 500;
+}
+
+.project-management .filter-group select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  background: white;
+}
+
+.project-management .search-box {
+  flex: 1;
+}
+
+.project-management .search-box input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.project-management .btn-add {
+  padding: 8px 16px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.project-management .btn-add:hover {
+  background: #45a049;
+}
+
+/* 테이블 */
+.project-management .table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow-x: auto;
+}
+
+.project-management .project-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1400px;
+}
+
+.project-management .project-table thead {
+  background: #f5f5f5;
+}
+
+.project-management .project-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #ddd;
+  white-space: nowrap;
+}
+
+.project-management .project-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+}
+
+.project-management .project-table tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.project-management .project-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* 프로젝트 코드 */
+.project-management .project-code {
+  font-weight: 600;
+  color: #2196F3;
+  font-family: 'Courier New', monospace;
+}
+
+/* 프로젝트명 */
+.project-management .project-name {
+  font-weight: 500;
+  color: #333;
+}
+
+/* 금액 */
+.project-management .amount {
+  text-align: right;
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+}
+
+/* 상태 배지 */
+.project-management .status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.project-management .status-준비중 {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.project-management .status-진행중 {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.project-management .status-완료 {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.project-management .status-중단 {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+/* 추진률 */
+.project-management .progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.project-management .progress-bar {
+  flex: 1;
+  height: 20px;
+  background: #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  min-width: 100px;
+}
+
+.project-management .progress-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.project-management .progress-text {
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 45px;
+  text-align: right;
+}
+
+/* 액션 버튼 */
+.project-management .action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.project-management .btn-edit,
+.project-management .btn-delete {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.project-management .btn-edit {
+  background: #2196F3;
+  color: white;
+}
+
+.project-management .btn-edit:hover {
+  background: #1976D2;
+}
+
+.project-management .btn-delete {
+  background: #f44336;
+  color: white;
+}
+
+.project-management .btn-delete:hover {
+  background: #d32f2f;
+}
+
+/* 모달 */
+.project-management .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.project-management .modal-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-management .modal-edit {
+  max-width: 700px;
+}
+
+.project-management .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.project-management .modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.project-management .modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.project-management .modal-close:hover {
+  color: #333;
+}
+
+.project-management .modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.project-management .modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 사업예산 목록 */
+.project-management .budget-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.project-management .budget-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  transition: all 0.2s;
+}
+
+.project-management .budget-item:hover {
+  background: #f5f5f5;
+  border-color: #2196F3;
+}
+
+.project-management .budget-info {
+  flex: 1;
+}
+
+.project-management .budget-name {
+  font-weight: 500;
+  font-size: 15px;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.project-management .budget-details {
+  font-size: 13px;
+  color: #666;
+}
+
+.project-management .btn-select {
+  padding: 8px 16px;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.project-management .btn-select:hover {
+  background: #1976D2;
+}
+
+/* 편집 폼 */
+.project-management .form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.project-management .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.project-management .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.project-management .form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.project-management .form-group label {
+  font-size: 14px;
+  color: #555;
+  font-weight: 500;
+}
+
+.project-management .form-group input[type="text"],
+.project-management .form-group input[type="number"],
+.project-management .form-group input[type="date"],
+.project-management .form-group select,
+.project-management .form-group textarea {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.project-management .form-group input[type="text"]:disabled {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.project-management .form-group input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+}
+
+.project-management .form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.project-management .btn-cancel,
+.project-management .btn-save {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.project-management .btn-cancel {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.project-management .btn-cancel:hover {
+  background: #e0e0e0;
+}
+
+.project-management .btn-save {
+  background: #4CAF50;
+  color: white;
+}
+
+.project-management .btn-save:hover {
+  background: #45a049;
+}
+
+/* 로딩 */
+.project-management .loading {
+  text-align: center;
+  padding: 60px 20px;
+  font-size: 16px;
+  color: #666;
+}
+
+/* 반응형 */
+@media (max-width: 1400px) {
+  .project-management .filter-section {
+    flex-wrap: wrap;
+  }
+  
+  .project-management .search-box {
+    flex: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .project-management {
+    padding: 15px;
+  }
+  
+  .project-management .page-header h1 {
+    font-size: 24px;
+  }
+  
+  .project-management .statistics {
+    grid-template-columns: 1fr;
+  }
+  
+  .project-management .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .project-management .modal-content {
+    width: 95%;
+    max-height: 90vh;
+  }
+}
