@@ -176,7 +176,7 @@ const BudgetRegistrationAPI = () => {
                 .filter(name => name); // null/undefined 제거
               
               console.log('📋 부서 이름 목록:', departmentNames);
-              setDepartments(departmentNames);
+            setDepartments(departmentNames);
             } else {
               console.error('⚠️ 부서 데이터가 비어있거나 올바른 형식이 아닙니다:', departmentData);
               // 기본 부서 목록 설정

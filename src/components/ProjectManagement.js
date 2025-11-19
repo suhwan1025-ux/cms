@@ -29,7 +29,8 @@ const ProjectManagement = () => {
     startDate: '',
     deadline: '',
     pm: '',
-    issues: ''
+    issues: '',
+    sharedFolderPath: ''
   });
 
   useEffect(() => {
@@ -72,6 +73,7 @@ const ProjectManagement = () => {
         deadline: item.deadline,
         pm: item.pm,
         issues: item.issues,
+        sharedFolderPath: item.shared_folder_path,
         createdBy: item.created_by,
         createdAt: item.created_at,
         updatedAt: item.updated_at
@@ -176,7 +178,8 @@ const ProjectManagement = () => {
       startDate: project.startDate || '',
       deadline: project.deadline || '',
       pm: project.pm || '',
-      issues: project.issues || ''
+      issues: project.issues || '',
+      sharedFolderPath: project.sharedFolderPath || ''
     });
     setShowEditModal(true);
   };
@@ -197,7 +200,8 @@ const ProjectManagement = () => {
           start_date: editForm.startDate || null,
           deadline: editForm.deadline || null,
           pm: editForm.pm,
-          issues: editForm.issues
+          issues: editForm.issues,
+          shared_folder_path: editForm.sharedFolderPath
         })
       });
       
@@ -508,7 +512,7 @@ const ProjectManagement = () => {
               <div>
                 <h2>사업예산에서 프로젝트 추가</h2>
                 <p style={{ marginTop: '8px', marginBottom: '0' }}>
-                  아래 사업예산 중 프로젝트로 관리할 항목을 선택하세요
+                  아래 사업예산 중 프로젝트로 관리할 항목을 추가하세요
                 </p>
               </div>
               
@@ -589,7 +593,6 @@ const ProjectManagement = () => {
             <table className="budget-table">
               <thead>
                 <tr>
-                  <th style={{ width: '50px' }}>선택</th>
                   <th>사업예산명</th>
                   <th>연도</th>
                   <th>예산</th>
@@ -602,7 +605,7 @@ const ProjectManagement = () => {
               <tbody>
                 {unregisteredBudgets.length === 0 ? (
                   <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                    <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
                       {budgetYearFilter !== 'all' || budgetSearchTerm ? (
                         <div>
                           <div style={{ fontSize: '16px', marginBottom: '10px' }}>
@@ -627,18 +630,6 @@ const ProjectManagement = () => {
                 ) : (
                   unregisteredBudgets.map((budget) => (
                     <tr key={budget.id}>
-                      <td style={{ textAlign: 'center' }}>
-                        <input 
-                          type="checkbox" 
-                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              handleAddProjectFromBudget(budget.id);
-                              e.target.checked = false;
-                            }
-                          }}
-                        />
-                      </td>
                       <td className="project-name">{budget.projectName}</td>
                       <td>{budget.budgetYear}년</td>
                       <td className="amount">{formatCurrency(budget.budgetAmount)}</td>
@@ -760,6 +751,17 @@ const ProjectManagement = () => {
                       placeholder="담당 PM 이름"
                       value={editForm.pm}
                       onChange={(e) => setEditForm({...editForm, pm: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group full-width">
+                    <label>공유폴더 주소</label>
+                    <input
+                      type="text"
+                      placeholder="\\\\server\\share\\folder 형식으로 입력"
+                      value={editForm.sharedFolderPath}
+                      onChange={(e) => setEditForm({...editForm, sharedFolderPath: e.target.value})}
                     />
                   </div>
                 </div>

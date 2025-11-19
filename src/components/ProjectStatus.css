@@ -134,10 +134,8 @@
   color: #333;
 }
 
-.project-status .alert-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 20px;
+.project-status .alert-single {
+  max-width: 100%;
 }
 
 .project-status .alert-card {
@@ -146,14 +144,46 @@
   border: 2px solid;
 }
 
-.project-status .alert-card.danger {
-  background: #ffebee;
-  border-color: #f44336;
+.project-status .alert-card.attention {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
+  border-color: #ff6b6b;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.15);
 }
 
-.project-status .alert-card.warning-card {
-  background: #fff3e0;
-  border-color: #ff9800;
+/* 건강도 통계 배지 */
+.project-status .alert-stats {
+  display: flex;
+  gap: 15px;
+  margin: 15px 0;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.project-status .alert-stats .stat-item {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.project-status .alert-stats .stat-item.critical {
+  background: #ffcdd2;
+  color: #c62828;
+}
+
+.project-status .alert-stats .stat-item.warning {
+  background: #ffe0b2;
+  color: #e65100;
+}
+
+.project-status .alert-stats .stat-item.caution {
+  background: #fff9c4;
+  color: #f57f17;
 }
 
 .project-status .alert-header {
@@ -223,8 +253,21 @@
   white-space: nowrap;
 }
 
+.project-status .alert-item .project-detail {
+  display: flex;
+  gap: 15px;
+  color: #666;
+  font-size: 12px;
+}
+
 .project-status .alert-item .project-pm {
   color: #666;
+  font-size: 12px;
+}
+
+.project-status .alert-item .project-progress {
+  color: #2196F3;
+  font-weight: 600;
   font-size: 12px;
 }
 
@@ -480,10 +523,6 @@
   .project-status .charts-section {
     grid-template-columns: 1fr;
   }
-  
-  .project-status .alert-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 768px) {
@@ -498,5 +537,543 @@
   .project-status .department-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* 클릭 가능한 카드 */
+.project-status .stat-card.clickable {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.project-status .stat-card.clickable:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 20px rgba(33, 150, 243, 0.3);
+}
+
+.project-status .stat-hint {
+  font-size: 11px;
+  color: #2196F3;
+  margin-top: 5px;
+  font-weight: 500;
+}
+
+/* 모달 오버레이 */
+.project-status .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 모달 콘텐츠 */
+.project-status .modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from { 
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to { 
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.project-status .project-list-modal {
+  width: 90vw;
+}
+
+/* 모달 헤더 */
+.project-status .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 2px solid #e0e0e0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.project-status .modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.project-status .modal-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.project-status .modal-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+/* 모달 바디 */
+.project-status .modal-body {
+  padding: 15px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.project-status .modal-info {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 10px 15px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.project-status .modal-info span {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.project-status .filter-tag {
+  background: #2196F3;
+  color: white;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+/* 프로젝트 테이블 */
+.project-status .project-table-container {
+  overflow-x: auto;
+}
+
+.project-status .project-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+}
+
+.project-status .project-table thead {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.project-status .project-table th {
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+/* 컬럼 너비 최적화 */
+.project-status .project-table th:nth-child(1) { width: 90px; }  /* 코드 */
+.project-status .project-table th:nth-child(2) { width: 200px; } /* 프로젝트명 */
+.project-status .project-table th:nth-child(3) { width: 60px; }  /* 연도 */
+.project-status .project-table th:nth-child(4) { width: 100px; } /* 추진부서 */
+.project-status .project-table th:nth-child(5) { width: 91px; }  /* 상태 (70px → 91px, 30% 증가) */
+.project-status .project-table th:nth-child(6) { width: 70px; }  /* 건강도 */
+.project-status .project-table th:nth-child(7) { width: 100px; } /* 추진률 */
+.project-status .project-table th:nth-child(8) { width: 100px; } /* 예산 */
+.project-status .project-table th:nth-child(9) { width: 100px; } /* 확정집행액 */
+.project-status .project-table th:nth-child(10) { width: 80px; } /* PM */
+
+.project-status .project-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: background 0.2s;
+}
+
+.project-status .project-table tbody tr:hover {
+  background: #f5f5f5;
+}
+
+.project-status .project-table td {
+  padding: 8px 6px;
+  font-size: 13px;
+}
+
+.project-status .code-cell {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #2196F3;
+}
+
+.project-status .name-cell {
+  font-weight: 500;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-status .amount-cell {
+  text-align: center;
+  font-weight: 600;
+  color: #4CAF50;
+}
+
+/* 미니 프로그레스 바 */
+.project-status .progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+}
+
+.project-status .progress-bar-mini {
+  width: 60px;
+  height: 6px;
+  background: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.project-status .progress-fill-mini {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
+  transition: width 0.3s ease;
+}
+
+.project-status .progress-text-mini {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  min-width: 35px;
+}
+
+/* 상태/건강도 배지 (모달용) */
+.project-status .project-table .status-badge {
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.project-status .project-table .health-badge {
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* 클릭 가능한 알림 아이템 */
+.project-status .clickable-alert {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.project-status .clickable-alert:hover {
+  background: #e3f2fd !important;
+  transform: translateX(5px);
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
+}
+
+/* 이슈사항 모달 */
+.project-status .issue-modal {
+  width: 700px;
+  max-height: 80vh;
+}
+
+.project-status .issue-project-info {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.project-status .info-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.project-status .info-row:last-child {
+  border-bottom: none;
+}
+
+.project-status .info-label {
+  font-weight: 600;
+  color: #555;
+  min-width: 120px;
+  font-size: 14px;
+}
+
+.project-status .info-value {
+  flex: 1;
+  color: #333;
+  font-size: 14px;
+}
+
+.project-status .info-value.code {
+  font-family: 'Courier New', monospace;
+  color: #2196F3;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+/* 이슈 모달 내 프로그레스 바 왼쪽 정렬 */
+.project-status .info-value .progress-cell {
+  justify-content: flex-start;
+}
+
+/* 큰 프로그레스 바 (이슈 모달용) */
+.project-status .progress-bar-large {
+  width: 200px;
+  height: 10px;
+  background: #e0e0e0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.project-status .progress-fill-large {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
+  transition: width 0.3s ease;
+}
+
+.project-status .progress-text-large {
+  font-size: 14px;
+  font-weight: 700;
+  color: #4CAF50;
+  margin-left: 10px;
+}
+
+/* 이슈 내용 */
+.project-status .issue-content {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  border: 2px solid #ff9800;
+}
+
+.project-status .issue-content h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-status .issue-text {
+  background: #fff9e6;
+  padding: 15px;
+  border-radius: 6px;
+  border-left: 4px solid #ff9800;
+  color: #333;
+  line-height: 1.6;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.project-status .issue-text p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.project-status .issue-text p:first-child {
+  margin-top: 0;
+}
+
+.project-status .issue-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* 이슈 없음 표시 */
+.project-status .no-issue {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+}
+
+.project-status .no-issue-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 15px;
+}
+
+.project-status .no-issue p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+
+/* 링크 버튼 */
+.project-status .btn-link {
+  background: transparent;
+  border: none;
+  color: #2196F3;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.project-status .btn-link:hover {
+  background: #e3f2fd;
+  color: #1976D2;
+}
+
+/* 품의서 모달 */
+.project-status .proposals-modal {
+  width: 900px;
+  max-height: 85vh;
+}
+
+.project-status .proposals-project-info {
+  background: #e3f2fd;
+  border-radius: 8px;
+  padding: 15px 20px;
+  margin-bottom: 20px;
+  border-left: 4px solid #2196F3;
+}
+
+.project-status .proposals-list {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.project-status .proposals-list h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 품의서 없음 표시 */
+.project-status .no-proposals {
+  text-align: center;
+  padding: 50px 20px;
+  color: #999;
+}
+
+.project-status .no-proposals-icon {
+  font-size: 56px;
+  display: block;
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+
+.project-status .no-proposals p {
+  margin: 0;
+  font-size: 15px;
+  color: #666;
+}
+
+/* 품의서 테이블 */
+.project-status .proposals-table-container {
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.project-status .proposals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.project-status .proposals-table thead {
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.project-status .proposals-table th {
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.project-status .proposals-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: background 0.2s;
+}
+
+.project-status .proposals-table tbody tr:hover {
+  background: #f5f5f5;
+}
+
+.project-status .proposals-table td {
+  padding: 10px 8px;
+  font-size: 13px;
+}
+
+.project-status .contract-type-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #e8f5e9;
+  color: #2e7d32;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.project-status .proposal-title {
+  font-weight: 500;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-status .proposal-purpose {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #666;
+  font-size: 12px;
 }
 

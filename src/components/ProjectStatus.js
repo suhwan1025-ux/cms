@@ -8,6 +8,12 @@ const ProjectStatus = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState('all');
+  const [showProjectListModal, setShowProjectListModal] = useState(false);
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [selectedProjectForIssue, setSelectedProjectForIssue] = useState(null);
+  const [showProposalsModal, setShowProposalsModal] = useState(false);
+  const [selectedProjectForProposals, setSelectedProjectForProposals] = useState(null);
+  const [proposals, setProposals] = useState([]);
 
   useEffect(() => {
     fetchProjects();
@@ -25,6 +31,7 @@ const ProjectStatus = () => {
       const convertedData = data.map(item => ({
         id: item.id,
         projectCode: item.project_code,
+        businessBudgetId: item.business_budget_id,
         projectName: item.project_name,
         budgetYear: item.budget_year,
         initiatorDepartment: item.initiator_department,
@@ -38,7 +45,8 @@ const ProjectStatus = () => {
         startDate: item.start_date,
         deadline: item.deadline,
         pm: item.pm,
-        issues: item.issues
+        issues: item.issues,
+        sharedFolderPath: item.shared_folder_path
       }));
       
       setProjects(convertedData);
@@ -48,6 +56,36 @@ const ProjectStatus = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 프로젝트 관련 결재완료 품의서 조회
+  const fetchProposalsByProject = async (businessBudgetId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/proposals/by-budget/${businessBudgetId}?status=approved`);
+      if (!response.ok) throw new Error('품의서 조회 실패');
+      const data = await response.json();
+      setProposals(data);
+    } catch (error) {
+      console.error('품의서 조회 오류:', error);
+      setProposals([]);
+    }
+  };
+
+  // 품의서 모달 열기
+  const handleOpenProposalsModal = async (project) => {
+    setSelectedProjectForProposals(project);
+    setShowProposalsModal(true);
+    await fetchProposalsByProject(project.businessBudgetId);
+  };
+
+  // 공유폴더 열기
+  const handleOpenSharedFolder = (path) => {
+    if (!path) {
+      alert('공유폴더 경로가 설정되지 않았습니다.');
+      return;
+    }
+    // Windows 탐색기에서 UNC 경로 열기
+    window.open(`file:///${path.replace(/\\/g, '/')}`, '_blank');
   };
 
   // 연도 필터
@@ -84,15 +122,14 @@ const ProjectStatus = () => {
       : 0
   };
 
-  // 위험 프로젝트 (건강도가 미흡 또는 심각)
-  const riskProjects = filteredProjects.filter(p => 
-    p.healthStatus === '미흡' || p.healthStatus === '심각'
-  );
-
-  // 지연 프로젝트 (추진률 < 50% && 진행중)
-  const delayedProjects = filteredProjects.filter(p => 
-    p.status === '진행중' && Number(p.progressRate) < 50
-  );
+  // 주의 필요 프로젝트 (건강도: 지연/미흡/심각)
+  const attentionProjects = filteredProjects.filter(p => 
+    p.healthStatus === '지연' || p.healthStatus === '미흡' || p.healthStatus === '심각'
+  ).sort((a, b) => {
+    // 심각 → 미흡 → 지연 순으로 정렬
+    const order = { '심각': 1, '미흡': 2, '지연': 3 };
+    return order[a.healthStatus] - order[b.healthStatus];
+  });
 
   // 부서별 프로젝트 수
   const departmentStats = filteredProjects.reduce((acc, p) => {
@@ -132,11 +169,12 @@ const ProjectStatus = () => {
 
       {/* 전체 통계 카드 */}
       <div className="stats-grid">
-        <div className="stat-card primary">
+        <div className="stat-card primary clickable" onClick={() => setShowProjectListModal(true)}>
           <div className="stat-icon">📁</div>
           <div className="stat-content">
             <div className="stat-label">전체 프로젝트</div>
             <div className="stat-value">{stats.total}건</div>
+            <div className="stat-hint">클릭하여 전체 목록 보기</div>
           </div>
         </div>
         
@@ -170,56 +208,51 @@ const ProjectStatus = () => {
         </div>
       </div>
 
-      {/* 위험 알림 */}
-      {(riskProjects.length > 0 || delayedProjects.length > 0) && (
+      {/* 주의 필요 프로젝트 알림 */}
+      {attentionProjects.length > 0 && (
         <div className="alert-section">
           <h2>⚠️ 주의 필요 프로젝트</h2>
-          <div className="alert-grid">
-            {riskProjects.length > 0 && (
-              <div className="alert-card danger">
-                <div className="alert-header">
-                  <span className="alert-icon">🚨</span>
-                  <h3>위험 프로젝트</h3>
-                  <span className="alert-count">{riskProjects.length}건</span>
-                </div>
-                <div className="alert-list">
-                  {riskProjects.slice(0, 5).map(p => (
-                    <div key={p.id} className="alert-item">
+          <div className="alert-single">
+            <div className="alert-card attention">
+              <div className="alert-header">
+                <span className="alert-icon">🚨</span>
+                <h3>건강도 주의 프로젝트</h3>
+                <span className="alert-count">{attentionProjects.length}건</span>
+              </div>
+              <div className="alert-stats">
+                <span className="stat-item critical">🔴 심각 {attentionProjects.filter(p => p.healthStatus === '심각').length}건</span>
+                <span className="stat-item warning">🟠 미흡 {attentionProjects.filter(p => p.healthStatus === '미흡').length}건</span>
+                <span className="stat-item caution">🟡 지연 {attentionProjects.filter(p => p.healthStatus === '지연').length}건</span>
+              </div>
+              <div className="alert-list">
+                {attentionProjects.slice(0, 10).map(p => {
+                  const icon = p.healthStatus === '심각' ? '🔴' : p.healthStatus === '미흡' ? '🟠' : '🟡';
+                  return (
+                    <div 
+                      key={p.id} 
+                      className="alert-item clickable-alert" 
+                      onClick={() => {
+                        setSelectedProjectForIssue(p);
+                        setShowIssueModal(true);
+                      }}
+                      title="클릭하여 이슈사항 확인"
+                    >
                       <span className={`health-badge health-${p.healthStatus}`}>
-                        {p.healthStatus === '심각' ? '🔴' : '🟠'} {p.healthStatus}
+                        {icon} {p.healthStatus}
                       </span>
                       <span className="project-name">{p.projectName}</span>
-                      <span className="project-pm">PM: {p.pm || '-'}</span>
+                      <span className="project-detail">
+                        <span className="project-pm">PM: {p.pm || '-'}</span>
+                        <span className="project-progress">추진률: {p.progressRate}%</span>
+                      </span>
                     </div>
-                  ))}
-                  {riskProjects.length > 5 && (
-                    <div className="alert-more">외 {riskProjects.length - 5}건</div>
-                  )}
-                </div>
+                  );
+                })}
+                {attentionProjects.length > 10 && (
+                  <div className="alert-more">외 {attentionProjects.length - 10}건</div>
+                )}
               </div>
-            )}
-            
-            {delayedProjects.length > 0 && (
-              <div className="alert-card warning-card">
-                <div className="alert-header">
-                  <span className="alert-icon">⏰</span>
-                  <h3>추진 지연 프로젝트</h3>
-                  <span className="alert-count">{delayedProjects.length}건</span>
-                </div>
-                <div className="alert-list">
-                  {delayedProjects.slice(0, 5).map(p => (
-                    <div key={p.id} className="alert-item">
-                      <span className="progress-badge">{p.progressRate}%</span>
-                      <span className="project-name">{p.projectName}</span>
-                      <span className="project-pm">PM: {p.pm || '-'}</span>
-                    </div>
-                  ))}
-                  {delayedProjects.length > 5 && (
-                    <div className="alert-more">외 {delayedProjects.length - 5}건</div>
-                  )}
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       )}
@@ -305,12 +338,262 @@ const ProjectStatus = () => {
           </span>
         </div>
         <div className="quick-stat">
-          <span className="quick-label">위험 프로젝트 비율</span>
+          <span className="quick-label">주의 필요 프로젝트 비율</span>
           <span className="quick-value danger">
-            {stats.total > 0 ? ((riskProjects.length / stats.total) * 100).toFixed(1) : 0}%
+            {stats.total > 0 ? ((attentionProjects.length / stats.total) * 100).toFixed(1) : 0}%
           </span>
         </div>
       </div>
+
+      {/* 전체 프로젝트 리스트 모달 */}
+      {showProjectListModal && (
+        <div className="modal-overlay" onClick={() => setShowProjectListModal(false)}>
+          <div className="modal-content project-list-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📁 전체 프로젝트 목록</h2>
+              <button className="modal-close" onClick={() => setShowProjectListModal(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-info">
+                <span>총 {filteredProjects.length}개 프로젝트</span>
+                {selectedYear !== 'all' && <span className="filter-tag">📅 {selectedYear}년</span>}
+              </div>
+              
+              <div className="project-table-container">
+                <table className="project-table">
+                  <thead>
+                    <tr>
+                      <th>코드</th>
+                      <th>프로젝트명</th>
+                      <th>연도</th>
+                      <th>추진부서</th>
+                      <th style={{ textAlign: 'center' }}>상태</th>
+                      <th style={{ textAlign: 'center' }}>건강도</th>
+                      <th style={{ textAlign: 'center' }}>추진률</th>
+                      <th style={{ textAlign: 'center' }}>예산</th>
+                      <th style={{ textAlign: 'center' }}>확정집행액</th>
+                      <th>PM</th>
+                      <th style={{ textAlign: 'center' }}>공유폴더</th>
+                      <th style={{ textAlign: 'center' }}>품의서</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProjects.length === 0 ? (
+                      <tr>
+                        <td colSpan="12" style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                          프로젝트가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredProjects.map((project) => (
+                        <tr key={project.id}>
+                          <td className="code-cell">{project.projectCode}</td>
+                          <td className="name-cell">{project.projectName}</td>
+                          <td>{project.budgetYear}년</td>
+                          <td>{project.executorDepartment || '-'}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span className={`status-badge status-${project.status}`}>
+                              {project.status}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span className={`health-badge health-${project.healthStatus}`}>
+                              {project.healthStatus === '심각' ? '🔴' : 
+                               project.healthStatus === '미흡' ? '🟠' : 
+                               project.healthStatus === '지연' ? '🟡' : '🟢'} {project.healthStatus || '양호'}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div className="progress-cell">
+                              <div className="progress-bar-mini">
+                                <div 
+                                  className="progress-fill-mini" 
+                                  style={{ width: `${project.progressRate || 0}%` }}
+                                />
+                              </div>
+                              <span className="progress-text-mini">{project.progressRate || 0}%</span>
+                            </div>
+                          </td>
+                          <td className="amount-cell">{formatCurrency(project.budgetAmount)}</td>
+                          <td className="amount-cell">{formatCurrency(project.executedAmount)}</td>
+                          <td>{project.pm || '-'}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            {project.sharedFolderPath ? (
+                              <button 
+                                className="btn-link"
+                                onClick={() => handleOpenSharedFolder(project.sharedFolderPath)}
+                                title={project.sharedFolderPath}
+                              >
+                                📂 바로가기
+                              </button>
+                            ) : (
+                              <span style={{ color: '#999' }}>-</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button 
+                              className="btn-link"
+                              onClick={() => handleOpenProposalsModal(project)}
+                            >
+                              📄 품의서
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 이슈사항 모달 */}
+      {showIssueModal && selectedProjectForIssue && (
+        <div className="modal-overlay" onClick={() => setShowIssueModal(false)}>
+          <div className="modal-content issue-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>⚠️ 프로젝트 이슈사항</h2>
+              <button className="modal-close" onClick={() => setShowIssueModal(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              {/* 프로젝트 정보 */}
+              <div className="issue-project-info">
+                <div className="info-row">
+                  <span className="info-label">프로젝트 코드</span>
+                  <span className="info-value code">{selectedProjectForIssue.projectCode}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">프로젝트명</span>
+                  <span className="info-value">{selectedProjectForIssue.projectName}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">건강도</span>
+                  <span className="info-value">
+                    <span className={`health-badge health-${selectedProjectForIssue.healthStatus}`}>
+                      {selectedProjectForIssue.healthStatus === '심각' ? '🔴' : 
+                       selectedProjectForIssue.healthStatus === '미흡' ? '🟠' : '🟡'} {selectedProjectForIssue.healthStatus}
+                    </span>
+                  </span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">추진률</span>
+                  <span className="info-value">
+                    <div className="progress-cell">
+                      <div className="progress-bar-large">
+                        <div 
+                          className="progress-fill-large" 
+                          style={{ width: `${selectedProjectForIssue.progressRate || 0}%` }}
+                        />
+                      </div>
+                      <span className="progress-text-large">{selectedProjectForIssue.progressRate || 0}%</span>
+                    </div>
+                  </span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">PM</span>
+                  <span className="info-value">{selectedProjectForIssue.pm || '-'}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">시작일</span>
+                  <span className="info-value">{selectedProjectForIssue.startDate || '-'}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">완료기한</span>
+                  <span className="info-value">{selectedProjectForIssue.deadline || '-'}</span>
+                </div>
+              </div>
+
+              {/* 이슈사항 */}
+              <div className="issue-content">
+                <h3>📋 이슈사항</h3>
+                {selectedProjectForIssue.issues ? (
+                  <div className="issue-text">
+                    {selectedProjectForIssue.issues.split('\n').map((line, index) => (
+                      <p key={index}>{line || '\u00A0'}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="no-issue">
+                    <span className="no-issue-icon">✅</span>
+                    <p>현재 등록된 이슈사항이 없습니다.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 품의서 목록 모달 */}
+      {showProposalsModal && selectedProjectForProposals && (
+        <div className="modal-overlay" onClick={() => setShowProposalsModal(false)}>
+          <div className="modal-content proposals-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📄 결재완료 품의서 목록</h2>
+              <button className="modal-close" onClick={() => setShowProposalsModal(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              {/* 프로젝트 정보 */}
+              <div className="proposals-project-info">
+                <div className="info-row">
+                  <span className="info-label">프로젝트</span>
+                  <span className="info-value">{selectedProjectForProposals.projectName}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">프로젝트 코드</span>
+                  <span className="info-value code">{selectedProjectForProposals.projectCode}</span>
+                </div>
+              </div>
+
+              {/* 품의서 목록 */}
+              <div className="proposals-list">
+                <h3>📋 결재완료 품의서 ({proposals.length}건)</h3>
+                {proposals.length === 0 ? (
+                  <div className="no-proposals">
+                    <span className="no-proposals-icon">📭</span>
+                    <p>해당 프로젝트와 관련된 결재완료 품의서가 없습니다.</p>
+                  </div>
+                ) : (
+                  <div className="proposals-table-container">
+                    <table className="proposals-table">
+                      <thead>
+                        <tr>
+                          <th>계약유형</th>
+                          <th>제목</th>
+                          <th>목적</th>
+                          <th>예산(천원)</th>
+                          <th>결재일</th>
+                          <th>작성자</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {proposals.map((proposal) => (
+                          <tr key={proposal.id}>
+                            <td>
+                              <span className="contract-type-badge">
+                                {proposal.contractType || '-'}
+                              </span>
+                            </td>
+                            <td className="proposal-title">{proposal.title}</td>
+                            <td className="proposal-purpose">{proposal.purpose || '-'}</td>
+                            <td className="amount-cell">
+                              {proposal.budget ? Number(proposal.budget).toLocaleString() : '-'}
+                            </td>
+                            <td>{proposal.approvedAt ? new Date(proposal.approvedAt).toLocaleDateString('ko-KR') : '-'}</td>
+                            <td>{proposal.createdBy || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1898,6 +1898,35 @@ app.get('/api/proposals', async (req, res) => {
   }
 });
 
+// 5-1. 사업예산별 품의서 조회 (프로젝트 연동용)
+app.get('/api/proposals/by-budget/:businessBudgetId', async (req, res) => {
+  try {
+    const businessBudgetId = req.params.businessBudgetId;
+    const status = req.query.status; // approved, rejected, pending 등
+    
+    const whereClause = {
+      budgetId: businessBudgetId
+    };
+    
+    // status 필터링
+    if (status === 'approved') {
+      whereClause.status = 'approved';
+    } else if (status) {
+      whereClause.status = status;
+    }
+    
+    const proposals = await models.Proposal.findAll({
+      where: whereClause,
+      order: [['createdAt', 'DESC']]
+    });
+    
+    res.json(proposals);
+  } catch (error) {
+    console.error('사업예산별 품의서 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 6. 품의서 상세 조회
 app.get('/api/proposals/:id', async (req, res) => {
   try {
@@ -3266,6 +3295,7 @@ async function updateDatabaseSchema() {
           deadline DATE,
           pm VARCHAR(100),
           issues TEXT,
+          shared_folder_path VARCHAR(500),
           
           -- 메타 정보
           created_by VARCHAR(100),
@@ -3297,6 +3327,12 @@ async function updateDatabaseSchema() {
         console.log('➕ projects 테이블에 health_status 컬럼 추가 중...');
         await sequelize.query(`ALTER TABLE projects ADD COLUMN health_status VARCHAR(20) DEFAULT '양호'`);
         console.log('✅ health_status 컬럼 추가 완료');
+      }
+      
+      if (!projectColumnNames.includes('shared_folder_path')) {
+        console.log('➕ projects 테이블에 shared_folder_path 컬럼 추가 중...');
+        await sequelize.query(`ALTER TABLE projects ADD COLUMN shared_folder_path VARCHAR(500)`);
+        console.log('✅ shared_folder_path 컬럼 추가 완료');
       }
     }
     
@@ -3545,7 +3581,7 @@ app.put('/api/projects/:id', async (req, res) => {
     // 수정 가능한 필드들
     const allowedFields = [
       'is_it_committee', 'status', 'progress_rate', 'health_status',
-      'start_date', 'deadline', 'pm', 'issues',
+      'start_date', 'deadline', 'pm', 'issues', 'shared_folder_path',
       'budget_amount', 'executed_amount'
     ];
     
@@ -5550,7 +5586,7 @@ app.get('/api/external-personnel', async (req, res) => {
 
     console.log(`   ✅ 조회 성공: ${externalPersonnel.length}개`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
+
     res.json(externalPersonnel);
   } catch (error) {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
