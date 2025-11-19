@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 import { getApiUrl } from './config/api';
 import Dashboard from './components/Dashboard';
+import ProjectStatus from './components/ProjectStatus';
 import BudgetDashboard from './components/BudgetDashboard';
 import BudgetRegistration from './components/BudgetRegistrationAPI';
 import BudgetHistory from './components/BudgetHistory';
@@ -84,6 +85,9 @@ function App() {
                   <div className="dropdown-menu">
                     <Link to="/" className="dropdown-item">
                       계약현황
+                    </Link>
+                    <Link to="/project-status" className="dropdown-item">
+                      프로젝트 현황
                     </Link>
                     <Link to="/budget-dashboard" className="dropdown-item">
                       사업예산현황
@@ -197,6 +201,7 @@ function App() {
           <main className="main-content">
                        <Routes>
              <Route path="/" element={<Dashboard />} />
+             <Route path="/project-status" element={<ProjectStatus />} />
              <Route path="/budget-dashboard" element={<BudgetDashboard />} />
              <Route path="/budget" element={<BudgetRegistration />} />
              <Route path="/budget-history" element={<BudgetHistory />} />
