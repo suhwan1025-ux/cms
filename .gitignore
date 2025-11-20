@@ -39,6 +39,11 @@ schema-*.sql
 !sql/create_backup_tables.sql
 !scripts/backup/
 
+# 이관/업데이트 패키지 (임시 폴더)
+CMS_UPDATE_*/
+CMS_PERSONNEL_*/
+*_이관요약.txt
+
 # 운영체제 파일
 .DS_Store
 Thumbs.db
