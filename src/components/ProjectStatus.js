@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '../config/api';
+import { generatePreviewHTML } from '../utils/previewGenerator';
 import './ProjectStatus.css';
 
 const API_BASE_URL = getApiUrl();
@@ -78,14 +79,66 @@ const ProjectStatus = () => {
     await fetchProposalsByProject(project.businessBudgetId);
   };
 
-  // 공유폴더 열기
-  const handleOpenSharedFolder = (path) => {
+  // 품의서 미리보기 열기
+  const handleProposalPreview = async (proposalId) => {
+    try {
+      console.log('품의서 미리보기:', proposalId);
+      
+      // 상세 데이터 가져오기
+      const response = await fetch(`${API_BASE_URL}/api/proposals/${proposalId}`);
+      if (!response.ok) {
+        throw new Error('품의서 상세 조회 실패');
+      }
+      
+      const fullProposalData = await response.json();
+      console.log('품의서 상세 데이터:', fullProposalData);
+      
+      // 미리보기 HTML 생성
+      const previewHTML = generatePreviewHTML(fullProposalData);
+      const previewWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+      
+      if (!previewWindow) {
+        alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');
+        return;
+      }
+
+      previewWindow.document.write(previewHTML);
+      previewWindow.document.close();
+      previewWindow.focus();
+      
+    } catch (error) {
+      console.error('품의서 미리보기 오류:', error);
+      alert('품의서 미리보기를 여는 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 공유폴더 주소 복사
+  const handleCopySharedFolder = async (path) => {
     if (!path) {
       alert('공유폴더 경로가 설정되지 않았습니다.');
       return;
     }
-    // Windows 탐색기에서 UNC 경로 열기
-    window.open(`file:///${path.replace(/\\/g, '/')}`, '_blank');
+    
+    try {
+      await navigator.clipboard.writeText(path);
+      alert(`✅ 공유폴더 주소가 클립보드에 복사되었습니다!\n\n${path}`);
+    } catch (error) {
+      console.error('클립보드 복사 실패:', error);
+      // Fallback: 텍스트 영역을 이용한 복사
+      const textArea = document.createElement('textarea');
+      textArea.value = path;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert(`✅ 공유폴더 주소가 클립보드에 복사되었습니다!\n\n${path}`);
+      } catch (fallbackError) {
+        alert(`❌ 클립보드 복사 실패\n\n경로: ${path}\n\n수동으로 복사해주세요.`);
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   // 연도 필터
@@ -421,10 +474,10 @@ const ProjectStatus = () => {
                             {project.sharedFolderPath ? (
                               <button 
                                 className="btn-link"
-                                onClick={() => handleOpenSharedFolder(project.sharedFolderPath)}
+                                onClick={() => handleCopySharedFolder(project.sharedFolderPath)}
                                 title={project.sharedFolderPath}
                               >
-                                📂 바로가기
+                                복사
                               </button>
                             ) : (
                               <span style={{ color: '#999' }}>-</span>
@@ -435,7 +488,7 @@ const ProjectStatus = () => {
                               className="btn-link"
                               onClick={() => handleOpenProposalsModal(project)}
                             >
-                              📄 품의서
+                              품의서
                             </button>
                           </td>
                         </tr>
@@ -563,28 +616,58 @@ const ProjectStatus = () => {
                           <th>계약유형</th>
                           <th>제목</th>
                           <th>목적</th>
-                          <th>예산(천원)</th>
+                          <th>총계약금(백만원)</th>
                           <th>결재일</th>
                           <th>작성자</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {proposals.map((proposal) => (
-                          <tr key={proposal.id}>
-                            <td>
-                              <span className="contract-type-badge">
-                                {proposal.contractType || '-'}
-                              </span>
-                            </td>
-                            <td className="proposal-title">{proposal.title}</td>
-                            <td className="proposal-purpose">{proposal.purpose || '-'}</td>
-                            <td className="amount-cell">
-                              {proposal.budget ? Number(proposal.budget).toLocaleString() : '-'}
-                            </td>
-                            <td>{proposal.approvedAt ? new Date(proposal.approvedAt).toLocaleDateString('ko-KR') : '-'}</td>
-                            <td>{proposal.createdBy || '-'}</td>
-                          </tr>
-                        ))}
+                        {proposals.map((proposal) => {
+                          // 계약유형 한글 변환
+                          const getContractTypeKorean = (type) => {
+                            const typeMap = {
+                              'purchase': '구매계약',
+                              'service': '용역계약',
+                              'change': '변경계약',
+                              'extension': '연장계약',
+                              'bidding': '입찰계약',
+                              'freeform': '기타'
+                            };
+                            return typeMap[type] || type || '-';
+                          };
+
+                          // 백만원 단위로 변환
+                          const formatMillionWon = (amount) => {
+                            if (!amount) return '-';
+                            const millionWon = Number(amount) / 1000000;
+                            return millionWon.toLocaleString('ko-KR', {
+                              minimumFractionDigits: 1,
+                              maximumFractionDigits: 1
+                            });
+                          };
+
+                          return (
+                            <tr 
+                              key={proposal.id}
+                              onClick={() => handleProposalPreview(proposal.id)}
+                              style={{ cursor: 'pointer' }}
+                              className="proposal-row-clickable"
+                            >
+                              <td>
+                                <span className="contract-type-badge">
+                                  {getContractTypeKorean(proposal.contractType)}
+                                </span>
+                              </td>
+                              <td className="proposal-title">{proposal.title}</td>
+                              <td className="proposal-purpose">{proposal.purpose || '-'}</td>
+                              <td className="amount-cell">
+                                {formatMillionWon(proposal.totalAmount)}
+                              </td>
+                              <td>{proposal.approvalDate ? new Date(proposal.approvalDate).toLocaleDateString('ko-KR') : '-'}</td>
+                              <td>{proposal.createdBy || '-'}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

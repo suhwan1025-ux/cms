@@ -1,0 +1,270 @@
+.budget-proposals-view {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.budget-proposals-view .header {
+  background: white;
+  border-radius: 12px;
+  padding: 24px 32px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.budget-proposals-view .header-content {
+  flex: 1;
+}
+
+.budget-proposals-view .header h1 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.budget-proposals-view .header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #667eea;
+}
+
+.budget-proposals-view .btn-close-window {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #f7fafc;
+  color: #718096;
+  font-size: 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.budget-proposals-view .btn-close-window:hover {
+  background: #edf2f7;
+  color: #2d3748;
+  transform: scale(1.05);
+}
+
+.budget-proposals-view .content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  min-height: calc(100vh - 160px);
+}
+
+.budget-proposals-view .loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 20px;
+}
+
+.budget-proposals-view .spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.budget-proposals-view .loading-container p {
+  color: #718096;
+  font-size: 16px;
+  margin: 0;
+}
+
+.budget-proposals-view .no-data {
+  text-align: center;
+  padding: 80px 20px;
+  color: #718096;
+}
+
+.budget-proposals-view .no-data .icon {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.budget-proposals-view .no-data p {
+  font-size: 18px;
+  margin: 0;
+}
+
+.budget-proposals-view .summary {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #f7fafc;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.budget-proposals-view .summary .count {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.budget-proposals-view .table-container {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.budget-proposals-view .proposals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.budget-proposals-view .proposals-table thead {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.budget-proposals-view .proposals-table th {
+  padding: 14px 12px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.budget-proposals-view .proposals-table th[style*="cursor: pointer"]:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.budget-proposals-view .proposals-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.15s;
+  cursor: pointer;
+}
+
+.budget-proposals-view .proposals-table tbody tr:hover {
+  background-color: #f7fafc;
+}
+
+.budget-proposals-view .proposals-table td {
+  padding: 14px 12px;
+  color: #2d3748;
+}
+
+.budget-proposals-view .title-cell {
+  font-weight: 500;
+  color: #667eea;
+}
+
+.budget-proposals-view .title-cell:hover {
+  text-decoration: underline;
+}
+
+.budget-proposals-view .amount-cell {
+  text-align: right;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.budget-proposals-view .status-badge {
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 1200px) {
+  .budget-proposals-view {
+    padding: 16px;
+  }
+  
+  .budget-proposals-view .header {
+    padding: 20px 24px;
+  }
+  
+  .budget-proposals-view .content {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .budget-proposals-view {
+    padding: 12px;
+  }
+  
+  .budget-proposals-view .header {
+    padding: 16px 20px;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .budget-proposals-view .header h1 {
+    font-size: 22px;
+  }
+  
+  .budget-proposals-view .header h2 {
+    font-size: 16px;
+  }
+  
+  .budget-proposals-view .btn-close-window {
+    align-self: flex-end;
+  }
+  
+  .budget-proposals-view .content {
+    padding: 16px;
+  }
+  
+  .budget-proposals-view .proposals-table {
+    font-size: 12px;
+  }
+  
+  .budget-proposals-view .proposals-table th,
+  .budget-proposals-view .proposals-table td {
+    padding: 10px 8px;
+  }
+}
+
+/* 인쇄 스타일 */
+@media print {
+  .budget-proposals-view {
+    background: white;
+    padding: 0;
+  }
+  
+  .budget-proposals-view .btn-close-window {
+    display: none;
+  }
+  
+  .budget-proposals-view .proposals-table tbody tr {
+    cursor: default;
+  }
+  
+  .budget-proposals-view .proposals-table tbody tr:hover {
+    background-color: transparent;
+  }
+}
+

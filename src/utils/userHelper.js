@@ -50,9 +50,14 @@ export const getCurrentUser = async () => {
     console.error('사용자 정보 조회 실패:', error);
     
     // 폴백: 기본값 반환
+    // 개발환경에서는 '사용자1'로 설정 (작성중인 품의서 조회를 위해)
+    const isDevelopment = process.env.NODE_ENV === 'development' || 
+                          window.location.hostname === 'localhost' || 
+                          window.location.hostname === '127.0.0.1';
+    
     return {
       id: 'admin',
-      name: '작성자',
+      name: isDevelopment ? '사용자1' : '작성자',
       department: 'IT팀',
       position: '과장',
       email: 'admin@company.com'

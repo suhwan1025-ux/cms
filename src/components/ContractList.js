@@ -366,7 +366,7 @@ const ContractList = () => {
               proposal.requestDepartments[0].name || proposal.requestDepartments[0]
             ) : '미지정',
           contractor: proposal.purchaseItems?.[0]?.supplier || proposal.serviceItems?.[0]?.supplier || '미지정',
-          author: '작성자', // 추후 사용자 정보 추가
+          author: proposal.createdBy || '작성자', // 실제 작성자명 표시
           amount: proposal.totalAmount || 0,
           status: (proposal.status === 'approved' || proposal.status === '결재완료') ? '결재완료' : 
                   (proposal.status === 'submitted' || proposal.status === '결재대기') ? '결재대기' : 

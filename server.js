@@ -364,9 +364,11 @@ app.get('/api/auth/me', async (req, res) => {
     }
     
     // 외부 DB에서 사용자 정보를 찾지 못한 경우 기본값 반환
+    // 개발환경에서는 '사용자1'로 설정 (작성중인 품의서 조회를 위해)
+    const isDevelopment = process.env.NODE_ENV === 'development';
     const defaultUser = {
       id: 'admin',
-      name: '작성자',
+      name: isDevelopment ? '사용자1' : '작성자',
       department: 'IT팀',
       position: '과장',
       email: 'admin@company.com',
@@ -374,15 +376,17 @@ app.get('/api/auth/me', async (req, res) => {
       source: 'default' // 데이터 출처 표시
     };
     
-    console.log(`⚠️  [기본값] 사용자 정보 없음, 기본값 반환: ${defaultUser.name}`);
+    console.log(`⚠️  [기본값] 사용자 정보 없음, 기본값 반환: ${defaultUser.name} (환경: ${isDevelopment ? '개발' : '운영'})`);
     res.json(defaultUser);
   } catch (error) {
     console.error('❌ 사용자 정보 조회 실패:', error);
     
     // 오류 발생 시에도 기본값 반환 (시스템 중단 방지)
+    // 개발환경에서는 '사용자1'로 설정
+    const isDevelopment = process.env.NODE_ENV === 'development';
     res.json({
       id: 'admin',
-      name: '작성자',
+      name: isDevelopment ? '사용자1' : '작성자',
       department: 'IT팀',
       position: '과장',
       email: 'admin@company.com',
@@ -1777,6 +1781,12 @@ app.get('/api/proposals', async (req, res) => {
     const limit = req.query.limit ? parseInt(req.query.limit) : null;
     const offset = req.query.offset ? parseInt(req.query.offset) : 0;
     
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📋 [품의서 조회] API 호출');
+    console.log('   Query Params:', req.query);
+    console.log('   Where Clause:', whereClause);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
     // findAndCountAll로 변경하여 전체 개수도 함께 반환
     const queryOptions = {
       where: whereClause,
@@ -1880,6 +1890,19 @@ app.get('/api/proposals', async (req, res) => {
       
       return proposalData;
     }));
+
+    // 반환 데이터 로그 (첫 번째 품의서만)
+    if (proposalsWithBudget.length > 0) {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📋 [품의서 조회] 첫 번째 데이터 필드:');
+      console.log('   - ID:', proposalsWithBudget[0].id);
+      console.log('   - Title:', proposalsWithBudget[0].title);
+      console.log('   - createdBy:', proposalsWithBudget[0].createdBy);
+      console.log('   - requesterName:', proposalsWithBudget[0].requesterName);
+      console.log('   - status:', proposalsWithBudget[0].status);
+      console.log('   총 조회 건수:', proposalsWithBudget.length);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
 
     // limit이 있으면 페이지네이션 정보 포함하여 응답
     if (limit) {

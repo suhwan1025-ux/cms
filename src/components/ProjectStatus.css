@@ -711,6 +711,8 @@
 .project-status .project-table th:nth-child(8) { width: 100px; } /* 예산 */
 .project-status .project-table th:nth-child(9) { width: 100px; } /* 확정집행액 */
 .project-status .project-table th:nth-child(10) { width: 80px; } /* PM */
+.project-status .project-table th:nth-child(11) { width: 70px; } /* 공유폴더 */
+.project-status .project-table th:nth-child(12) { width: 70px; } /* 품의서 */
 
 .project-status .project-table tbody tr {
   border-bottom: 1px solid #e0e0e0;
@@ -943,18 +945,20 @@
   border: none;
   color: #2196F3;
   cursor: pointer;
-  font-size: 12px;
-  padding: 4px 8px;
+  font-size: 11px;
+  padding: 3px 6px;
   border-radius: 4px;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  white-space: nowrap;
 }
 
 .project-status .btn-link:hover {
   background: #e3f2fd;
   color: #1976D2;
+  text-decoration: underline;
 }
 
 /* 품의서 모달 */
@@ -1037,11 +1041,24 @@
 
 .project-status .proposals-table tbody tr {
   border-bottom: 1px solid #e0e0e0;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.1s;
 }
 
 .project-status .proposals-table tbody tr:hover {
   background: #f5f5f5;
+}
+
+.project-status .proposals-table tbody tr.proposal-row-clickable {
+  cursor: pointer;
+}
+
+.project-status .proposals-table tbody tr.proposal-row-clickable:hover {
+  background: #e3f2fd;
+  transform: scale(1.01);
+}
+
+.project-status .proposals-table tbody tr.proposal-row-clickable:active {
+  transform: scale(0.99);
 }
 
 .project-status .proposals-table td {
@@ -1066,6 +1083,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.project-status .proposal-row-clickable .proposal-title {
+  color: #1976D2;
+}
+
+.project-status .proposal-row-clickable:hover .proposal-title {
+  text-decoration: underline;
 }
 
 .project-status .proposal-purpose {

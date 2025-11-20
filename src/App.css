@@ -1386,3 +1386,15 @@ input[type="month"]:focus {
   color: #666;
   font-weight: 500;
 }
+
+/* 사이드바 없는 레이아웃 (웹뷰 모드) */
+.app-container.no-sidebar {
+  display: block;
+}
+
+.main-content.fullscreen {
+  margin-left: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+}
