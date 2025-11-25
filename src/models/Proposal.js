@@ -73,7 +73,13 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: true,
       field: 'budget_id',
-      comment: '사업예산 ID'
+      comment: '사업예산 ID (자본예산)'
+    },
+    operatingBudgetId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'operating_budget_id',
+      comment: '전산운용비 예산 ID'
     },
     contractMethod: {
       type: DataTypes.STRING,

@@ -1043,14 +1043,17 @@ app.get('/api/operating-budgets', async (req, res) => {
   try {
     const [results] = await sequelize.query(`
       SELECT 
-        id,
-        fiscal_year,
-        account_subject,
-        budget_amount,
-        created_at,
-        updated_at
-      FROM operating_budgets
-      ORDER BY fiscal_year DESC, created_at DESC
+        ob.id,
+        ob.fiscal_year,
+        ob.account_subject,
+        ob.budget_amount,
+        COALESCE(SUM(obe.execution_amount), 0) as executed_amount,
+        ob.created_at,
+        ob.updated_at
+      FROM operating_budgets ob
+      LEFT JOIN operating_budget_executions obe ON ob.id = obe.budget_id
+      GROUP BY ob.id, ob.fiscal_year, ob.account_subject, ob.budget_amount, ob.created_at, ob.updated_at
+      ORDER BY ob.fiscal_year DESC, ob.created_at DESC
     `);
     
     res.json(results);
@@ -1121,6 +1124,26 @@ app.delete('/api/operating-budgets/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
+    // 해당 예산에 연결된 집행내역이 있는지 확인
+    const [executions] = await sequelize.query(`
+      SELECT COUNT(*) as count 
+      FROM operating_budget_executions 
+      WHERE budget_id = ?
+    `, {
+      replacements: [id]
+    });
+
+    const executionCount = executions[0].count || 0;
+    
+    if (executionCount > 0) {
+      // 집행내역이 있으면 삭제 불가
+      return res.status(400).json({ 
+        error: '집행내역이 존재하여 삭제할 수 없습니다.',
+        message: `해당 계정과목에 ${executionCount}건의 집행내역이 있습니다. 먼저 집행내역을 삭제해주세요.`
+      });
+    }
+
+    // 집행내역이 없으면 삭제 진행
     await sequelize.query(`
       DELETE FROM operating_budgets WHERE id = ?
     `, {
@@ -1282,6 +1305,86 @@ app.delete('/api/operating-budget-executions/:id', async (req, res) => {
     res.json({ message: '삭제되었습니다.' });
   } catch (error) {
     console.error('전산운용비 집행 내역 삭제 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 전산운용비 집행 내역 엑셀 다운로드
+app.get('/api/operating-budget-executions/export/excel', async (req, res) => {
+  try {
+    const { fiscalYear } = req.query;
+    
+    // 집행 내역 조회
+    let query = `
+      SELECT 
+        e.id,
+        b.fiscal_year as "회계연도",
+        e.account_subject as "계정과목",
+        e.execution_number as "번호",
+        e.sap_description as "SAP적요",
+        e.contract as "계약",
+        e.proposal_name as "품의서명",
+        e.confirmed_execution_amount as "확정집행액",
+        e.execution_amount as "집행액",
+        e.billing_period as "청구시기",
+        e.cost_attribution as "비용귀속",
+        TO_CHAR(e.created_at, 'YYYY-MM-DD HH24:MI:SS') as "등록일"
+      FROM operating_budget_executions e
+      LEFT JOIN operating_budgets b ON e.budget_id = b.id
+      WHERE 1=1
+    `;
+    const replacements = [];
+    
+    if (fiscalYear) {
+      query += ` AND b.fiscal_year = ?`;
+      replacements.push(fiscalYear);
+    }
+    
+    query += ` ORDER BY b.fiscal_year DESC, e.account_subject, e.created_at DESC`;
+    
+    const [results] = await sequelize.query(query, { replacements });
+    
+    if (results.length === 0) {
+      return res.status(404).json({ error: '다운로드할 데이터가 없습니다.' });
+    }
+    
+    // 엑셀 데이터 생성
+    const worksheet = XLSX.utils.json_to_sheet(results);
+    
+    // 컬럼 너비 설정
+    worksheet['!cols'] = [
+      { wch: 8 },   // ID
+      { wch: 12 },  // 회계연도
+      { wch: 20 },  // 계정과목
+      { wch: 8 },   // 번호
+      { wch: 30 },  // SAP적요
+      { wch: 25 },  // 계약
+      { wch: 40 },  // 품의서명
+      { wch: 15 },  // 확정집행액
+      { wch: 15 },  // 집행액
+      { wch: 15 },  // 청구시기
+      { wch: 12 },  // 비용귀속
+      { wch: 20 }   // 등록일
+    ];
+    
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, '전산운용비 집행내역');
+    
+    // 엑셀 파일 생성
+    const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    
+    // 파일명 생성
+    const fileName = fiscalYear 
+      ? `전산운용비_집행내역_${fiscalYear}년_${new Date().toISOString().slice(0, 10)}.xlsx`
+      : `전산운용비_집행내역_전체_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    
+    // 응답 헤더 설정
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+    
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error('전산운용비 집행 내역 엑셀 다운로드 오류:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1685,24 +1788,50 @@ app.post('/api/proposals', async (req, res) => {
       proposalData.purpose = '품의서';
     }
     
-    // budget 검증 및 변환 (budget_id가 필수)
-    if (!proposalData.budget || proposalData.budget === null || proposalData.budget === undefined) {
-      console.log('❌ budget이 없음 - 사업예산을 선택해야 함');
+    // 예산 검증 및 처리 (budgetId 또는 operatingBudgetId)
+    console.log('🔍 받은 데이터 - budgetId:', proposalData.budgetId, 'operatingBudgetId:', proposalData.operatingBudgetId);
+    console.log('🔍 selectedBudgetType:', proposalData.selectedBudgetType);
+    
+    let finalBudgetId = null;
+    let finalOperatingBudgetId = null;
+    
+    // 프론트엔드에서 이미 구분해서 보냈는지 확인
+    if (proposalData.budgetId || proposalData.operatingBudgetId) {
+      // 프론트엔드에서 구분해서 보낸 경우
+      finalBudgetId = proposalData.budgetId ? parseInt(proposalData.budgetId) : null;
+      finalOperatingBudgetId = proposalData.operatingBudgetId ? parseInt(proposalData.operatingBudgetId) : null;
+      console.log('✅ 프론트엔드에서 구분해서 받음 - budgetId:', finalBudgetId, 'operatingBudgetId:', finalOperatingBudgetId);
+    } else if (proposalData.budget) {
+      // 기존 방식 (budget 필드 사용) - 하위 호환성
+      const budgetId = parseInt(proposalData.budget);
+      if (isNaN(budgetId)) {
+        console.log('❌ budget이 유효하지 않은 숫자:', proposalData.budget);
+        return res.status(400).json({ 
+          error: '유효하지 않은 사업예산입니다. 다시 선택해주세요.' 
+        });
+      }
+      
+      if (proposalData.selectedBudgetType === 'operating') {
+        console.log('⚠️ 전산운용비 예산 선택 - operating_budget_id에 저장');
+        finalBudgetId = null;
+        finalOperatingBudgetId = budgetId;
+      } else {
+        console.log('✅ 자본예산 선택 - budget_id에 저장');
+        finalBudgetId = budgetId;
+        finalOperatingBudgetId = null;
+      }
+    } else {
+      console.log('❌ 예산 정보 없음');
       return res.status(400).json({ 
         error: '사업예산을 선택해주세요.' 
       });
     }
     
-    // budget을 정수로 변환
-    const budgetId = parseInt(proposalData.budget);
-    if (isNaN(budgetId)) {
-      console.log('❌ budget이 유효하지 않은 숫자:', proposalData.budget);
-      return res.status(400).json({ 
-        error: '유효하지 않은 사업예산입니다. 다시 선택해주세요.' 
-      });
-    }
-    proposalData.budget = budgetId;
-    console.log('✅ budget 변환 완료:', proposalData.budget);
+    // 최종 값 설정 (명확하게)
+    proposalData.budget = finalBudgetId;
+    proposalData.operatingBudgetId = finalOperatingBudgetId;
+    
+    console.log('✅ 최종 설정 - budget:', proposalData.budget, 'operatingBudgetId:', proposalData.operatingBudgetId);
     
     // accountSubject 검증 (필수 필드)
     if (!proposalData.accountSubject || proposalData.accountSubject === '' || proposalData.accountSubject === null || proposalData.accountSubject === undefined) {
@@ -1760,12 +1889,16 @@ app.post('/api/proposals', async (req, res) => {
 
     // 품의서 생성 (모든 필수 필드가 검증된 상태)
     console.log('🔥 Sequelize create 직전 데이터:');
+    console.log('🔍 최종 budget 값:', proposalData.budget);
+    console.log('🔍 최종 operatingBudgetId 값:', proposalData.operatingBudgetId);
+    
     const createData = {
       contractType: proposalData.contractType, // camelCase 사용 (Sequelize가 자동 변환)
       title: proposalData.title || '',
       purpose: proposalData.purpose,
       basis: proposalData.basis,
-      budgetId: proposalData.budget, // camelCase 사용
+      budgetId: proposalData.budget, // camelCase 사용 (자본예산)
+      operatingBudgetId: proposalData.operatingBudgetId || null, // 전산운용비 예산
       contractMethod: processedContractMethodGeneral,
       accountSubject: proposalData.accountSubject, // camelCase 사용
       totalAmount: proposalData.totalAmount || 0,
@@ -2083,8 +2216,9 @@ app.get('/api/proposals', async (req, res) => {
     const proposalsWithBudget = await Promise.all(proposals.map(async (proposal) => {
       const proposalData = proposal.toJSON();
       
-      // 예산 정보 가져오기
+      // 예산 정보 가져오기 (자본예산 또는 전산운용비)
       if (proposalData.budgetId) {
+        // 자본예산
         try {
           const budgetResult = await sequelize.query(`
             SELECT project_name, budget_type, budget_category, budget_amount, budget_year
@@ -2103,7 +2237,29 @@ app.get('/api/proposals', async (req, res) => {
             };
           }
         } catch (error) {
-          console.error('예산 정보 조회 실패:', error);
+          console.error('자본예산 정보 조회 실패:', error);
+        }
+      } else if (proposalData.operatingBudgetId) {
+        // 전산운용비
+        try {
+          const budgetResult = await sequelize.query(`
+            SELECT account_subject as project_name, fiscal_year as budget_year, budget_amount
+            FROM operating_budgets 
+            WHERE id = ?
+          `, { replacements: [proposalData.operatingBudgetId] });
+          
+          if (budgetResult[0] && budgetResult[0].length > 0) {
+            const budget = budgetResult[0][0];
+            proposalData.budgetInfo = {
+              projectName: budget.project_name,
+              budgetType: '전산운용비',
+              budgetCategory: '운영',
+              budgetAmount: budget.budget_amount,
+              budgetYear: budget.budget_year
+            };
+          }
+        } catch (error) {
+          console.error('전산운용비 정보 조회 실패:', error);
         }
       }
       
@@ -2252,8 +2408,9 @@ app.get('/api/proposals/:id', async (req, res) => {
       }
     }
     
-    // 예산 정보 가져오기
+    // 예산 정보 가져오기 (자본예산 또는 전산운용비)
     if (proposalData.budgetId) {
+      // 자본예산
       try {
         const budgetResult = await sequelize.query(`
           SELECT project_name, budget_type, budget_category, budget_amount, budget_year
@@ -2272,7 +2429,29 @@ app.get('/api/proposals/:id', async (req, res) => {
           };
         }
       } catch (error) {
-        console.error('예산 정보 조회 실패:', error);
+        console.error('자본예산 정보 조회 실패:', error);
+      }
+    } else if (proposalData.operatingBudgetId) {
+      // 전산운용비
+      try {
+        const budgetResult = await sequelize.query(`
+          SELECT account_subject as project_name, fiscal_year as budget_year, budget_amount
+          FROM operating_budgets 
+          WHERE id = ?
+        `, { replacements: [proposalData.operatingBudgetId] });
+        
+        if (budgetResult[0] && budgetResult[0].length > 0) {
+          const budget = budgetResult[0][0];
+          proposalData.budgetInfo = {
+            projectName: budget.project_name,
+            budgetType: '전산운용비',
+            budgetCategory: '운영',
+            budgetAmount: budget.budget_amount,
+            budgetYear: budget.budget_year
+          };
+        }
+      } catch (error) {
+        console.error('전산운용비 정보 조회 실패:', error);
       }
     }
     
@@ -2728,7 +2907,7 @@ app.patch('/api/proposals/:id/status', async (req, res) => {
     
     console.log('변환된 DB 상태:', status, '->', dbStatus);
     
-    // submitted -> approved로만 변경 가능 (보안 체크)
+    // 상태 변경 유효성 검사
     if (previousStatus === 'approved' && dbStatus === 'submitted') {
       console.log('⚠️ approved -> submitted 변경 불가');
       return res.status(400).json({ 
@@ -2736,7 +2915,93 @@ app.patch('/api/proposals/:id/status', async (req, res) => {
       });
     }
     
-    // 상태 업데이트
+    // 결재완료로 변경하려면 submitted 상태여야 함
+    if (dbStatus === 'approved' && previousStatus !== 'submitted') {
+      console.log('⚠️ submitted 상태가 아닌 품의서는 결재완료로 변경 불가');
+      return res.status(400).json({ 
+        error: '결재대기 상태의 품의서만 결재완료로 변경할 수 있습니다.' 
+      });
+    }
+    
+    // 결재완료로 변경되는 경우, 먼저 전산운용비 예산인지 확인하고 집행내역 추가
+    if (dbStatus === 'approved' && proposal.operatingBudgetId) {
+      console.log('결재완료 처리: 전산운용비 예산 확인 중...');
+      console.log('품의서 operatingBudgetId:', proposal.operatingBudgetId);
+      
+      // 전산운용비에서 찾기
+      const operatingBudgets = await sequelize.query(`
+        SELECT * FROM operating_budgets WHERE id = ?
+      `, {
+        replacements: [proposal.operatingBudgetId],
+        type: sequelize.QueryTypes.SELECT
+      });
+      
+      const operatingBudget = operatingBudgets.length > 0 ? operatingBudgets[0] : null;
+      
+      console.log('전산운용비 조회 결과:', operatingBudget);
+      
+      if (operatingBudget) {
+        // 전산운용비 예산인 경우 집행내역 자동 추가
+        console.log('✅ 전산운용비 예산 확인 - 집행내역 추가 시작');
+        
+        // 번호 자동 생성 (현재 년도 기준 순번)
+        const currentYear = new Date().getFullYear();
+        const [countResult] = await sequelize.query(`
+          SELECT COUNT(*) as count FROM operating_budget_executions 
+          WHERE budget_id = ? AND EXTRACT(YEAR FROM created_at) = ?
+        `, {
+          replacements: [proposal.operatingBudgetId, currentYear],
+          type: sequelize.QueryTypes.SELECT
+        });
+        
+        const executionNumber = `${currentYear}-${String(countResult.count + 1).padStart(4, '0')}`;
+        console.log('생성된 집행 번호:', executionNumber);
+        
+        // 총 계약금액을 정수로 변환 (bigint 타입 호환)
+        const totalAmountInt = Math.floor(parseFloat(proposal.totalAmount) || 0);
+        console.log('총 계약금액 변환:', {
+          원본: proposal.totalAmount,
+          타입: typeof proposal.totalAmount,
+          변환후: totalAmountInt
+        });
+        
+        // 집행내역 추가 (확정집행액에 총 계약금액 연동)
+        await sequelize.query(`
+          INSERT INTO operating_budget_executions (
+            budget_id, 
+            account_subject, 
+            execution_number,
+            proposal_name, 
+            confirmed_execution_amount,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+        `, {
+          replacements: [
+            proposal.operatingBudgetId,
+            operatingBudget.account_subject, // 예산의 계정과목
+            executionNumber, // 자동 생성된 번호
+            proposal.title, // 품의서 제목
+            totalAmountInt // 총 계약금액 → 확정집행액
+          ]
+        });
+        
+        console.log('✅ 전산운용비 집행내역 추가 완료:', {
+          budgetId: proposal.operatingBudgetId,
+          accountSubject: operatingBudget.account_subject,
+          executionNumber: executionNumber,
+          proposalName: proposal.title,
+          confirmedExecutionAmount: totalAmountInt
+        });
+        
+        // 운영예산의 집행액은 집행내역 조회 시 SUM으로 계산됨
+        console.log('✅ 전산운용비 처리 완료 (집행액은 집행내역에서 자동 계산됨)');
+      } else {
+        console.log('ℹ️ 자본예산 - 집행내역 추가 없음');
+      }
+    }
+    
+    // 집행내역 추가 완료 후 상태 업데이트
     const updateData = { 
       status: dbStatus,
       isDraft: false
@@ -2837,23 +3102,41 @@ app.post('/api/proposals/draft', async (req, res) => {
           return res.status(404).json({ error: '수정할 품의서를 찾을 수 없습니다.' });
         }
       
-      // budgetId 안전하게 처리 (편집 모드에서는 기존 값 유지 가능)
-      let budgetId = proposal.budgetId; // 기존 값으로 초기화
+      // budgetId와 operatingBudgetId 처리
+      let budgetId = null;
+      let operatingBudgetId = null;
       
-      if (proposalData.budget) {
+      // 프론트엔드에서 구분해서 보낸 경우
+      if (proposalData.budgetId !== undefined || proposalData.operatingBudgetId !== undefined) {
+        budgetId = proposalData.budgetId ? parseInt(proposalData.budgetId) : null;
+        operatingBudgetId = proposalData.operatingBudgetId ? parseInt(proposalData.operatingBudgetId) : null;
+        console.log('✅ 임시저장(편집) - 프론트엔드에서 구분해서 받음:', { budgetId, operatingBudgetId });
+      } else if (proposalData.budget) {
+        // 기존 방식 (하위 호환성)
         const budgetNum = parseInt(proposalData.budget);
         if (!isNaN(budgetNum) && budgetNum > 0) {
-          budgetId = budgetNum;
-          console.log('✅ 임시저장 - budget 업데이트:', budgetId);
+          if (proposalData.selectedBudgetType === 'operating') {
+            operatingBudgetId = budgetNum;
+            budgetId = null;
+            console.log('✅ 임시저장(편집) - 전산운용비 예산 업데이트:', operatingBudgetId);
+          } else {
+            budgetId = budgetNum;
+            operatingBudgetId = null;
+            console.log('✅ 임시저장(편집) - 자본예산 업데이트:', budgetId);
+          }
         } else {
-          console.log('⚠️ 임시저장 - budget이 유효하지 않은 숫자, 기존 값 유지:', proposalData.budget, '→', budgetId);
+          console.log('⚠️ 임시저장(편집) - budget이 유효하지 않은 숫자, 기존 값 유지');
+          budgetId = proposal.budgetId || null;
+          operatingBudgetId = proposal.operatingBudgetId || null;
         }
       } else {
-        console.log('⚠️ 임시저장 - budget이 없음, 기존 값 유지:', budgetId);
+        // 기존 값 유지
+        budgetId = proposal.budgetId || null;
+        operatingBudgetId = proposal.operatingBudgetId || null;
+        console.log('⚠️ 임시저장(편집) - 예산 정보 없음, 기존 값 유지:', { budgetId, operatingBudgetId });
       }
       
-      // 임시저장에서는 budgetId 검증 제거 (null이어도 허용)
-      console.log('📝 임시저장 - budgetId 상태:', budgetId);
+      console.log('📝 임시저장(편집) - 최종 예산 상태:', { budgetId, operatingBudgetId });
       
       // enum 필드 처리 (빈 문자열을 null로 변환) - 임시저장용
       const processedPaymentMethodDraft = proposalData.paymentMethod && proposalData.paymentMethod.trim() !== '' 
@@ -2878,6 +3161,7 @@ app.post('/api/proposals/draft', async (req, res) => {
         purpose: proposalData.purpose || proposal.purpose || '',
         basis: proposalData.basis || proposal.basis || '',
         budgetId: budgetId,
+        operatingBudgetId: operatingBudgetId,
         contractMethod: processedContractMethodDraft,
         accountSubject: proposalData.accountSubject || proposal.accountSubject || '',
         totalAmount: proposalData.totalAmount || proposal.totalAmount || 0,
@@ -2930,19 +3214,36 @@ app.post('/api/proposals/draft', async (req, res) => {
     } else {
       console.log('=== 새 품의서 생성 ===');
       
-      // budgetId 안전하게 처리 (임시저장에서는 검증 제거)
+      // budgetId와 operatingBudgetId 처리
       let budgetId = null;
-      if (proposalData.budget) {
+      let operatingBudgetId = null;
+      
+      // 프론트엔드에서 구분해서 보낸 경우
+      if (proposalData.budgetId !== undefined || proposalData.operatingBudgetId !== undefined) {
+        budgetId = proposalData.budgetId ? parseInt(proposalData.budgetId) : null;
+        operatingBudgetId = proposalData.operatingBudgetId ? parseInt(proposalData.operatingBudgetId) : null;
+        console.log('✅ 임시저장(신규) - 프론트엔드에서 구분해서 받음:', { budgetId, operatingBudgetId });
+      } else if (proposalData.budget) {
+        // 기존 방식 (하위 호환성)
         const budgetNum = parseInt(proposalData.budget);
         if (!isNaN(budgetNum) && budgetNum > 0) {
-          budgetId = budgetNum;
-          console.log('✅ 임시저장 - budget 설정:', budgetId);
+          if (proposalData.selectedBudgetType === 'operating') {
+            operatingBudgetId = budgetNum;
+            budgetId = null;
+            console.log('✅ 임시저장(신규) - 전산운용비 예산 설정:', operatingBudgetId);
+          } else {
+            budgetId = budgetNum;
+            operatingBudgetId = null;
+            console.log('✅ 임시저장(신규) - 자본예산 설정:', budgetId);
+          }
         } else {
-          console.log('⚠️ 임시저장 - budget이 유효하지 않은 숫자, null로 설정:', proposalData.budget);
+          console.log('⚠️ 임시저장(신규) - budget이 유효하지 않은 숫자, null로 설정');
         }
       } else {
-        console.log('📝 임시저장 - budget이 없음, null로 설정');
+        console.log('📝 임시저장(신규) - budget이 없음, null로 설정');
       }
+      
+      console.log('📝 임시저장(신규) - 최종 예산 상태:', { budgetId, operatingBudgetId });
 
       // enum 필드 처리 (빈 문자열을 null로 변환) - 새 품의서용
       const processedPaymentMethodNew = proposalData.paymentMethod && proposalData.paymentMethod.trim() !== '' 
@@ -2967,6 +3268,7 @@ app.post('/api/proposals/draft', async (req, res) => {
         purpose: proposalData.purpose || '',
         basis: proposalData.basis || '',
         budgetId: budgetId,
+        operatingBudgetId: operatingBudgetId,
         contractMethod: processedContractMethodNew,
         accountSubject: proposalData.accountSubject || '',
         totalAmount: proposalData.totalAmount || 0,

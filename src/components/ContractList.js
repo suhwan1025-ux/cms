@@ -123,7 +123,8 @@ const ContractList = () => {
               const getStatusColorInline = (status) => {
        switch (status) {
          case 'approved': return '#28a745';  // 결재완료: 초록색
-         case 'pending': return '#007bff';   // 결재대기: 파란색
+         case 'pending':
+         case 'submitted': return '#007bff';   // 결재대기: 파란색
          case 'draft': return '#6c757d';     // 작성중: 회색
          default: return '#6c757d';
        }
@@ -143,6 +144,7 @@ const ContractList = () => {
        const labels = {
          'draft': '작성중',
          'pending': '결재대기',
+         'submitted': '결재대기',
          'approved': '결재완료'
        };
        return labels[status] || status;
@@ -368,9 +370,8 @@ const ContractList = () => {
           contractor: proposal.purchaseItems?.[0]?.supplier || proposal.serviceItems?.[0]?.supplier || '미지정',
           author: proposal.createdBy || '작성자', // 실제 작성자명 표시
           amount: proposal.totalAmount || 0,
-          status: (proposal.status === 'approved' || proposal.status === '결재완료') ? '결재완료' : 
-                  (proposal.status === 'submitted' || proposal.status === '결재대기') ? '결재대기' : 
-                  proposal.status,
+          // 상태는 영어 코드로 유지 (표시만 한글로 변환)
+          status: proposal.status === 'submitted' ? 'pending' : proposal.status,
           startDate: proposal.createdAt ? new Date(proposal.createdAt).toISOString().split('T')[0] : '',
           endDate: proposal.contractPeriod || '',
           type: proposal.contractType === 'purchase' ? '구매계약' :
@@ -387,7 +388,7 @@ const ContractList = () => {
                 '기타',
           purpose: proposal.purpose || '',
           basis: proposal.basis || '',
-          budget: proposal.budgetInfo?.projectName || proposal.budgetId || '',
+          budget: proposal.budgetInfo?.projectName || proposal.budgetId || proposal.operatingBudgetId || '',
           contractMethod: proposal.contractMethod || '',
           accountSubject: proposal.accountSubject || '',
           contractPeriod: proposal.contractPeriod || '',
@@ -933,12 +934,17 @@ const ContractList = () => {
   };
 
   const getStatusColor = (status) => {
-    // 상태별 색상 매핑 (영어 상태 기준)
+    // 상태별 색상 매핑
     switch (status) {
-      case 'pending': return '#007bff';   // 결재대기: 파란색
-      case 'approved': return '#28a745';  // 결재완료: 초록색
-      case 'draft': return '#6c757d';     // 작성중: 회색
-      default: return '#6c757d';
+      case 'pending':
+      case 'submitted': 
+        return '#007bff';   // 결재대기: 파란색
+      case 'approved': 
+        return '#28a745';  // 결재완료: 초록색
+      case 'draft': 
+        return '#6c757d';     // 작성중: 회색
+      default: 
+        return '#6c757d';
     }
   };
 
@@ -951,10 +957,20 @@ const ContractList = () => {
   const handleRowClick = async (contract) => {
     console.log('🔍 선택된 품의서:', contract);
     try {
+      // 현재 로그인한 사용자 정보 가져오기
+      const currentUser = await getCurrentUser();
+      
       // 서버에서 원본 데이터 조회 (더 상세한 정보를 위해)
       const response = await fetch(`${API_BASE_URL}/api/proposals/${contract.id}`);
       if (response.ok) {
         const originalData = await response.json();
+        
+        // 🔍 예산 정보 디버깅
+        console.log('=== 품의서 상세 조회 예산 정보 ===');
+        console.log('budgetId:', originalData.budgetId);
+        console.log('operatingBudgetId:', originalData.operatingBudgetId);
+        console.log('budgetInfo:', originalData.budgetInfo);
+        
         // 원본 데이터와 리스트 데이터를 합쳐서 더 완전한 정보 제공
         const enhancedContract = {
           ...contract,
@@ -975,7 +991,7 @@ const ContractList = () => {
           contractType: originalData.contractType || originalData.contract_type || enhancedContract.contractType || enhancedContract.type,
           purpose: enhancedContract.purpose,
           basis: enhancedContract.basis,
-          budget: enhancedContract.budget,
+          budget: enhancedContract.budgetInfo?.projectName || enhancedContract.budget, // budgetInfo 우선 사용
           budgetInfo: enhancedContract.budgetInfo, // 서버에서 가져온 예산 정보 추가
           contractMethod: originalData.contractMethod || originalData.contract_method || enhancedContract.contractMethod,
           contractMethodDescription: originalData.contract_method_description || enhancedContract.contract_method_description, // 계약방식 설명 추가
@@ -1071,30 +1087,46 @@ const ContractList = () => {
               actionButtons.insertBefore(editBtn, actionButtons.firstChild);
             }
             
-            // 상태변경 버튼 추가
-            const statusBtn = previewWindow.document.createElement('button');
-            statusBtn.className = 'action-btn status-btn';
-            statusBtn.innerHTML = '🔄 상태변경';
-            statusBtn.style.background = '#667eea';
-            statusBtn.style.color = 'white';
-            statusBtn.style.border = 'none';
-            statusBtn.style.padding = '10px 20px';
-            statusBtn.style.borderRadius = '5px';
-            statusBtn.style.cursor = 'pointer';
-            statusBtn.style.fontSize = '14px';
-            statusBtn.style.minWidth = '100px';
-            statusBtn.style.marginRight = '10px';
+            // 상태변경 버튼 추가 (작성자만 가능)
+            const isAuthor = currentUser && (
+              enhancedContract.createdBy === currentUser.name || 
+              enhancedContract.author === currentUser.name
+            );
             
-            statusBtn.onclick = () => {
-              // 부모 창의 함수 호출 - contract 직접 전달
-              window.openStatusUpdate(enhancedContract);
-              previewWindow.close();
-            };
+            console.log('=== 상태변경 버튼 권한 확인 ===');
+            console.log('현재 사용자:', currentUser?.name);
+            console.log('품의서 작성자(createdBy):', enhancedContract.createdBy);
+            console.log('품의서 작성자(author):', enhancedContract.author);
+            console.log('작성자 여부:', isAuthor);
             
-            // 복사 버튼 앞에 추가
+            if (isAuthor) {
+              const statusBtn = previewWindow.document.createElement('button');
+              statusBtn.className = 'action-btn status-btn';
+              statusBtn.innerHTML = '🔄 상태변경';
+              statusBtn.style.background = '#667eea';
+              statusBtn.style.color = 'white';
+              statusBtn.style.border = 'none';
+              statusBtn.style.padding = '10px 20px';
+              statusBtn.style.borderRadius = '5px';
+              statusBtn.style.cursor = 'pointer';
+              statusBtn.style.fontSize = '14px';
+              statusBtn.style.minWidth = '100px';
+              statusBtn.style.marginRight = '10px';
+              
+              statusBtn.onclick = () => {
+                // 부모 창의 함수 호출 - contract 직접 전달
+                window.openStatusUpdate(enhancedContract);
+                previewWindow.close();
+              };
+              
+              // 복사 버튼 앞에 추가
+              const copyBtn = actionButtons.querySelector('.copy-btn');
+              actionButtons.insertBefore(statusBtn, copyBtn);
+            }
+            
+            // 복사 버튼 앞에 재활용 버튼 추가
             const copyBtn = actionButtons.querySelector('.copy-btn');
             actionButtons.insertBefore(recycleBtn, copyBtn);
-            actionButtons.insertBefore(statusBtn, copyBtn);
           }
         });
 
@@ -1106,7 +1138,7 @@ const ContractList = () => {
           contractType: contract.contractType || contract.type,
           purpose: contract.purpose,
           basis: contract.basis,
-          budget: contract.budget,
+          budget: contract.budgetInfo?.projectName || contract.budget, // budgetInfo 우선 사용
           budgetInfo: contract.budgetInfo, // 예산 정보 추가 (있는 경우)
           contractMethod: contract.contractMethod,
           requestDepartments: contract.department ? [contract.department] : [],
@@ -1194,30 +1226,46 @@ const ContractList = () => {
               actionButtons.insertBefore(editBtn, actionButtons.firstChild);
             }
             
-            // 상태변경 버튼 추가
-            const statusBtn = previewWindow.document.createElement('button');
-            statusBtn.className = 'action-btn status-btn';
-            statusBtn.innerHTML = '🔄 상태변경';
-            statusBtn.style.background = '#667eea';
-            statusBtn.style.color = 'white';
-            statusBtn.style.border = 'none';
-            statusBtn.style.padding = '10px 20px';
-            statusBtn.style.borderRadius = '5px';
-            statusBtn.style.cursor = 'pointer';
-            statusBtn.style.fontSize = '14px';
-            statusBtn.style.minWidth = '100px';
-            statusBtn.style.marginRight = '10px';
+            // 상태변경 버튼 추가 (작성자만 가능)
+            const isAuthor2 = currentUser && (
+              contract.createdBy === currentUser.name || 
+              contract.author === currentUser.name
+            );
             
-            statusBtn.onclick = () => {
-              // 부모 창의 함수 호출 - contract 직접 전달
-              window.openStatusUpdate(contract);
-              previewWindow.close();
-            };
+            console.log('=== 상태변경 버튼 권한 확인 (기본) ===');
+            console.log('현재 사용자:', currentUser?.name);
+            console.log('품의서 작성자(createdBy):', contract.createdBy);
+            console.log('품의서 작성자(author):', contract.author);
+            console.log('작성자 여부:', isAuthor2);
             
-            // 복사 버튼 앞에 추가
+            if (isAuthor2) {
+              const statusBtn = previewWindow.document.createElement('button');
+              statusBtn.className = 'action-btn status-btn';
+              statusBtn.innerHTML = '🔄 상태변경';
+              statusBtn.style.background = '#667eea';
+              statusBtn.style.color = 'white';
+              statusBtn.style.border = 'none';
+              statusBtn.style.padding = '10px 20px';
+              statusBtn.style.borderRadius = '5px';
+              statusBtn.style.cursor = 'pointer';
+              statusBtn.style.fontSize = '14px';
+              statusBtn.style.minWidth = '100px';
+              statusBtn.style.marginRight = '10px';
+              
+              statusBtn.onclick = () => {
+                // 부모 창의 함수 호출 - contract 직접 전달
+                window.openStatusUpdate(contract);
+                previewWindow.close();
+              };
+              
+              // 복사 버튼 앞에 추가
+              const copyBtn = actionButtons.querySelector('.copy-btn');
+              actionButtons.insertBefore(statusBtn, copyBtn);
+            }
+            
+            // 복사 버튼 앞에 재활용 버튼 추가
             const copyBtn = actionButtons.querySelector('.copy-btn');
             actionButtons.insertBefore(recycleBtn, copyBtn);
-            actionButtons.insertBefore(statusBtn, copyBtn);
           }
         });
 
@@ -1270,8 +1318,9 @@ const ContractList = () => {
         title: `[재활용] ${originalData.title || originalData.purpose || ''}`,
         purpose: `[재활용] ${originalData.purpose || ''}`,
         basis: originalData.basis || '',
-        // 사업예산은 budgetId 필드 사용 (기존 수정 기능과 동일)
-        budget: originalData.budgetId || originalData.budget || '',
+        // 사업예산은 budgetId 또는 operatingBudgetId 사용
+        budget: originalData.budgetId || originalData.operatingBudgetId || originalData.budget || '',
+        selectedBudgetType: originalData.operatingBudgetId ? 'operating' : 'capital',
         contractMethod: originalData.contractMethod || '',
         accountSubject: originalData.accountSubject || '',
         
@@ -1397,7 +1446,8 @@ const ContractList = () => {
         title: originalData.title,
         purpose: originalData.purpose,
         basis: originalData.basis,
-        budget: originalData.budgetId || originalData.budget,
+        budget: originalData.budgetId || originalData.operatingBudgetId || originalData.budget,
+        selectedBudgetType: originalData.operatingBudgetId ? 'operating' : 'capital',
         contractMethod: originalData.contractMethod,
         accountSubject: originalData.accountSubject,
         totalAmount: originalData.totalAmount,
@@ -1510,13 +1560,13 @@ const ContractList = () => {
     console.log('현재 품의서 상태:', targetContract.status);
     
     // 이미 결재완료된 경우 변경 불가
-    if (targetContract.status === 'approved') {
+    if (targetContract.status === 'approved' || targetContract.status === '결재완료') {
       alert('이미 결재완료된 품의서는 상태를 변경할 수 없습니다.');
       return;
     }
     
-    // 결재대기 상태만 결재완료로 변경 가능
-    if (targetContract.status !== 'pending') {
+    // 결재대기 상태만 결재완료로 변경 가능 (submitted 또는 '결재대기')
+    if (targetContract.status !== 'pending' && targetContract.status !== 'submitted' && targetContract.status !== '결재대기') {
       alert('결재대기 상태의 품의서만 결재완료로 변경할 수 있습니다.');
       return;
     }
@@ -2249,6 +2299,18 @@ const ContractList = () => {
                     <label>예산:</label>
                     <span>{selectedContract.budget || '-'}</span>
                   </div>
+                  {selectedContract.budgetInfo && (
+                    <>
+                      <div className="detail-item">
+                        <label>예산유형:</label>
+                        <span>{selectedContract.budgetInfo.budgetType || '-'}</span>
+                      </div>
+                      <div className="detail-item">
+                        <label>예산연도:</label>
+                        <span>{selectedContract.budgetInfo.budgetYear || '-'}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="detail-item">
                     <label>계약방법:</label>
                     <span>{selectedContract.contractMethod || '-'}</span>

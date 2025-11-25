@@ -625,6 +625,8 @@ const ProposalForm = () => {
   const [selectedYear, setSelectedYear] = useState('');
   const [searchBudgetName, setSearchBudgetName] = useState(''); // 사업예산명 검색어
   const [filteredBudgets, setFilteredBudgets] = useState([]);
+  const [budgetType, setBudgetType] = useState(''); // 예산 유형 필터 (capital: 자본예산, operating: 전산운용비)
+  const [operatingBudgets, setOperatingBudgets] = useState([]); // 전산운용비 예산 목록
   
   // 예산 팝업 드래그 상태
   const [budgetPopupPosition, setBudgetPopupPosition] = useState({ x: 0, y: 0 });
@@ -636,6 +638,9 @@ const ProposalForm = () => {
   const [showDepartmentSuggestions, setShowDepartmentSuggestions] = useState(false);
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
   const [filteredDepartments, setFilteredDepartments] = useState([]);
+  
+  // 비용분배 귀속부서 검색 상태 (자동완성 방식)
+  const [costDeptSearchStates, setCostDeptSearchStates] = useState({}); // { 'purchase-0-0': { term: '', show: false } }
   
 
 
@@ -652,9 +657,10 @@ const ProposalForm = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [budgetsRes, businessBudgetsRes, departmentsRes, suppliersRes, contractMethodsRes] = await Promise.all([
+        const [budgetsRes, businessBudgetsRes, operatingBudgetsRes, departmentsRes, suppliersRes, contractMethodsRes] = await Promise.all([
           fetch(`${API_BASE_URL}/api/budgets`),
           fetch(`${API_BASE_URL}/api/business-budgets`),
+          fetch(`${API_BASE_URL}/api/operating-budgets`),
           fetch(`${API_BASE_URL}/api/departments`),
           fetch(`${API_BASE_URL}/api/suppliers`),
           fetch(`${API_BASE_URL}/api/contract-methods`)
@@ -662,6 +668,7 @@ const ProposalForm = () => {
 
         const budgetsData = await budgetsRes.json();
         const businessBudgetsData = await businessBudgetsRes.json();
+        const operatingBudgetsData = await operatingBudgetsRes.json();
         const departmentsData = await departmentsRes.json();
         const suppliersData = await suppliersRes.json();
         const contractMethodsData = await contractMethodsRes.json();
@@ -677,22 +684,36 @@ const ProposalForm = () => {
         const safeBusinessBudgetsData = Array.isArray(businessBudgetsData) ? businessBudgetsData : [];
         const safeDepartmentsData = Array.isArray(departmentsData) ? departmentsData : [];
         
+        // 운영예산 데이터 정규화
+        const safeOperatingBudgetsData = Array.isArray(operatingBudgetsData) ? operatingBudgetsData.map(budget => ({
+          ...budget,
+          project_name: budget.account_subject || '운영예산',
+          budget_year: budget.fiscal_year,
+          budget_amount: budget.budget_amount || 0,
+          executed_amount: budget.executed_amount || 0,
+          budgetType: 'operating' // 운영예산 표시
+        })) : [];
+        
         setBudgets(budgetsData);
         setBusinessBudgets(safeBusinessBudgetsData);
+        setOperatingBudgets(safeOperatingBudgetsData);
         setDepartments(safeDepartmentsData);
         setSuppliers(suppliersData);
         setContractMethods(contractMethodsData);
         
         console.log('사업예산 데이터 로드됨:', safeBusinessBudgetsData.length, '개');
         console.log('사업예산 샘플:', safeBusinessBudgetsData.slice(0, 2));
+        console.log('운영예산 데이터 로드됨:', safeOperatingBudgetsData.length, '개');
+        console.log('운영예산 샘플:', safeOperatingBudgetsData.slice(0, 2));
         console.log('부서 데이터 로드됨:', safeDepartmentsData.length, '개');
         console.log('부서 샘플:', safeDepartmentsData.slice(0, 3));
         console.log('계약방식 데이터 로드됨:', contractMethodsData.length, '개');
         console.log('계약방식 샘플:', contractMethodsData);
         
-        // 초기 필터링 설정
-        if (safeBusinessBudgetsData.length > 0) {
-          setFilteredBudgets(safeBusinessBudgetsData);
+        // 초기 필터링 설정 - 모든 예산 표시
+        const allBudgets = [...safeBusinessBudgetsData.map(b => ({...b, budgetType: 'capital'})), ...safeOperatingBudgetsData];
+        if (allBudgets.length > 0) {
+          setFilteredBudgets(allBudgets);
         }
 
         // 편집 모드 확인 - URL 파라미터 우선, localStorage 백업
@@ -1246,10 +1267,10 @@ const ProposalForm = () => {
 
   // 필터링 상태가 변경될 때마다 필터링 실행
   useEffect(() => {
-    if (businessBudgets.length > 0) {
+    if (businessBudgets.length > 0 || operatingBudgets.length > 0) {
       filterBudgets();
     }
-  }, [selectedYear, searchBudgetName]);
+  }, [selectedYear, searchBudgetName, budgetType, businessBudgets, operatingBudgets]);
 
   // 컴포넌트 언마운트 시 편집모드 상태 초기화
   useEffect(() => {
@@ -1338,14 +1359,32 @@ const ProposalForm = () => {
 
   // 사업예산 필터링
   const filterBudgets = () => {
-    if (!businessBudgets || businessBudgets.length === 0) {
+    // 자본예산과 운영예산 합치기
+    const capitalBudgets = (businessBudgets || []).map(b => ({...b, budgetType: 'capital'}));
+    const operatingBudgetsList = (operatingBudgets || []).map(b => ({...b, budgetType: 'operating'}));
+    const allBudgets = [...capitalBudgets, ...operatingBudgetsList];
+    
+    if (allBudgets.length === 0) {
       setFilteredBudgets([]);
       return;
     }
     
-    let filtered = [...businessBudgets];
+    let filtered = [...allBudgets];
     
-    console.log('🔍 사업예산 필터링 시작:', { selectedYear, searchBudgetName, totalBudgets: businessBudgets.length });
+    console.log('🔍 예산 필터링 시작:', { 
+      selectedYear, 
+      searchBudgetName, 
+      budgetType,
+      totalBudgets: allBudgets.length,
+      capitalBudgets: capitalBudgets.length,
+      operatingBudgets: operatingBudgetsList.length
+    });
+    
+    // 예산 유형 필터링
+    if (budgetType && budgetType !== '') {
+      filtered = filtered.filter(budget => budget.budgetType === budgetType);
+      console.log('✅ 예산유형 필터링 후:', filtered.length, '건');
+    }
     
     // 연도 필터링
     if (selectedYear && selectedYear !== '') {
@@ -1359,7 +1398,7 @@ const ProposalForm = () => {
       filtered = filtered.filter(budget => 
         budget.project_name && budget.project_name.toLowerCase().includes(searchTerm)
       );
-      console.log('✅ 사업예산명 검색 후:', filtered.length, '건 (검색어:', searchTerm, ')');
+      console.log('✅ 예산명 검색 후:', filtered.length, '건 (검색어:', searchTerm, ')');
     }
     
     console.log('🎯 최종 필터링 결과:', filtered.length, '건');
@@ -1389,11 +1428,16 @@ const ProposalForm = () => {
       setContractType(proposalData.contractType || 'purchase');
       
       // 폼 데이터 설정
+      // 자본예산 또는 전산운용비 구분하여 처리
+      const budgetValue = proposalData.budgetId || proposalData.operatingBudgetId || '';
+      const selectedBudgetType = proposalData.operatingBudgetId ? 'operating' : 'capital';
+      
       setFormData({
         title: proposalData.title || '',
         purpose: proposalData.purpose || '',
         basis: proposalData.basis || '',
-        budget: proposalData.budgetId || '',
+        budget: budgetValue,
+        selectedBudgetType: selectedBudgetType, // 예산 타입 구분
         contractMethod: proposalData.contractMethod || '',
         accountSubject: proposalData.accountSubject || '',
         requestDepartments: (proposalData.requestDepartments || []).map(dept => 
@@ -1467,11 +1511,15 @@ const ProposalForm = () => {
       
       // 서버 데이터 로드 후 초기 데이터로 설정 (변경사항 초기화)
       setTimeout(() => {
+        const budgetValue = proposalData.budgetId || proposalData.operatingBudgetId || '';
+        const selectedBudgetType = proposalData.operatingBudgetId ? 'operating' : 'capital';
+        
         setInitialFormData(JSON.stringify({
           title: proposalData.title || '',
           purpose: proposalData.purpose || '',
           basis: proposalData.basis || '',
-          budget: proposalData.budgetId || '',
+          budget: budgetValue,
+          selectedBudgetType: selectedBudgetType,
           contractMethod: proposalData.contractMethod || '',
           accountSubject: proposalData.accountSubject || '',
           other: proposalData.other || '',
@@ -1541,7 +1589,12 @@ const ProposalForm = () => {
 
   // 사업예산 선택
   const selectBudget = (budget) => {
-    setFormData({...formData, budget: budget.id});
+    // 예산 유형도 함께 저장 (전산운용비인지 자본예산인지 구분)
+    setFormData({
+      ...formData, 
+      budget: budget.id,
+      selectedBudgetType: budget.budgetType // 'operating' 또는 'capital'
+    });
     setShowBudgetPopup(false);
   };
 
@@ -1649,6 +1702,56 @@ const ProposalForm = () => {
     
     setDepartmentSearchTerm('');
     setShowDepartmentDropdown(false);
+  }, []);
+  
+  // 비용분배 귀속부서 검색창 포커스
+  const handleCostDeptFocus = useCallback((itemType, itemIndex, allocIndex) => {
+    const key = `${itemType}-${itemIndex}-${allocIndex}`;
+    setCostDeptSearchStates(prev => ({
+      ...prev,
+      [key]: { term: '', show: true }
+    }));
+  }, []);
+  
+  // 비용분배 귀속부서 검색어 변경
+  const handleCostDeptSearch = useCallback((itemType, itemIndex, allocIndex, term) => {
+    const key = `${itemType}-${itemIndex}-${allocIndex}`;
+    setCostDeptSearchStates(prev => ({
+      ...prev,
+      [key]: { term, show: true }
+    }));
+  }, []);
+  
+  // 비용분배 귀속부서 선택
+  const selectCostDepartment = useCallback((itemType, itemIndex, allocIndex, department) => {
+    if (itemType === 'purchase') {
+      updateCostAllocation(itemIndex, allocIndex, 'department', department.name);
+    } else if (itemType === 'service') {
+      // 용역항목 비용분배 부서 업데이트
+      setFormData(prevData => {
+        const updatedItems = [...prevData.serviceItems];
+        if (updatedItems[itemIndex] && updatedItems[itemIndex].costAllocation && updatedItems[itemIndex].costAllocation.allocations[allocIndex]) {
+          updatedItems[itemIndex].costAllocation.allocations[allocIndex].department = department.name;
+        }
+        return { ...prevData, serviceItems: updatedItems };
+      });
+    }
+    
+    // 검색 상태 초기화
+    const key = `${itemType}-${itemIndex}-${allocIndex}`;
+    setCostDeptSearchStates(prev => ({
+      ...prev,
+      [key]: { term: '', show: false }
+    }));
+  }, []);
+  
+  // 비용분배 귀속부서 드롭다운 닫기
+  const closeCostDeptDropdown = useCallback((itemType, itemIndex, allocIndex) => {
+    const key = `${itemType}-${itemIndex}-${allocIndex}`;
+    setCostDeptSearchStates(prev => ({
+      ...prev,
+      [key]: { ...prev[key], show: false }
+    }));
   }, []);
 
   // 선택된 부서 제거 - 개선된 구조 (중복 호출 방지)
@@ -2812,12 +2915,23 @@ const ProposalForm = () => {
         };
       });
 
+      // 예산 타입에 따라 budgetId 또는 operatingBudgetId 설정
+      const budgetData = {};
+      if (formData.selectedBudgetType === 'operating') {
+        budgetData.operatingBudgetId = formData.budget || null;
+        budgetData.budgetId = null;
+      } else {
+        budgetData.budgetId = formData.budget || null;
+        budgetData.operatingBudgetId = null;
+      }
+      
       const proposalData = {
         contractType: contractType, // 사용자가 선택한 계약 유형
         title: formData.title || formData.purpose || '품의서',
         purpose: formData.purpose || '',
         basis: formData.basis || '',
-        budget: formData.budget || '',
+        ...budgetData, // budgetId 또는 operatingBudgetId 포함
+        selectedBudgetType: formData.selectedBudgetType || 'capital', // 예산 유형 전송
         contractMethod: formData.contractMethod || '',
         accountSubject: autoAccountSubject,
         totalAmount: totalAmount, // 총 금액 추가
@@ -2932,12 +3046,8 @@ const ProposalForm = () => {
           setHasUnsavedChanges(false);
           console.log('✅ 임시저장 완료 - 변경사항 초기화');
         } else {
-          // 작성완료 메시지
-          const currentProposalId = result.proposalId || editingProposalId;
-          const message = (isEditMode && editingProposalId)
-            ? `품의서가 성공적으로 수정되었습니다! (ID: ${currentProposalId})`
-            : `품의서가 성공적으로 작성완료되었습니다! (ID: ${currentProposalId})`;
-          alert(message);
+          // 작성완료 메시지는 ContractList에서 표시 (중복 방지)
+          console.log('작성완료 성공 - ContractList로 이동 예정');
         }
       }
       
@@ -2996,22 +3106,48 @@ const ProposalForm = () => {
       return;
     }
 
-    // 선택된 사업예산 정보 찾기
+    // 선택된 사업예산 정보 찾기 (자본예산 또는 운영예산)
     let budgetInfo = null;
-    console.log('🔍 사업예산 정보 찾기 시작');
+    console.log('🔍 예산 정보 찾기 시작');
     console.log('  - formData.budget:', formData.budget);
-    console.log('  - businessBudgets:', businessBudgets);
+    console.log('  - formData.selectedBudgetType:', formData.selectedBudgetType);
     console.log('  - businessBudgets 개수:', businessBudgets.length);
+    console.log('  - operatingBudgets 개수:', operatingBudgets.length);
     
     if (formData.budget) {
-      const selectedBudget = businessBudgets.find(b => b.id === parseInt(formData.budget));
+      let selectedBudget = null;
+      let budgetTypeLabel = '자본예산';
+      
+      // selectedBudgetType을 우선 확인하여 올바른 테이블에서 찾기
+      if (formData.selectedBudgetType === 'operating') {
+        // 전산운용비 테이블에서 찾기
+        selectedBudget = operatingBudgets.find(b => b.id === parseInt(formData.budget));
+        budgetTypeLabel = '전산운용비';
+      } else {
+        // 자본예산 테이블에서 찾기
+        selectedBudget = businessBudgets.find(b => b.id === parseInt(formData.budget));
+        budgetTypeLabel = '자본예산';
+      }
+      
+      // 혹시 못 찾았으면 반대 테이블에서도 찾아보기 (fallback)
+      if (!selectedBudget) {
+        if (formData.selectedBudgetType === 'operating') {
+          selectedBudget = businessBudgets.find(b => b.id === parseInt(formData.budget));
+          budgetTypeLabel = '자본예산';
+        } else {
+          selectedBudget = operatingBudgets.find(b => b.id === parseInt(formData.budget));
+          budgetTypeLabel = '전산운용비';
+        }
+      }
+      
       console.log('  - 찾은 예산:', selectedBudget);
+      console.log('  - 예산 유형:', budgetTypeLabel);
       
       if (selectedBudget) {
         budgetInfo = {
           projectName: selectedBudget.project_name || selectedBudget.projectName,
           budgetYear: selectedBudget.budget_year || selectedBudget.budgetYear,
-          budgetType: selectedBudget.budget_type || selectedBudget.budgetType,
+          budgetType: budgetTypeLabel, // 예산 유형 라벨 사용
           budgetCategory: selectedBudget.budget_category || selectedBudget.budgetCategory,
           budgetAmount: selectedBudget.budget_amount || selectedBudget.budgetAmount
         };
@@ -3027,8 +3163,8 @@ const ProposalForm = () => {
     let contractMethodDescription = '';
     if (formData.contractMethod && contractMethods.length > 0) {
       const selectedMethod = contractMethods.find(m => m.value === formData.contractMethod);
-      if (selectedMethod && selectedMethod.basis) {
-        contractMethodDescription = selectedMethod.basis;
+      if (selectedMethod) {
+        contractMethodDescription = selectedMethod.regulation || selectedMethod.basis || '';
       }
     }
 
@@ -3854,6 +3990,7 @@ const ProposalForm = () => {
           // 필수 필드
           basis: formData.basis, // 이미 검증됨
           budget: formData.budget, // 이미 검증됨
+          selectedBudgetType: formData.selectedBudgetType || 'capital', // 예산 유형 전송
           accountSubject: formData.accountSubject, // 이미 검증됨
           
           // 선택 필드
@@ -3898,6 +4035,7 @@ const ProposalForm = () => {
           // 필수 필드
           basis: formData.basis, // 이미 검증됨
           budget: formData.budget, // 이미 검증됨
+          selectedBudgetType: formData.selectedBudgetType || 'capital', // 예산 유형 전송
           accountSubject: formData.accountSubject, // 이미 검증됨
           
           // 선택 필드
@@ -4369,23 +4507,72 @@ const ProposalForm = () => {
                   >
                     {formData.budget ? 
                       (() => {
-                        const selectedBudget = businessBudgets.find(b => b.id === formData.budget);
+                        // selectedBudgetType을 우선 확인하여 올바른 테이블에서 찾기
+                        let selectedBudget = null;
+                        let budgetType = '자본예산';
+                        
+                        if (formData.selectedBudgetType === 'operating') {
+                          // 전산운용비 테이블에서 찾기
+                          selectedBudget = operatingBudgets.find(b => b.id === formData.budget);
+                          budgetType = '전산운용비';
+                        } else {
+                          // 자본예산 테이블에서 찾기
+                          selectedBudget = businessBudgets.find(b => b.id === formData.budget);
+                          budgetType = '자본예산';
+                        }
+                        
+                        // 혹시 못 찾았으면 반대 테이블에서도 찾아보기 (fallback)
+                        if (!selectedBudget) {
+                          if (formData.selectedBudgetType === 'operating') {
+                            selectedBudget = businessBudgets.find(b => b.id === formData.budget);
+                            budgetType = '자본예산';
+                          } else {
+                            selectedBudget = operatingBudgets.find(b => b.id === formData.budget);
+                            budgetType = '전산운용비';
+                          }
+                        }
+                        
                         return selectedBudget ? 
-                          `${selectedBudget.project_name} (${selectedBudget.budget_year}년)` :
-                          '사업예산을 선택하세요';
+                          `${selectedBudget.project_name} (${selectedBudget.budget_year}년) [${budgetType}]` :
+                          '예산을 선택하세요';
                       })() :
-                      '사업예산을 선택하세요'
+                      '예산을 선택하세요'
                     }
                   </button>
                   {formData.budget && (
                     <div className="budget-info">
                       {(() => {
-                        const selectedBudget = businessBudgets.find(b => b.id === formData.budget);
+                        // selectedBudgetType에 따라 올바른 배열에서 찾기
+                        let selectedBudget = null;
+                        let budgetType = '자본예산';
+                        
+                        if (formData.selectedBudgetType === 'operating') {
+                          // 전산운용비 테이블에서 찾기
+                          selectedBudget = operatingBudgets.find(b => b.id === formData.budget);
+                          budgetType = '전산운용비';
+                        } else {
+                          // 자본예산 테이블에서 찾기
+                          selectedBudget = businessBudgets.find(b => b.id === formData.budget);
+                          budgetType = '자본예산';
+                        }
+                        
+                        // 혹시 못 찾았으면 반대 테이블에서도 찾아보기 (fallback)
+                        if (!selectedBudget) {
+                          if (formData.selectedBudgetType === 'operating') {
+                            selectedBudget = businessBudgets.find(b => b.id === formData.budget);
+                            budgetType = '자본예산';
+                          } else {
+                            selectedBudget = operatingBudgets.find(b => b.id === formData.budget);
+                            budgetType = '전산운용비';
+                          }
+                        }
+                        
                         if (selectedBudget) {
                           const remainingAmount = (selectedBudget.budget_amount || 0) - (selectedBudget.executed_amount || 0);
                           return (
                             <>
-                              <span>선택된 예산: {selectedBudget.project_name}</span>
+                              <span>예산유형: {budgetType}</span>
+                              <span>선택된 예산: {selectedBudget.project_name || selectedBudget.account_subject}</span>
                               <span>예산총액: {formatCurrency(selectedBudget.budget_amount || 0)}</span>
                               <span>사용금액: {formatCurrency(selectedBudget.executed_amount || 0)}</span>
                               <span>잔여예산: {formatCurrency(remainingAmount)}</span>
@@ -4460,7 +4647,7 @@ const ProposalForm = () => {
                   </select>
                   {formData.contractMethod && (
                     <div className="regulation-info">
-                      <span>사내규정: {contractMethods.find(m => m.value === formData.contractMethod)?.basis}</span>
+                      <span>사내규정: {contractMethods.find(m => m.value === formData.contractMethod)?.regulation || contractMethods.find(m => m.value === formData.contractMethod)?.basis || '-'}</span>
                     </div>
                   )}
                 </div>
@@ -4968,29 +5155,75 @@ const ProposalForm = () => {
                                     padding: '0.75rem', 
                                     border: '1px solid #dee2e6'
                                   }}>
-                                    <select
-                                      value={allocation.department || ''}
-                                      onChange={(e) => updateCostAllocation(index, allocIndex, 'department', e.target.value)}
-                                      required
-                                      style={{ 
-                                        width: '100%',
-                                        padding: '0.5rem',
-                                        border: '1px solid #ced4da',
-                                        borderRadius: '4px',
-                                        fontSize: '0.9rem'
-                                      }}
-                                    >
-                                      <option value="">부서 선택</option>
-                                      {departments && departments.length > 0 ? (
-                                        departments.map(dept => (
-                                          <option key={dept.id} value={dept.name}>
-                                            {dept.name}
-                                          </option>
-                                        ))
-                                      ) : (
-                                        <option value="" disabled>부서 데이터 로딩 중...</option>
-                                      )}
-                                    </select>
+                                    <div style={{ position: 'relative' }}>
+                                      <input
+                                        type="text"
+                                        value={(() => {
+                                          const key = `purchase-${index}-${allocIndex}`;
+                                          const state = costDeptSearchStates[key];
+                                          return state?.show ? (state.term || '') : (allocation.department || '');
+                                        })()}
+                                        onFocus={() => handleCostDeptFocus('purchase', index, allocIndex)}
+                                        onChange={(e) => handleCostDeptSearch('purchase', index, allocIndex, e.target.value)}
+                                        onBlur={() => setTimeout(() => closeCostDeptDropdown('purchase', index, allocIndex), 200)}
+                                        placeholder="부서 검색..."
+                                        style={{
+                                          width: '100%',
+                                          padding: '0.5rem',
+                                          border: '1px solid #ced4da',
+                                          borderRadius: '4px',
+                                          fontSize: '0.9rem',
+                                          backgroundColor: allocation.department ? '#e3f2fd' : 'white'
+                                        }}
+                                      />
+                                      {(() => {
+                                        const key = `purchase-${index}-${allocIndex}`;
+                                        const state = costDeptSearchStates[key];
+                                        if (state?.show) {
+                                          const searchTerm = (state.term || '').toLowerCase();
+                                          const filtered = departments.filter(d => 
+                                            !searchTerm || d.name.toLowerCase().includes(searchTerm)
+                                          );
+                                          return (
+                                            <div style={{
+                                              position: 'absolute',
+                                              top: '100%',
+                                              left: 0,
+                                              right: 0,
+                                              maxHeight: '200px',
+                                              overflowY: 'auto',
+                                              backgroundColor: 'white',
+                                              border: '1px solid #ced4da',
+                                              borderRadius: '4px',
+                                              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                              zIndex: 1000,
+                                              marginTop: '2px'
+                                            }}>
+                                              {filtered.length > 0 ? filtered.map(dept => (
+                                                <div
+                                                  key={dept.id}
+                                                  onMouseDown={() => selectCostDepartment('purchase', index, allocIndex, dept)}
+                                                  style={{
+                                                    padding: '0.5rem',
+                                                    cursor: 'pointer',
+                                                    borderBottom: '1px solid #f0f0f0'
+                                                  }}
+                                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+                                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                                                >
+                                                  {dept.name}
+                                                </div>
+                                              )) : (
+                                                <div style={{ padding: '0.5rem', color: '#999', textAlign: 'center' }}>
+                                                  검색 결과 없음
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
+                                    </div>
                                   </td>
                                   <td style={{ 
                                     padding: '0.75rem', 
@@ -5655,33 +5888,75 @@ const ProposalForm = () => {
                                   padding: '0.75rem', 
                                   border: '1px solid #dee2e6'
                                 }}>
-                                  <select
-                                    value={allocation.department || ''}
-                                    onChange={(e) => {
-                                      const updatedItems = [...formData.serviceItems];
-                                      updatedItems[index].costAllocation.allocations[allocIndex].department = e.target.value;
-                                      setFormData({...formData, serviceItems: updatedItems});
-                                    }}
-                                    required
-                                    style={{ 
-                                      width: '100%',
-                                      padding: '0.5rem',
-                                      border: '1px solid #ced4da',
-                                      borderRadius: '4px',
-                                      fontSize: '0.9rem'
-                                    }}
-                                  >
-                                    <option value="">부서 선택</option>
-                                    {departments && departments.length > 0 ? (
-                                      departments.map(dept => (
-                                        <option key={dept.id} value={dept.name}>
-                                          {dept.name}
-                                        </option>
-                                      ))
-                                    ) : (
-                                      <option value="" disabled>부서 데이터 로딩 중...</option>
-                                    )}
-                                  </select>
+                                  <div style={{ position: 'relative' }}>
+                                    <input
+                                      type="text"
+                                      value={(() => {
+                                        const key = `service-${index}-${allocIndex}`;
+                                        const state = costDeptSearchStates[key];
+                                        return state?.show ? (state.term || '') : (allocation.department || '');
+                                      })()}
+                                      onFocus={() => handleCostDeptFocus('service', index, allocIndex)}
+                                      onChange={(e) => handleCostDeptSearch('service', index, allocIndex, e.target.value)}
+                                      onBlur={() => setTimeout(() => closeCostDeptDropdown('service', index, allocIndex), 200)}
+                                      placeholder="부서 검색..."
+                                      style={{
+                                        width: '100%',
+                                        padding: '0.5rem',
+                                        border: '1px solid #ced4da',
+                                        borderRadius: '4px',
+                                        fontSize: '0.9rem',
+                                        backgroundColor: allocation.department ? '#e3f2fd' : 'white'
+                                      }}
+                                    />
+                                    {(() => {
+                                      const key = `service-${index}-${allocIndex}`;
+                                      const state = costDeptSearchStates[key];
+                                      if (state?.show) {
+                                        const searchTerm = (state.term || '').toLowerCase();
+                                        const filtered = departments.filter(d => 
+                                          !searchTerm || d.name.toLowerCase().includes(searchTerm)
+                                        );
+                                        return (
+                                          <div style={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            right: 0,
+                                            maxHeight: '200px',
+                                            overflowY: 'auto',
+                                            backgroundColor: 'white',
+                                            border: '1px solid #ced4da',
+                                            borderRadius: '4px',
+                                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                            zIndex: 1000,
+                                            marginTop: '2px'
+                                          }}>
+                                            {filtered.length > 0 ? filtered.map(dept => (
+                                              <div
+                                                key={dept.id}
+                                                onMouseDown={() => selectCostDepartment('service', index, allocIndex, dept)}
+                                                style={{
+                                                  padding: '0.5rem',
+                                                  cursor: 'pointer',
+                                                  borderBottom: '1px solid #f0f0f0'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                                              >
+                                                {dept.name}
+                                              </div>
+                                            )) : (
+                                              <div style={{ padding: '0.5rem', color: '#999', textAlign: 'center' }}>
+                                                검색 결과 없음
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
+                                  </div>
                                 </td>
                                 <td style={{ 
                                   padding: '0.75rem', 
@@ -6114,32 +6389,86 @@ const ProposalForm = () => {
               </button>
             </div>
             
-            <div className="popup-filters">
-              <div className="filter-group">
-                <label>연도</label>
+            <div className="popup-filters" style={{
+              display: 'flex',
+              gap: '0.75rem',
+              alignItems: 'flex-end',
+              marginBottom: '1rem',
+              padding: '1rem',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px'
+            }}>
+              <div className="filter-group" style={{ flex: '0 0 auto', minWidth: '120px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '0.3rem', 
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  color: '#495057'
+                }}>예산유형</label>
+                <select 
+                  value={budgetType} 
+                  onChange={(e) => setBudgetType(e.target.value)}
+                  style={{
+                    padding: '0.4rem 0.5rem',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '0.9rem',
+                    width: '100%',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <option value="">전체</option>
+                  <option value="capital">자본예산</option>
+                  <option value="operating">전산운용비</option>
+                </select>
+              </div>
+              <div className="filter-group" style={{ flex: '0 0 auto', minWidth: '110px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '0.3rem', 
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  color: '#495057'
+                }}>연도</label>
                 <select 
                   value={selectedYear} 
                   onChange={(e) => setSelectedYear(e.target.value)}
+                  style={{
+                    padding: '0.4rem 0.5rem',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '0.9rem',
+                    width: '100%',
+                    backgroundColor: 'white'
+                  }}
                 >
-                  <option value="">전체 연도</option>
+                  <option value="">전체</option>
                   {getYearList().map(year => (
                     <option key={year} value={year}>{year}년</option>
                   ))}
                 </select>
               </div>
-              <div className="filter-group">
-                <label>사업예산명 검색</label>
+              <div className="filter-group" style={{ flex: '1 1 auto', minWidth: '200px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '0.3rem', 
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  color: '#495057'
+                }}>예산명 검색</label>
                 <input 
                   type="text"
                   value={searchBudgetName}
                   onChange={(e) => setSearchBudgetName(e.target.value)}
-                  placeholder="사업예산명을 입력하세요"
+                  placeholder="예산명을 입력하세요"
                   style={{
-                    padding: '0.5rem',
+                    padding: '0.4rem 0.5rem',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '0.9rem',
-                    width: '100%'
+                    width: '100%',
+                    backgroundColor: 'white'
                   }}
                 />
               </div>
@@ -6149,14 +6478,31 @@ const ProposalForm = () => {
               {filteredBudgets.length > 0 ? (
                 filteredBudgets.map(budget => {
                   const remainingAmount = (budget.budget_amount || 0) - (budget.executed_amount || 0);
+                  const budgetTypeLabel = budget.budgetType === 'operating' ? '전산운용비' : '자본예산';
+                  const budgetTypeColor = budget.budgetType === 'operating' ? '#28a745' : '#007bff';
                   return (
                     <div 
-                      key={budget.id} 
+                      key={`${budget.budgetType}-${budget.id}`} 
                       className="budget-item"
                       onClick={() => selectBudget(budget)}
                     >
                       <div className="budget-header">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <h4>{budget.project_name}</h4>
+                          <span 
+                            className="budget-type-badge"
+                            style={{
+                              backgroundColor: budgetTypeColor,
+                              color: 'white',
+                              padding: '0.2rem 0.5rem',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {budgetTypeLabel}
+                          </span>
+                        </div>
                         <span className="budget-year">{budget.budget_year}년</span>
                       </div>
                       <div className="budget-details">
@@ -6176,7 +6522,7 @@ const ProposalForm = () => {
                 })
               ) : (
                 <div className="no-results">
-                  <p>조건에 맞는 사업예산이 없습니다.</p>
+                  <p>조건에 맞는 예산이 없습니다.</p>
                 </div>
               )}
             </div>
