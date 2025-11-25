@@ -8,6 +8,7 @@ import BudgetDashboard from './components/BudgetDashboard';
 import BudgetProposalsView from './components/BudgetProposalsView';
 import BudgetRegistration from './components/BudgetRegistrationAPI';
 import BudgetHistory from './components/BudgetHistory';
+import OperatingBudgetManagement from './components/OperatingBudgetManagement';
 import ContractList from './components/ContractList';
 import DraftList from './components/DraftList';
 import ApprovalLine from './components/ApprovalLine';
@@ -119,6 +120,9 @@ function AppLayout({ children }) {
                   <Link to="/budget" className="dropdown-item">
                     사업예산관리(자본예산)
                   </Link>
+                  <Link to="/operating-budget" className="dropdown-item">
+                    사업예산관리(전산운용비)
+                  </Link>
                   <Link to="/budget-history" className="dropdown-item">
                     사업예산관리 변경이력
                   </Link>
@@ -222,6 +226,7 @@ function App() {
             <Route path="/budget-dashboard" element={<BudgetDashboard />} />
             <Route path="/budget-proposals" element={<BudgetProposalsView />} />
             <Route path="/budget" element={<BudgetRegistration />} />
+            <Route path="/operating-budget" element={<OperatingBudgetManagement />} />
             <Route path="/budget-history" element={<BudgetHistory />} />
             <Route path="/contract-list" element={<ContractList />} />
             <Route path="/draft-list" element={<DraftList />} />

@@ -309,10 +309,10 @@ const BudgetDashboard = () => {
         aValue = parseFloat(aValue) || 0;
         bValue = parseFloat(bValue) || 0;
       }
-      // 문자열 타입 처리
-      else if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
+      // 문자열 타입 처리 (null 체크 포함)
+      else if (typeof aValue === 'string' || typeof bValue === 'string') {
+        aValue = (aValue || '').toString().toLowerCase();
+        bValue = (bValue || '').toString().toLowerCase();
       }
 
       if (aValue < bValue) {

@@ -623,6 +623,7 @@ const ProposalForm = () => {
   // 사업예산 선택 팝업 상태
   const [showBudgetPopup, setShowBudgetPopup] = useState(false);
   const [selectedYear, setSelectedYear] = useState('');
+  const [searchBudgetName, setSearchBudgetName] = useState(''); // 사업예산명 검색어
   const [filteredBudgets, setFilteredBudgets] = useState([]);
   
   // 예산 팝업 드래그 상태
@@ -1248,7 +1249,7 @@ const ProposalForm = () => {
     if (businessBudgets.length > 0) {
       filterBudgets();
     }
-  }, [selectedYear]);
+  }, [selectedYear, searchBudgetName]);
 
   // 컴포넌트 언마운트 시 편집모드 상태 초기화
   useEffect(() => {
@@ -1344,14 +1345,24 @@ const ProposalForm = () => {
     
     let filtered = [...businessBudgets];
     
-    console.log('필터링 시작:', { selectedYear, totalBudgets: businessBudgets.length });
+    console.log('🔍 사업예산 필터링 시작:', { selectedYear, searchBudgetName, totalBudgets: businessBudgets.length });
     
+    // 연도 필터링
     if (selectedYear && selectedYear !== '') {
       filtered = filtered.filter(budget => budget.budget_year == selectedYear);
-      console.log('연도 필터링 후:', filtered.length);
+      console.log('✅ 연도 필터링 후:', filtered.length, '건');
     }
     
-    console.log('최종 필터링 결과:', filtered.length);
+    // 사업예산명 검색 필터링
+    if (searchBudgetName && searchBudgetName.trim() !== '') {
+      const searchTerm = searchBudgetName.trim().toLowerCase();
+      filtered = filtered.filter(budget => 
+        budget.project_name && budget.project_name.toLowerCase().includes(searchTerm)
+      );
+      console.log('✅ 사업예산명 검색 후:', filtered.length, '건 (검색어:', searchTerm, ')');
+    }
+    
+    console.log('🎯 최종 필터링 결과:', filtered.length, '건');
     setFilteredBudgets(filtered);
   };
 
@@ -1484,7 +1495,9 @@ const ProposalForm = () => {
 
   // 사업예산 선택 팝업 열기
   const openBudgetPopup = () => {
-    setSelectedYear('');
+    const currentYear = new Date().getFullYear();
+    setSelectedYear(currentYear); // 현재 연도로 기본 설정
+    setSearchBudgetName(''); // 검색어 초기화
     setFilteredBudgets(businessBudgets);
     setBudgetPopupPosition({ x: 0, y: 0 }); // 위치 초기화
     setShowBudgetPopup(true);
@@ -6113,6 +6126,22 @@ const ProposalForm = () => {
                     <option key={year} value={year}>{year}년</option>
                   ))}
                 </select>
+              </div>
+              <div className="filter-group">
+                <label>사업예산명 검색</label>
+                <input 
+                  type="text"
+                  value={searchBudgetName}
+                  onChange={(e) => setSearchBudgetName(e.target.value)}
+                  placeholder="사업예산명을 입력하세요"
+                  style={{
+                    padding: '0.5rem',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '0.9rem',
+                    width: '100%'
+                  }}
+                />
               </div>
             </div>
             

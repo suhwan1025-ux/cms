@@ -54,6 +54,8 @@ const BudgetRegistrationAPI = () => {
   const [showRegistrationForm, setShowRegistrationForm] = useState(false); // 등록 폼 표시 상태
   const [isEditMode, setIsEditMode] = useState(false); // 수정 모드 여부
   const [editingBudgetId, setEditingBudgetId] = useState(null); // 수정 중인 예산 ID
+  const [originalBudgetYear, setOriginalBudgetYear] = useState(null); // 수정 전 원래 사업연도
+  const [hasShownYearChangeAlert, setHasShownYearChangeAlert] = useState(false); // 연도 변경 알림 표시 여부
 
   // 조회 필터 상태
   const [searchFilters, setSearchFilters] = useState({
@@ -88,13 +90,18 @@ const BudgetRegistrationAPI = () => {
       예산: 150,
       추가예산: 120,
       기집행: 150,
+      집행대기: 120,
       확정집행액: 150,
       집행률: 80,
       미집행액: 120,
       예산초과액: 120,
       상태: 100,
       필수여부: 100,
-      사업목적: 150
+      사업목적: 150,
+      IT계획서: 100,
+      등록일: 100,
+      등록자: 100,
+      작업: 100
     };
   });
   const [resizingColumn, setResizingColumn] = useState(null);
@@ -276,20 +283,28 @@ const BudgetRegistrationAPI = () => {
         '발의부서': budget.initiatorDepartment || '-',
         '추진부서': budget.executorDepartment || '-',
         '예산분류': budget.budgetCategory || '-',
+        '사업시작월': budget.startDate || '-',
+        '사업종료월': budget.endDate || '-',
         '예산액': budget.budgetAmount || 0,
+        '추가예산': budget.additionalBudget || 0,
         '기집행': budget.executedAmount || 0,
         '집행대기': budget.pendingAmount || 0,
         '확정집행액': budget.confirmedExecutionAmount || 0,
+        '집행률': budget.executionRate || 0,
         '미집행액': budget.unexecutedAmount || 0,
         '예산초과액': budget.budgetExcessAmount || 0,
-        '추가예산': budget.additionalBudget || 0,
         '상태': budget.status || '-',
         '필수사업여부': budget.isEssential || '-',
         '사업목적': budget.projectPurpose || '-',
-        '사업기간': budget.startDate && budget.endDate 
-          ? `${budget.startDate} ~ ${budget.endDate}` 
-          : '-',
         'IT계획서보고': budget.itPlanReported ? 'Y' : 'N',
+        '등록일': budget.createdAt ? (() => {
+          const date = new Date(budget.createdAt);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })() : '-',
+        '등록자': budget.createdBy || '-',
         '보류취소사유': budget.holdCancelReason || '-',
         '비고': budget.notes || '-'
       }));
@@ -305,18 +320,22 @@ const BudgetRegistrationAPI = () => {
         { wch: 15 }, // 발의부서
         { wch: 15 }, // 추진부서
         { wch: 12 }, // 예산분류
+        { wch: 12 }, // 사업시작월
+        { wch: 12 }, // 사업종료월
         { wch: 15 }, // 예산액
+        { wch: 15 }, // 추가예산
         { wch: 15 }, // 기집행
         { wch: 15 }, // 집행대기
         { wch: 15 }, // 확정집행액
+        { wch: 10 }, // 집행률
         { wch: 15 }, // 미집행액
         { wch: 15 }, // 예산초과액
-        { wch: 15 }, // 추가예산
         { wch: 10 }, // 상태
         { wch: 12 }, // 필수사업여부
         { wch: 15 }, // 사업목적
-        { wch: 25 }, // 사업기간
         { wch: 12 }, // IT계획서보고
+        { wch: 12 }, // 등록일
+        { wch: 12 }, // 등록자
         { wch: 20 }, // 보류취소사유
         { wch: 30 }  // 비고
       ];
@@ -384,14 +403,18 @@ const BudgetRegistrationAPI = () => {
         pendingAmount: formData.pendingAmount ? parseInt(formData.pendingAmount.replace(/[^\d]/g, '')) : 0,
         additionalBudget: formData.additionalBudget ? parseInt(formData.additionalBudget.replace(/[^\d]/g, '')) : 0,
         isEssential: formData.isEssential === '필수' ? true : false,
+        budgetYear: parseInt(formData.budgetYear), // 명시적으로 budgetYear 포함
         createdBy: currentUserName // 작성자 정보 추가 (IP 기반 자동 인식)
       };
       // confirmedExecutionAmount, unexecutedAmount, budgetExcessAmount는 서버에서 자동 계산되므로 전송하지 않음
 
+      console.log('수정 모드:', isEditMode);
+      console.log('전송할 데이터:', submitData);
+      console.log('사업연도:', submitData.budgetYear);
+
       let response;
       if (isEditMode && editingBudgetId) {
-        // 수정 모드: budgetYear 제외 (수정 불가)
-        delete submitData.budgetYear;
+        // 수정 모드
         // 변경자 정보 추가 (변경이력 기록용)
         submitData.changedBy = currentUserName;
         response = await fetch(`${API_BASE_URL}/api/business-budgets/${editingBudgetId}`, {
@@ -403,8 +426,8 @@ const BudgetRegistrationAPI = () => {
         });
       } else {
         // 등록 모드
-        submitData.budgetYear = selectedYear;
-        submitData.status = '대기';
+        // budgetYear와 status는 formData에 이미 포함되어 있으므로 별도 설정 불필요
+        // (restFormData에서 이미 전달됨)
         response = await fetch(`${API_BASE_URL}/api/business-budgets`, {
           method: 'POST',
           headers: {
@@ -418,15 +441,12 @@ const BudgetRegistrationAPI = () => {
         // 폼 초기화
         resetForm();
         
-        // 데이터 다시 로드
+        // 데이터 다시 로드 (모든 연도 데이터 로드)
         const refreshResponse = await fetch(`${API_BASE_URL}/api/budget-statistics`);
         if (refreshResponse.ok) {
           const data = await refreshResponse.json();
           const budgets = data.budgetData || [];
-          const filteredData = budgets.filter(budget => 
-            budget.budgetYear === selectedYear
-          );
-          setBudgets(filteredData);
+          setBudgets(budgets);
         }
         
         alert(isEditMode ? '예산이 성공적으로 수정되었습니다.' : '예산이 성공적으로 등록되었습니다.');
@@ -444,6 +464,15 @@ const BudgetRegistrationAPI = () => {
   // 폼 입력 처리
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
+    // 사업연도 변경 디버깅
+    if (name === 'budgetYear') {
+      console.log('🔍 사업연도 변경 감지:');
+      console.log('  - 입력값:', value);
+      console.log('  - 현재 formData.budgetYear:', formData.budgetYear);
+      console.log('  - 수정 모드:', isEditMode);
+      console.log('  - 원래 연도:', originalBudgetYear);
+    }
     
     let processedValue = value;
     
@@ -465,6 +494,31 @@ const BudgetRegistrationAPI = () => {
         ...prev,
         [name]: type === 'checkbox' ? checked : processedValue
       };
+      
+      // 사업연도가 변경되면 사업목적 팝업 연도도 연동하고 사업목적 초기화
+      if (name === 'budgetYear') {
+        const newYear = parseInt(processedValue) || new Date().getFullYear();
+        setNewPurpose(prevPurpose => ({
+          ...prevPurpose,
+          year: newYear
+        }));
+        
+        // 수정 모드에서 원래 사업연도와 다르면 사업목적 초기화
+        if (isEditMode && originalBudgetYear && originalBudgetYear !== newYear) {
+          newFormData.projectPurpose = '';
+          // 사용자에게 알림 (한 번만)
+          if (!hasShownYearChangeAlert) {
+            setHasShownYearChangeAlert(true);
+            setTimeout(() => {
+              alert('사업연도가 변경되었습니다. 해당 연도에 맞는 사업목적을 다시 선택해주세요.');
+            }, 100);
+          }
+        }
+        // 등록 모드에서는 사업목적 초기화만 (알림 없음)
+        else if (!isEditMode) {
+          newFormData.projectPurpose = '';
+        }
+      }
       
       // 예산, 기집행액, 추가예산이 변경되면 미집행액과 예산초과액 자동 계산
       if (['budgetAmount', 'executedAmount', 'additionalBudget'].includes(name)) {
@@ -565,6 +619,8 @@ const BudgetRegistrationAPI = () => {
     setShowExecutorDropdown(false);
     setIsEditMode(false);
     setEditingBudgetId(null);
+    setOriginalBudgetYear(null);
+    setHasShownYearChangeAlert(false);
   };
 
   // 테이블 행 클릭 시 데이터 로드 (수정 모드로 전환)
@@ -590,7 +646,7 @@ const BudgetRegistrationAPI = () => {
       endDate: budget.endDate,
       isEssential: budget.isEssential === true || budget.isEssential === '필수' ? '필수' : '선택',
       projectPurpose: budget.projectPurpose,
-      budgetYear: budget.budgetYear, // 표시용으로만 사용 (수정 불가)
+      budgetYear: budget.budgetYear,
       status: budget.status || '대기',
       executedAmount: budget.executedAmount ? Math.round(budget.executedAmount).toLocaleString() : '',
       pendingAmount: budget.pendingAmount ? Math.round(budget.pendingAmount).toLocaleString() : '',
@@ -607,6 +663,8 @@ const BudgetRegistrationAPI = () => {
     setExecutorSearch(budget.executorDepartment);
     setIsEditMode(true);
     setEditingBudgetId(budget.id);
+    setOriginalBudgetYear(budget.budgetYear); // 원래 사업연도 저장
+    setHasShownYearChangeAlert(false); // 알림 표시 여부 초기화
     setShowRegistrationForm(true);
     
     // 폼이 있는 위치로 스크롤
@@ -615,18 +673,22 @@ const BudgetRegistrationAPI = () => {
 
   // 사업목적 팝업 열기
   const handleOpenPurposeModal = async () => {
-    setModalYear(selectedYear);
+    // 폼의 사업연도를 사용 (연동)
+    const yearToUse = formData.budgetYear || selectedYear;
+    setModalYear(yearToUse);
     setShowPurposeModal(true);
-    // 현재 선택된 연도의 사업목적 로드
-    await loadProjectPurposes(selectedYear);
+    // 폼의 사업연도에 해당하는 사업목적 로드
+    await loadProjectPurposes(yearToUse);
   };
 
   // 사업목적 팝업 닫기
   const handleClosePurposeModal = () => {
     setShowPurposeModal(false);
     setEditingPurpose(null);
-    setModalYear(selectedYear);
-    setNewPurpose({ code: '', description: '', year: selectedYear });
+    // 폼의 사업연도를 사용 (연동)
+    const yearToUse = formData.budgetYear || selectedYear;
+    setModalYear(yearToUse);
+    setNewPurpose({ code: '', description: '', year: yearToUse });
   };
 
   // 사업목적 로드 함수
@@ -845,13 +907,18 @@ const BudgetRegistrationAPI = () => {
       예산: 150,
       추가예산: 120,
       기집행: 150,
+      집행대기: 120,
       확정집행액: 150,
       집행률: 80,
       미집행액: 120,
       예산초과액: 120,
       상태: 100,
       필수여부: 100,
-      사업목적: 150
+      사업목적: 150,
+      IT계획서: 100,
+      등록일: 100,
+      등록자: 100,
+      작업: 100
     };
     setColumnWidths(defaultWidths);
     localStorage.removeItem('budgetRegistrationTableColumnWidths');
@@ -1070,15 +1137,12 @@ const BudgetRegistrationAPI = () => {
       });
 
       if (response.ok) {
-        // 데이터 다시 로드
+        // 데이터 다시 로드 (모든 연도 데이터 로드)
         const refreshResponse = await fetch(`${API_BASE_URL}/api/budget-statistics`);
         if (refreshResponse.ok) {
           const data = await refreshResponse.json();
           const budgets = data.budgetData || [];
-          const filteredData = budgets.filter(budget => 
-            budget.budgetYear === selectedYear
-          );
-          setBudgets(filteredData);
+          setBudgets(budgets);
         }
         
         alert('예산이 성공적으로 삭제되었습니다.');
@@ -1307,15 +1371,27 @@ const BudgetRegistrationAPI = () => {
                   </div>
                   
                   <div className="form-group">
-                    <label>사업연도 {isEditMode && '(수정 불가)'}</label>
+                    <label>
+                      사업연도 <span className="required">*</span>
+                      {isEditMode && (
+                        <span style={{ fontSize: '0.8em', color: '#856404', marginLeft: '0.5rem' }}>
+                          (수정 가능 - 변경 시 사업목적 재선택 필요)
+                        </span>
+                      )}
+                    </label>
                     <input
                       type="number"
                       name="budgetYear"
                       value={formData.budgetYear}
                       onChange={handleChange}
-                      disabled={isEditMode}
-                      style={{ backgroundColor: isEditMode ? '#e9ecef' : 'white', cursor: isEditMode ? 'not-allowed' : 'text' }}
                       required
+                      min="2000"
+                      max="2100"
+                      style={{ 
+                        backgroundColor: 'white',
+                        cursor: 'text'
+                      }}
+                      placeholder="예: 2025"
                     />
                   </div>
                 </div>
@@ -1397,7 +1473,14 @@ const BudgetRegistrationAPI = () => {
                   </div>
                   
                   <div className="form-group">
-                    <label>사업 목적 <span className="required">*</span></label>
+                    <label>
+                      사업 목적 <span className="required">*</span>
+                      {!formData.projectPurpose && isEditMode && (
+                        <span style={{ fontSize: '0.8em', color: '#dc3545', marginLeft: '0.5rem' }}>
+                          (필수 선택)
+                        </span>
+                      )}
+                    </label>
                     <input
                       type="text"
                       name="projectPurpose"
@@ -1406,7 +1489,10 @@ const BudgetRegistrationAPI = () => {
                       placeholder="클릭하여 사업목적 선택"
                       readOnly
                       required
-                      style={{ cursor: 'pointer' }}
+                      style={{ 
+                        cursor: 'pointer',
+                        backgroundColor: !formData.projectPurpose && isEditMode ? '#fff3cd' : 'white'
+                      }}
                     />
                   </div>
                   
@@ -1569,7 +1655,10 @@ const BudgetRegistrationAPI = () => {
               <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem' }}>사업연도</label>
               <select
                 value={searchFilters.budgetYear}
-                onChange={(e) => setSearchFilters({...searchFilters, budgetYear: parseInt(e.target.value)})}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchFilters({...searchFilters, budgetYear: value === '' ? '' : parseInt(value)});
+                }}
                 style={{ width: '100%', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px', fontSize: '0.85rem' }}
               >
                 <option value="">전체</option>
@@ -1841,8 +1930,9 @@ const BudgetRegistrationAPI = () => {
                   기 집행 {getSortIcon('executedAmount')}
                   <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '기집행'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('pendingAmount')}>
+                <th className="sortable" style={{ width: `${columnWidths['집행대기'] || 120}px`, position: 'relative' }} onClick={() => handleSort('pendingAmount')}>
                   집행대기 {getSortIcon('pendingAmount')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '집행대기'); }} />
                 </th>
                 <th className="sortable" style={{ width: `${columnWidths['확정집행액']}px`, position: 'relative' }} onClick={() => handleSort('confirmedExecutionAmount')}>
                   확정집행액 {getSortIcon('confirmedExecutionAmount')}
@@ -1872,14 +1962,21 @@ const BudgetRegistrationAPI = () => {
                   사업목적 {getSortIcon('projectPurpose')}
                   <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '사업목적'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('itPlanReported')}>
+                <th className="sortable" style={{ width: `${columnWidths['IT계획서'] || 100}px`, position: 'relative' }} onClick={() => handleSort('itPlanReported')}>
                   IT계획서 {getSortIcon('itPlanReported')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'IT계획서'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('createdAt')}>
+                <th className="sortable" style={{ width: `${columnWidths['등록일'] || 100}px`, position: 'relative' }} onClick={() => handleSort('createdAt')}>
                   등록일 {getSortIcon('createdAt')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '등록일'); }} />
                 </th>
-                <th className="sortable" onClick={() => handleSort('createdBy')}>
+                <th className="sortable" style={{ width: `${columnWidths['등록자'] || 100}px`, position: 'relative' }} onClick={() => handleSort('createdBy')}>
                   등록자 {getSortIcon('createdBy')}
+                  <div style={resizerStyle} onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, '등록자'); }} />
+                </th>
+                <th style={{ width: `${columnWidths['작업'] || 100}px`, textAlign: 'center', position: 'relative' }}>
+                  작업
+                  <div style={resizerStyle} onMouseDown={(e) => handleMouseDown(e, '작업')} />
                 </th>
               </tr>
             </thead>
@@ -1903,6 +2000,7 @@ const BudgetRegistrationAPI = () => {
                   <td>{budget.startDate}</td>
                   <td>{budget.endDate}</td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(budget.budgetAmount)}</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(budget.additionalBudget || 0)}</td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(budget.executedAmount || 0)}</td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(budget.pendingAmount || 0)}</td>
                   <td style={{ textAlign: 'right' }}>{formatCurrency(budget.confirmedExecutionAmount || 0)}</td>
@@ -1911,7 +2009,6 @@ const BudgetRegistrationAPI = () => {
                   <td style={{ textAlign: 'right', backgroundColor: budget.budgetExcessAmount > 0 ? '#fff3cd' : 'transparent', color: budget.budgetExcessAmount > 0 ? '#d9534f' : 'inherit', fontWeight: budget.budgetExcessAmount > 0 ? 'bold' : 'normal' }}>
                     {budget.budgetExcessAmount > 0 ? '⚠️ ' : ''}{formatCurrency(budget.budgetExcessAmount || 0)}
                   </td>
-                  <td style={{ textAlign: 'right' }}>{formatCurrency(budget.additionalBudget || 0)}</td>
                   <td>
                     <span style={{ color: getStatusColor(budget.status) }}>
                       {budget.status}
@@ -1929,6 +2026,25 @@ const BudgetRegistrationAPI = () => {
                     })() : '-'}
                   </td>
                   <td>{budget.createdBy || '-'}</td>
+                  <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
+                    <button
+                      onClick={() => handleDelete(budget.id)}
+                      style={{
+                        padding: '0.4rem 0.8rem',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        fontWeight: '500'
+                      }}
+                      onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
+                      onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
+                    >
+                      삭제
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

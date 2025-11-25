@@ -813,7 +813,7 @@ app.post('/api/business-budgets', async (req, res) => {
   }
 });
 
-// 3-5. 사업예산 수정 (번호, 사업연도, 등록일, 등록자 제외한 모든 항목 수정 가능)
+// 3-5. 사업예산 수정 (번호, 등록일, 등록자 제외한 모든 항목 수정 가능 - 사업연도 수정 가능)
 app.put('/api/business-budgets/:id', async (req, res) => {
   try {
     const budgetId = req.params.id;
@@ -833,6 +833,7 @@ app.put('/api/business-budgets/:id', async (req, res) => {
       projectName: 'project_name',
       initiatorDepartment: 'initiator_department',
       executorDepartment: 'executor_department',
+      budgetYear: 'budget_year',
       budgetCategory: 'budget_category',
       budgetAmount: 'budget_amount',
       startDate: 'start_date',
@@ -850,12 +851,13 @@ app.put('/api/business-budgets/:id', async (req, res) => {
       itPlanReported: 'it_plan_reported'
     };
     
-    // 사업예산 수정 (id, budget_year, created_at, created_by 제외)
+    // 사업예산 수정 (id, created_at, created_by 제외 - budget_year 수정 가능)
     await sequelize.query(`
       UPDATE business_budgets SET
         project_name = ?,
         initiator_department = ?,
         executor_department = ?,
+        budget_year = ?,
         budget_category = ?,
         budget_amount = ?,
         start_date = ?,
@@ -878,6 +880,7 @@ app.put('/api/business-budgets/:id', async (req, res) => {
         budgetData.projectName,
         budgetData.initiatorDepartment,
         budgetData.executorDepartment,
+        budgetData.budgetYear,
         budgetData.budgetCategory,
         budgetData.budgetAmount,
         budgetData.startDate,
@@ -1029,6 +1032,256 @@ app.post('/api/business-budgets/:id/approve', async (req, res) => {
     
     res.json({ message: '승인이 처리되었습니다.' });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== 전산운용비 예산 관리 API ====================
+
+// 전산운용비 예산 목록 조회
+app.get('/api/operating-budgets', async (req, res) => {
+  try {
+    const [results] = await sequelize.query(`
+      SELECT 
+        id,
+        fiscal_year,
+        account_subject,
+        budget_amount,
+        created_at,
+        updated_at
+      FROM operating_budgets
+      ORDER BY fiscal_year DESC, created_at DESC
+    `);
+    
+    res.json(results);
+  } catch (error) {
+    console.error('전산운용비 예산 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 전산운용비 예산 등록
+app.post('/api/operating-budgets', async (req, res) => {
+  try {
+    const { accountSubject, budgetAmount, fiscalYear } = req.body;
+
+    if (!accountSubject || !budgetAmount || !fiscalYear) {
+      return res.status(400).json({ error: '필수 필드를 입력해주세요.' });
+    }
+
+    const [result] = await sequelize.query(`
+      INSERT INTO operating_budgets (
+        fiscal_year, account_subject, budget_amount, created_at, updated_at
+      ) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `, {
+      replacements: [fiscalYear, accountSubject, budgetAmount]
+    });
+
+    res.json({ 
+      message: '등록되었습니다.',
+      id: result
+    });
+  } catch (error) {
+    console.error('전산운용비 예산 등록 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 전산운용비 예산 수정
+app.put('/api/operating-budgets/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { accountSubject, budgetAmount, fiscalYear } = req.body;
+
+    if (!accountSubject || !budgetAmount || !fiscalYear) {
+      return res.status(400).json({ error: '필수 필드를 입력해주세요.' });
+    }
+
+    await sequelize.query(`
+      UPDATE operating_budgets 
+      SET 
+        fiscal_year = ?,
+        account_subject = ?,
+        budget_amount = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, {
+      replacements: [fiscalYear, accountSubject, budgetAmount, id]
+    });
+
+    res.json({ message: '수정되었습니다.' });
+  } catch (error) {
+    console.error('전산운용비 예산 수정 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 전산운용비 예산 삭제
+app.delete('/api/operating-budgets/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await sequelize.query(`
+      DELETE FROM operating_budgets WHERE id = ?
+    `, {
+      replacements: [id]
+    });
+
+    res.json({ message: '삭제되었습니다.' });
+  } catch (error) {
+    console.error('전산운용비 예산 삭제 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 전산운용비 집행 내역 조회
+app.get('/api/operating-budget-executions', async (req, res) => {
+  try {
+    const { budgetId, fiscalYear } = req.query;
+    
+    let query = `
+      SELECT 
+        e.*,
+        b.fiscal_year,
+        b.account_subject as budget_account_subject
+      FROM operating_budget_executions e
+      LEFT JOIN operating_budgets b ON e.budget_id = b.id
+      WHERE 1=1
+    `;
+    const replacements = [];
+    
+    if (budgetId) {
+      query += ` AND e.budget_id = ?`;
+      replacements.push(budgetId);
+    }
+    
+    if (fiscalYear) {
+      query += ` AND b.fiscal_year = ?`;
+      replacements.push(fiscalYear);
+    }
+    
+    query += ` ORDER BY e.created_at DESC`;
+    
+    const [results] = await sequelize.query(query, { replacements });
+    res.json(results);
+  } catch (error) {
+    console.error('전산운용비 집행 내역 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 전산운용비 집행 내역 등록
+app.post('/api/operating-budget-executions', async (req, res) => {
+  try {
+    const { 
+      budgetId, accountSubject, sapDescription, 
+      contract, proposalName, confirmedExecutionAmount, executionAmount,
+      billingPeriod, costAttribution, fiscalYear
+    } = req.body;
+
+    if (!budgetId || !accountSubject) {
+      return res.status(400).json({ error: '필수 필드를 입력해주세요.' });
+    }
+
+    // 해당 연도 및 계정과목의 최대 번호 조회
+    const [maxNumber] = await sequelize.query(`
+      SELECT COALESCE(MAX(CAST(e.execution_number AS INTEGER)), 0) as max_num
+      FROM operating_budget_executions e
+      JOIN operating_budgets b ON e.budget_id = b.id
+      WHERE b.fiscal_year = ? AND e.account_subject = ?
+      AND e.execution_number ~ '^[0-9]+$'
+    `, {
+      replacements: [fiscalYear, accountSubject]
+    });
+
+    const nextNumber = (maxNumber[0]?.max_num || 0) + 1;
+    const executionNumber = nextNumber.toString();
+
+    const [result] = await sequelize.query(`
+      INSERT INTO operating_budget_executions (
+        budget_id, account_subject, execution_number, sap_description,
+        contract, proposal_name, confirmed_execution_amount, execution_amount,
+        billing_period, cost_attribution, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `, {
+      replacements: [
+        budgetId, accountSubject, executionNumber, sapDescription || null,
+        contract || null, proposalName || null, 
+        confirmedExecutionAmount || 0, executionAmount || 0,
+        billingPeriod || null, costAttribution || null
+      ]
+    });
+
+    res.json({ 
+      message: '등록되었습니다.',
+      id: result,
+      executionNumber: executionNumber
+    });
+  } catch (error) {
+    console.error('전산운용비 집행 내역 등록 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 전산운용비 집행 내역 수정
+app.put('/api/operating-budget-executions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      budgetId, accountSubject, sapDescription, 
+      contract, proposalName, confirmedExecutionAmount, executionAmount,
+      billingPeriod, costAttribution 
+    } = req.body;
+
+    if (!budgetId || !accountSubject) {
+      return res.status(400).json({ error: '필수 필드를 입력해주세요.' });
+    }
+
+    // 수정 시에는 기존 번호 유지
+    await sequelize.query(`
+      UPDATE operating_budget_executions 
+      SET 
+        budget_id = ?,
+        account_subject = ?,
+        sap_description = ?,
+        contract = ?,
+        proposal_name = ?,
+        confirmed_execution_amount = ?,
+        execution_amount = ?,
+        billing_period = ?,
+        cost_attribution = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, {
+      replacements: [
+        budgetId, accountSubject, sapDescription || null,
+        contract || null, proposalName || null, 
+        confirmedExecutionAmount || 0, executionAmount || 0,
+        billingPeriod || null, costAttribution || null, id
+      ]
+    });
+
+    res.json({ message: '수정되었습니다.' });
+  } catch (error) {
+    console.error('전산운용비 집행 내역 수정 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 전산운용비 집행 내역 삭제
+app.delete('/api/operating-budget-executions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await sequelize.query(`
+      DELETE FROM operating_budget_executions WHERE id = ?
+    `, {
+      replacements: [id]
+    });
+
+    res.json({ message: '삭제되었습니다.' });
+  } catch (error) {
+    console.error('전산운용비 집행 내역 삭제 오류:', error);
     res.status(500).json({ error: error.message });
   }
 });

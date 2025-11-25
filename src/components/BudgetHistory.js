@@ -80,10 +80,19 @@ const BudgetHistory = () => {
   };
 
   const applyFilters = () => {
+    console.log('=== 필터 적용 시작 ===');
+    console.log('filters.budgetYear:', filters.budgetYear, typeof filters.budgetYear);
+    console.log('전체 이력 개수:', histories.length);
+    
     let filtered = histories.filter(history => {
-      // 사업연도 필터
-      if (filters.budgetYear && history.budgetYear !== filters.budgetYear) {
-        return false;
+      // 사업연도 필터 (문자열과 숫자 비교 문제 해결)
+      if (filters.budgetYear && filters.budgetYear !== '') {
+        const filterYear = parseInt(filters.budgetYear);
+        const historyYear = parseInt(history.budgetYear);
+        console.log('필터 연도:', filterYear, '/ 이력 연도:', historyYear, '/ 일치:', filterYear === historyYear);
+        if (filterYear !== historyYear) {
+          return false;
+        }
       }
 
       // 사업명 필터
@@ -118,6 +127,8 @@ const BudgetHistory = () => {
       return true;
     });
 
+    console.log('필터링 결과:', filtered.length, '건');
+    console.log('=== 필터 적용 완료 ===');
     setFilteredHistories(filtered);
   };
 
@@ -247,7 +258,7 @@ const BudgetHistory = () => {
           </div>
 
           <div className="filter-item">
-            <label>시작 날짜</label>
+            <label>시작 날짜 (변경일시)</label>
             <input
               type="date"
               name="startDate"
@@ -257,7 +268,7 @@ const BudgetHistory = () => {
           </div>
 
           <div className="filter-item">
-            <label>종료 날짜</label>
+            <label>종료 날짜 (변경일시)</label>
             <input
               type="date"
               name="endDate"
