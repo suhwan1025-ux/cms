@@ -266,19 +266,49 @@
   word-break: break-all;
 }
 
+.task-management .shared-folder-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .task-management .link-button {
   background: none;
   border: none;
   color: #2196F3;
-  text-decoration: underline;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 8px;
   font-size: 14px;
   text-align: left;
+  border-radius: 4px;
+  transition: all 0.2s;
+  flex: 1;
 }
 
 .task-management .link-button:hover {
+  background: #E3F2FD;
   color: #1565C0;
+}
+
+.task-management .icon-button {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  color: #666;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 16px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-management .icon-button:hover {
+  background: #e0e0e0;
+  border-color: #bbb;
 }
 
 .task-management .text-muted {

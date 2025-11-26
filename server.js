@@ -1047,12 +1047,21 @@ app.get('/api/operating-budgets', async (req, res) => {
         ob.fiscal_year,
         ob.account_subject,
         ob.budget_amount,
-        COALESCE(SUM(obe.execution_amount), 0) as executed_amount,
+        COALESCE(proposal_executions.executed_amount, 0) as executed_amount,
+        COALESCE(proposal_executions.proposal_count, 0) as executed_proposal_count,
         ob.created_at,
         ob.updated_at
       FROM operating_budgets ob
-      LEFT JOIN operating_budget_executions obe ON ob.id = obe.budget_id
-      GROUP BY ob.id, ob.fiscal_year, ob.account_subject, ob.budget_amount, ob.created_at, ob.updated_at
+      LEFT JOIN (
+        SELECT 
+          p.operating_budget_id as budget_id,
+          SUM(p.total_amount) as executed_amount,
+          COUNT(p.id) as proposal_count
+        FROM proposals p
+        WHERE p.status = 'approved' AND p.operating_budget_id IS NOT NULL
+        GROUP BY p.operating_budget_id
+      ) as proposal_executions ON ob.id = proposal_executions.budget_id
+      GROUP BY ob.id, ob.fiscal_year, ob.account_subject, ob.budget_amount, ob.created_at, ob.updated_at, proposal_executions.executed_amount, proposal_executions.proposal_count
       ORDER BY ob.fiscal_year DESC, ob.created_at DESC
     `);
     
@@ -5089,10 +5098,17 @@ app.get('/api/work-reports', async (req, res) => {
       order: [['approvalDate', 'DESC'], ['createdAt', 'DESC']]
     });
     
-    // business_budgets 테이블에서 예산 정보 조회
+    // 사업예산 정보 조회 (자본예산 + 전산운용비)
     const budgetIds = [...new Set(proposals.map(p => p.budgetId).filter(id => id !== null))];
+    const operatingBudgetIds = [...new Set(proposals.map(p => p.operatingBudgetId).filter(id => id !== null))];
     let budgetMap = {};
     
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📊 [업무보고] 예산 정보 조회');
+    console.log('   자본예산 IDs:', budgetIds);
+    console.log('   전산운용비 IDs:', operatingBudgetIds);
+    
+    // 자본예산 조회
     if (budgetIds.length > 0) {
       const [budgetResults] = await sequelize.query(`
         SELECT id, project_name, budget_amount, budget_year, initiator_department
@@ -5100,16 +5116,44 @@ app.get('/api/work-reports', async (req, res) => {
         WHERE id IN (${budgetIds.join(',')})
       `);
       
+      console.log('   자본예산 조회 결과:', budgetResults.length, '개');
+      
       budgetResults.forEach(b => {
-        budgetMap[b.id] = {
+        budgetMap['capital_' + b.id] = {
           id: b.id,
           name: b.project_name,
           totalAmount: parseFloat(b.budget_amount || 0),
           year: b.budget_year,
-          department: b.initiator_department
+          department: b.initiator_department,
+          type: '자본예산'
         };
       });
     }
+    
+    // 전산운용비 조회
+    if (operatingBudgetIds.length > 0) {
+      const [operatingResults] = await sequelize.query(`
+        SELECT id, account_subject, budget_amount, fiscal_year
+        FROM operating_budgets
+        WHERE id IN (${operatingBudgetIds.join(',')})
+      `);
+      
+      console.log('   전산운용비 조회 결과:', operatingResults.length, '개');
+      
+      operatingResults.forEach(b => {
+        budgetMap['operating_' + b.id] = {
+          id: b.id,
+          name: b.account_subject,
+          totalAmount: parseFloat(b.budget_amount || 0),
+          year: b.fiscal_year,
+          department: '',
+          type: '전산운용비'
+        };
+      });
+    }
+    
+    console.log('   BudgetMap 키:', Object.keys(budgetMap));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     
     // 계약 유형별 집계
     const contractTypeStats = {};
@@ -5194,30 +5238,39 @@ app.get('/api/work-reports', async (req, res) => {
     let totalExecutionAmount = 0;
     
     try {
-      // 1. 조회기간 내 품의서에서 사용된 예산 집계
-      const budgetUsage = {};
+      // 1. 조회기간 내 품의서에서 사용된 예산 집계 (자본예산 + 전산운용비)
+      const budgetUsage = {};  // 자본예산
+      const operatingBudgetUsage = {};  // 전산운용비
+      
       proposals.forEach(proposal => {
-        const budgetId = proposal.budgetId;
-        if (budgetId) {
-          if (!budgetUsage[budgetId]) {
-            budgetUsage[budgetId] = 0;
+        if (proposal.budgetId) {
+          // 자본예산
+          if (!budgetUsage[proposal.budgetId]) {
+            budgetUsage[proposal.budgetId] = 0;
           }
-          budgetUsage[budgetId] += parseFloat(proposal.totalAmount || 0);
+          budgetUsage[proposal.budgetId] += parseFloat(proposal.totalAmount || 0);
+        } else if (proposal.operatingBudgetId) {
+          // 전산운용비
+          if (!operatingBudgetUsage[proposal.operatingBudgetId]) {
+            operatingBudgetUsage[proposal.operatingBudgetId] = 0;
+          }
+          operatingBudgetUsage[proposal.operatingBudgetId] += parseFloat(proposal.totalAmount || 0);
         }
       });
       
-      // 실제 사용된 budgetId만 조회
+      // 실제 사용된 budgetId 조회
       const usedBudgetIds = Object.keys(budgetUsage);
+      const usedOperatingBudgetIds = Object.keys(operatingBudgetUsage);
       
+      // 2. 자본예산 처리
       if (usedBudgetIds.length > 0) {
-        // 2. business_budgets 테이블에서 사용된 예산만 조회
         const [usedBudgets] = await sequelize.query(`
           SELECT id, project_name, budget_amount, budget_year, initiator_department
           FROM business_budgets
           WHERE id IN (${usedBudgetIds.join(',')})
         `);
         
-        // 3. 전체 기간의 누적 집행액 계산 (결재완료된 모든 품의서)
+        // 누적 집행액 계산
         const [cumulativeExecution] = await sequelize.query(`
           SELECT budget_id, SUM(total_amount) as cumulative_amount
           FROM proposals
@@ -5226,23 +5279,18 @@ app.get('/api/work-reports', async (req, res) => {
           GROUP BY budget_id
         `);
         
-        // 누적 집행액 맵 생성
         const cumulativeMap = {};
         cumulativeExecution.forEach(row => {
           cumulativeMap[row.budget_id] = parseFloat(row.cumulative_amount || 0);
         });
         
-        // 4. 예산별 집행률 계산
         usedBudgets.forEach(budget => {
-          const budgetName = budget.project_name || '미지정';
+          const budgetName = `[자본] ${budget.project_name || '미지정'}`;
           const budgetAmount = parseFloat(budget.budget_amount || 0);
-          const executionAmount = budgetUsage[budget.id] || 0; // 조회기간
-          const confirmedExecutionAmount = cumulativeMap[budget.id] || 0; // 누적
+          const executionAmount = budgetUsage[budget.id] || 0;
+          const confirmedExecutionAmount = cumulativeMap[budget.id] || 0;
           
-          // 집행률 = (확정집행액(누적) / 예산액) × 100
           const executionRate = budgetAmount > 0 ? (confirmedExecutionAmount / budgetAmount) * 100 : 0;
-          
-          // 집행률 증감 = (확정집행액(조회기간) / 예산액) × 100
           const executionRateChange = budgetAmount > 0 ? (executionAmount / budgetAmount) * 100 : 0;
           
           totalBudgetAmount += budgetAmount;
@@ -5250,12 +5298,60 @@ app.get('/api/work-reports', async (req, res) => {
           
           budgetStats[budgetName] = {
             budgetId: budget.id,
+            budgetType: '자본예산',
             budgetAmount,
-            executionAmount, // 조회기간
-            confirmedExecutionAmount, // 누적 (실제 품의서 데이터 기반)
+            executionAmount,
+            confirmedExecutionAmount,
             executionCount: 0,
-            executionRate, // 누적 기준 집행률
-            executionRateChange // 조회기간 동안의 증감률
+            executionRate,
+            executionRateChange
+          };
+        });
+      }
+      
+      // 3. 전산운용비 처리
+      if (usedOperatingBudgetIds.length > 0) {
+        const [usedOperatingBudgets] = await sequelize.query(`
+          SELECT id, account_subject, budget_amount, fiscal_year
+          FROM operating_budgets
+          WHERE id IN (${usedOperatingBudgetIds.join(',')})
+        `);
+        
+        // 누적 집행액 계산
+        const [cumulativeOperatingExecution] = await sequelize.query(`
+          SELECT operating_budget_id, SUM(total_amount) as cumulative_amount
+          FROM proposals
+          WHERE status = 'approved'
+          AND operating_budget_id IN (${usedOperatingBudgetIds.join(',')})
+          GROUP BY operating_budget_id
+        `);
+        
+        const cumulativeOperatingMap = {};
+        cumulativeOperatingExecution.forEach(row => {
+          cumulativeOperatingMap[row.operating_budget_id] = parseFloat(row.cumulative_amount || 0);
+        });
+        
+        usedOperatingBudgets.forEach(budget => {
+          const budgetName = `[운영] ${budget.account_subject || '미지정'}`;
+          const budgetAmount = parseFloat(budget.budget_amount || 0);
+          const executionAmount = operatingBudgetUsage[budget.id] || 0;
+          const confirmedExecutionAmount = cumulativeOperatingMap[budget.id] || 0;
+          
+          const executionRate = budgetAmount > 0 ? (confirmedExecutionAmount / budgetAmount) * 100 : 0;
+          const executionRateChange = budgetAmount > 0 ? (executionAmount / budgetAmount) * 100 : 0;
+          
+          totalBudgetAmount += budgetAmount;
+          totalExecutionAmount += executionAmount;
+          
+          budgetStats[budgetName] = {
+            budgetId: budget.id,
+            budgetType: '전산운용비',
+            budgetAmount,
+            executionAmount,
+            confirmedExecutionAmount,
+            executionCount: 0,
+            executionRate,
+            executionRateChange
           };
         });
       }
@@ -5650,8 +5746,26 @@ app.get('/api/work-reports', async (req, res) => {
       departmentStats,
       budgetStats,
       personnelStats,
-      proposals: proposals.map(p => {
-        const budget = budgetMap[p.budgetId];
+      proposals: proposals.map((p, index) => {
+        // 자본예산 또는 전산운용비 예산 정보 가져오기
+        let budget = null;
+        let budgetKey = null;
+        
+        if (p.budgetId) {
+          budgetKey = 'capital_' + p.budgetId;
+          budget = budgetMap[budgetKey];
+        } else if (p.operatingBudgetId) {
+          budgetKey = 'operating_' + p.operatingBudgetId;
+          budget = budgetMap[budgetKey];
+        }
+        
+        // 처음 2개 품의서만 로그 출력 (디버깅용)
+        if (index < 2) {
+          console.log(`\n[품의서 ${p.id}] budgetId:${p.budgetId} | operatingBudgetId:${p.operatingBudgetId}`);
+          console.log(`  budgetKey: ${budgetKey || '없음'}`);
+          console.log(`  budget 찾음: ${budget ? 'O' : 'X'} | budgetName: ${budget?.name || '-'}`);
+        }
+        
         return {
           id: p.id,
           title: p.title,
@@ -5662,7 +5776,9 @@ app.get('/api/work-reports', async (req, res) => {
           approvalDate: p.approvalDate,
           createdBy: p.createdBy,
           budgetId: p.budgetId,
+          operatingBudgetId: p.operatingBudgetId,
           budgetName: budget?.name || '-',
+          budgetType: budget?.type || '-',
           budgetAmount: budget?.totalAmount || 0,
           requestDepartments: p.requestDepartments?.map(d => d.department) || []
         };

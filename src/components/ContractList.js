@@ -17,6 +17,7 @@ const ContractList = () => {
   const [selectedContract, setSelectedContract] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [contractMethodsMap, setContractMethodsMap] = useState({}); // 계약방식 매핑
   
   // 무한 스크롤 관련 상태
   const [page, setPage] = useState(0);
@@ -39,6 +40,30 @@ const ContractList = () => {
   
   // 재활용 기능을 위한 navigate 추가
   const navigate = useNavigate();
+
+  // 계약방식 목록 가져오기
+  const fetchContractMethods = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/contract-methods`);
+      if (response.ok) {
+        const methods = await response.json();
+        // value를 키로, name을 값으로 하는 매핑 객체 생성
+        const map = {};
+        methods.forEach(method => {
+          map[method.value] = method.name;
+        });
+        setContractMethodsMap(map);
+        console.log('✅ 계약방식 매핑 로드 완료:', map);
+      }
+    } catch (error) {
+      console.error('계약방식 로드 오류:', error);
+    }
+  };
+
+  // 초기화
+  useEffect(() => {
+    fetchContractMethods();
+  }, []);
 
   // 전역 메시지 리스너 제거됨 (직접 함수 호출 방식 사용)
   
@@ -69,6 +94,53 @@ const ContractList = () => {
         '입찰계약': '입찰계약'
       };
       return typeMapping[type] || type;
+    };
+
+    // 계약방식 한글 변환 (DB 기반 + Fallback)
+    const getContractMethodText = (method) => {
+      if (!method) return '-';
+      
+      // 이미 한글이면 그대로 반환
+      if (/[가-힣]/.test(method) && !method.includes('_')) {
+        return method;
+      }
+      
+      // 1순위: DB에서 가져온 매핑 사용
+      if (contractMethodsMap[method]) {
+        return contractMethodsMap[method];
+      }
+      
+      // 2순위: Fallback 매핑 (구버전 코드)
+      const fallbackMap = {
+        // 구버전 영문 코드 - 수의계약 제6조 제1항
+        'private_contract_6_1_a': '수의계약(제6조 제1항의 가)',
+        'private_contract_6_1_b': '수의계약(제6조 제1항의 나)',
+        'private_contract_6_1_c': '수의계약(제6조 제1항의 다)',
+        'private_contract_6_1_d': '수의계약(제6조 제1항의 라)',
+        'private_contract_6_1_e': '수의계약(제6조 제1항의 마)',
+        
+        // 구버전 영문 코드 - 수의계약 제6조 제2항
+        'private_contract_6_2_a': '수의계약(제6조 제2항의 가)',
+        'private_contract_6_2_b': '수의계약(제6조 제2항의 나)',
+        'private_contract_6_2_c': '수의계약(제6조 제2항의 다)',
+        'private_contract_6_2_d': '수의계약(제6조 제2항의 라)',
+        'private_contract_6_2_e': '수의계약(제6조 제2항의 마)',
+        'private_contract_6_2_f': '수의계약(제6조 제2항의 바)',
+        'private_contract_6_2_g': '수의계약(제6조 제2항의 사)',
+        
+        // 구버전 영문 코드 (일반)
+        'private_contract': '수의계약',
+        'general_competition': '경쟁계약(일반경쟁계약)',
+        'limited_competition': '경쟁계약(제한경쟁계약)',
+        'designated_competition': '경쟁계약(지명경쟁계약)',
+        'negotiated_competition': '경쟁계약(협상에 의한 계약)',
+        'lowest_price': '최저가 계약',
+        'lowest': '최저가 계약',
+        'bidding': '입찰',
+        'competition': '경쟁입찰'
+      };
+      
+      return fallbackMap[method] || method;
     };
 
     // HTML 문자열 생성
@@ -112,7 +184,7 @@ const ContractList = () => {
     html += '<table class="info-table"><tbody>';
     html += '<tr><th>계약명</th><td>' + (contract.title || '-') + '</td></tr>';
     html += '<tr><th>계약 유형</th><td>' + getContractTypeName(contract.type) + '</td></tr>';
-    html += '<tr><th>계약 방식</th><td>' + (contract.contractMethod || '-') + '</td></tr>';
+    html += '<tr><th>계약 방식</th><td>' + getContractMethodText(contract.contractMethod) + '</td></tr>';
     html += '<tr><th>사업 목적</th><td>' + (contract.purpose || '-') + '</td></tr>';
     html += '<tr><th>근거</th><td>' + (contract.basis || '-') + '</td></tr>';
     html += '<tr><th>예산</th><td>' + (contract.budget || '-') + '</td></tr>';
@@ -1191,7 +1263,7 @@ const ContractList = () => {
             
             recycleBtn.onclick = () => {
               if (previewWindow.confirm('이 품의서를 재활용하여 새로운 품의서를 작성하시겠습니까?')) {
-                // 부모 창의 함수 호출
+                // 부모 창의 함수 호출 - contract 전달 (기본 데이터)
                 window.handleRecycleProposal(contract);
                 previewWindow.close();
               }
@@ -1300,6 +1372,12 @@ const ContractList = () => {
       const originalData = await response.json();
       console.log('🔍 원본 품의서 데이터:', originalData);
       console.log('🔍 원본 품의서 키들:', Object.keys(originalData));
+      console.log('🔍 예산 정보 확인:', {
+        budgetId: originalData.budgetId,
+        operatingBudgetId: originalData.operatingBudgetId,
+        budget: originalData.budget,
+        budgetInfo: originalData.budgetInfo
+      });
       console.log('🔍 구매품목 비용분배 정보 확인:');
       if (originalData.purchaseItems) {
         originalData.purchaseItems.forEach((item, index) => {
@@ -1311,6 +1389,26 @@ const ContractList = () => {
         });
       }
       
+      // 예산 ID 결정 (우선순위: budgetId > operatingBudgetId)
+      let budgetValue = '';
+      let budgetType = 'capital';
+      
+      if (originalData.budgetId) {
+        budgetValue = originalData.budgetId;
+        budgetType = 'capital';
+      } else if (originalData.operatingBudgetId) {
+        budgetValue = originalData.operatingBudgetId;
+        budgetType = 'operating';
+      } else if (originalData.budget) {
+        budgetValue = originalData.budget;
+        // budgetInfo가 있으면 budgetType 확인
+        if (originalData.budgetInfo?.budgetType === '전산운용비') {
+          budgetType = 'operating';
+        }
+      }
+      
+      console.log('🔍 재활용 예산 결정:', { budgetValue, budgetType });
+      
       // 재활용용 데이터 준비 (기존 수정 기능과 동일한 방식으로 처리)
       const recycleData = {
         // 기본 정보 복사
@@ -1318,9 +1416,9 @@ const ContractList = () => {
         title: `[재활용] ${originalData.title || originalData.purpose || ''}`,
         purpose: `[재활용] ${originalData.purpose || ''}`,
         basis: originalData.basis || '',
-        // 사업예산은 budgetId 또는 operatingBudgetId 사용
-        budget: originalData.budgetId || originalData.operatingBudgetId || originalData.budget || '',
-        selectedBudgetType: originalData.operatingBudgetId ? 'operating' : 'capital',
+        // 사업예산은 결정된 값 사용
+        budget: budgetValue,
+        selectedBudgetType: budgetType,
         contractMethod: originalData.contractMethod || '',
         accountSubject: originalData.accountSubject || '',
         
@@ -1471,12 +1569,16 @@ const ContractList = () => {
           contractPeriodType: item.contractPeriodType,
           contractStartDate: item.contractStartDate,
           contractEndDate: item.contractEndDate,
-          costAllocations: item.costAllocations?.map(alloc => ({
-            id: alloc.id,
-            department: alloc.department,
-            amount: alloc.amount,
-            ratio: alloc.ratio
-          })) || []
+          // 비용분배 정보 (ProposalForm 구조에 맞게 변환)
+          costAllocation: {
+            type: item.costAllocation?.type || 'percentage',
+            allocations: (item.costAllocation?.allocations || []).map(alloc => ({
+              id: alloc.id || Date.now() + Math.random(),
+              department: alloc.department || '',
+              type: alloc.type || 'percentage',
+              value: parseFloat(alloc.value) || 0
+            }))
+          }
         })) || [],
         
         // 용역항목
@@ -1710,6 +1812,53 @@ const ContractList = () => {
       console.error('결재완료일 업데이트 오류:', error);
       alert('결재완료일 업데이트에 실패했습니다.');
     }
+  };
+
+  // 계약방식 한글 변환 함수 (DB 기반 + Fallback)
+  const getContractMethodText = (method) => {
+    if (!method) return '-';
+    
+    // 이미 한글이면 그대로 반환
+    if (/[가-힣]/.test(method) && !method.includes('_')) {
+      return method;
+    }
+    
+    // 1순위: DB에서 가져온 매핑 사용
+    if (contractMethodsMap[method]) {
+      return contractMethodsMap[method];
+    }
+    
+    // 2순위: Fallback 매핑 (구버전 코드)
+    const fallbackMap = {
+      // 구버전 영문 코드 - 수의계약 제6조 제1항
+      'private_contract_6_1_a': '수의계약(제6조 제1항의 가)',
+      'private_contract_6_1_b': '수의계약(제6조 제1항의 나)',
+      'private_contract_6_1_c': '수의계약(제6조 제1항의 다)',
+      'private_contract_6_1_d': '수의계약(제6조 제1항의 라)',
+      'private_contract_6_1_e': '수의계약(제6조 제1항의 마)',
+      
+      // 구버전 영문 코드 - 수의계약 제6조 제2항
+      'private_contract_6_2_a': '수의계약(제6조 제2항의 가)',
+      'private_contract_6_2_b': '수의계약(제6조 제2항의 나)',
+      'private_contract_6_2_c': '수의계약(제6조 제2항의 다)',
+      'private_contract_6_2_d': '수의계약(제6조 제2항의 라)',
+      'private_contract_6_2_e': '수의계약(제6조 제2항의 마)',
+      'private_contract_6_2_f': '수의계약(제6조 제2항의 바)',
+      'private_contract_6_2_g': '수의계약(제6조 제2항의 사)',
+      
+      // 구버전 영문 코드 (일반)
+      'private_contract': '수의계약',
+      'general_competition': '경쟁계약(일반경쟁계약)',
+      'limited_competition': '경쟁계약(제한경쟁계약)',
+      'designated_competition': '경쟁계약(지명경쟁계약)',
+      'negotiated_competition': '경쟁계약(협상에 의한 계약)',
+      'lowest_price': '최저가 계약',
+      'lowest': '최저가 계약',
+      'bidding': '입찰',
+      'competition': '경쟁입찰'
+    };
+    
+    return fallbackMap[method] || method;
   };
 
   if (loading) {
@@ -2251,7 +2400,7 @@ const ContractList = () => {
                   </div>
                   <div className="detail-item">
                     <label>계약방식:</label>
-                    <span>{selectedContract.contractMethod}</span>
+                    <span>{getContractMethodText(selectedContract.contractMethod)}</span>
                   </div>
                   {(selectedContract.type === '구매계약' || selectedContract.type === '변경계약' || selectedContract.type === '연장계약') && (
                     <>

@@ -19,6 +19,7 @@ import TaskManagement from './components/TaskManagement';
 import TemplateManagement from './components/TemplateManagement';
 import WorkReport from './components/WorkReport';
 import PersonnelManagement from './components/PersonnelManagement';
+import PersonnelRegister from './components/PersonnelRegister';
 import ExternalPersonnelManagement from './components/ExternalPersonnelManagement';
 import ProjectManagement from './components/ProjectManagement';
 
@@ -235,6 +236,7 @@ function App() {
             <Route path="/tasks" element={<TaskManagement />} />
             <Route path="/templates" element={<TemplateManagement />} />
             <Route path="/personnel" element={<PersonnelManagement />} />
+            <Route path="/personnel/register" element={<PersonnelRegister />} />
             <Route path="/external-personnel" element={<ExternalPersonnelManagement />} />
             <Route path="/work-report" element={<WorkReport />} />
             <Route path="/project-management" element={<ProjectManagement />} />

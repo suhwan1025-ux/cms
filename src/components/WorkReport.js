@@ -301,7 +301,13 @@ const WorkReport = () => {
                     <td>{proposal.title || '제목없음'}</td>
                     <td>{getContractTypeName(proposal.contractType, proposal.contractMethod)}</td>
                     <td>{formatAmount(proposal.totalAmount)} 원</td>
-                    <td>{proposal.budgetName}</td>
+                    <td>
+                      {proposal.budgetName && proposal.budgetName !== '-' ? (
+                        <span title={`${proposal.budgetType || ''}`}>
+                          {proposal.budgetName}
+                        </span>
+                      ) : '-'}
+                    </td>
                     <td>{proposal.requestDepartments.join(', ') || '-'}</td>
                     <td>{proposal.createdBy || '-'}</td>
                     <td>{new Date(proposal.createdAt).toLocaleDateString('ko-KR')}</td>

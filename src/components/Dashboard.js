@@ -23,6 +23,7 @@ const Dashboard = () => {
   const [monthlyPersonnelCost, setMonthlyPersonnelCost] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [contractMethodsMap, setContractMethodsMap] = useState({}); // 계약방식 매핑
   
   // 컬럼 리사이징 관련 상태
   const [columnWidths, setColumnWidths] = useState(() => {
@@ -50,13 +51,38 @@ const Dashboard = () => {
   const [selectedContracts, setSelectedContracts] = useState([]);
   const [selectedProjectInfo, setSelectedProjectInfo] = useState({});
   
+  // 계약유형별 품의서 모달 관련 상태
+  const [showContractTypeModal, setShowContractTypeModal] = useState(false);
+  const [selectedContractType, setSelectedContractType] = useState(''); // 'lowest', 'competitive', 'private'
+  const [contractTypeProposals, setContractTypeProposals] = useState([]);
+  
   // 사업예산 필터
   const [budgetStatusFilter, setBudgetStatusFilter] = useState('전체');
   const [budgetYearFilter, setBudgetYearFilter] = useState('전체');
 
   useEffect(() => {
+    fetchContractMethods();
     fetchDashboardData();
   }, []);
+
+  // 계약방식 목록 가져오기
+  const fetchContractMethods = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/contract-methods`);
+      if (response.ok) {
+        const methods = await response.json();
+        // value를 키로, name을 값으로 하는 매핑 객체 생성
+        const map = {};
+        methods.forEach(method => {
+          map[method.value] = method.name;
+        });
+        setContractMethodsMap(map);
+        console.log('✅ 계약방식 매핑 로드 완료:', map);
+      }
+    } catch (error) {
+      console.error('계약방식 로드 오류:', error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -241,22 +267,51 @@ const Dashboard = () => {
         private: 0         // 수의계약
       };
       
+      const contractMethodProposals = {
+        lowest: [],
+        competitive: [],
+        private: []
+      };
+      
       approvedProposals.forEach(proposal => {
         const method = proposal.contractMethod || '';
         
-        // 최저가 계약
-        if (method.includes('최저가')) {
+        // 최저가 계약 (CM04 + 한글 + 영문 코드)
+        if (
+          method === 'CM04' ||
+          method.includes('최저가') || 
+          method.includes('lowest')
+        ) {
           contractMethodStats.lowestPrice++;
+          contractMethodProposals.lowest.push(proposal);
         }
-        // 경쟁계약 (일반, 제한, 지명, 협상)
-        else if (method.includes('경쟁') || method.includes('입찰')) {
+        // 경쟁계약 (CM05-CM08 + 한글 + 영문 코드)
+        else if (
+          method === 'CM05' || method === 'CM06' || method === 'CM07' || method === 'CM08' ||
+          method.includes('경쟁') || 
+          method.includes('입찰') ||
+          method.includes('competition') ||
+          method.includes('bidding')
+        ) {
           contractMethodStats.competitive++;
+          contractMethodProposals.competitive.push(proposal);
         }
-        // 수의계약
-        else if (method.includes('수의')) {
+        // 수의계약 (CM10-CM21 + 한글 + 영문 코드)
+        else if (
+          method === 'CM10' || method === 'CM11' || method === 'CM12' || method === 'CM13' || method === 'CM14' ||
+          method === 'CM15' || method === 'CM16' || method === 'CM17' || method === 'CM18' || method === 'CM19' ||
+          method === 'CM20' || method === 'CM21' ||
+          method.includes('수의') || 
+          method.includes('private_contract') ||
+          method.startsWith('private_contract_6_')  // 구버전 상세 코드 (private_contract_6_1_a 등)
+        ) {
           contractMethodStats.private++;
+          contractMethodProposals.private.push(proposal);
         }
       });
+      
+      // contractMethodProposals를 상태로 저장
+      window.dashboardContractMethodProposals = contractMethodProposals;
       
       setStats({
         approvedProposals: approvedProposals.length,
@@ -269,11 +324,18 @@ const Dashboard = () => {
       // 모든 결재완료 품의서 저장 (사업별 계약 진행 현황 테이블용)
       setAllApprovedProposals(allApprovedProposals);
       
-      // 최근 결재완료 순서로 정렬 (결재일 기준 내림차순)
+      // 최근 결재완료 순서로 정렬 (결재일 기준 내림차순, 같으면 ID 내림차순)
       const sortedByApprovalDate = [...approvedProposals].sort((a, b) => {
         const dateA = a.approvalDate ? new Date(a.approvalDate) : new Date(0);
         const dateB = b.approvalDate ? new Date(b.approvalDate) : new Date(0);
-        return dateB - dateA; // 내림차순 (최근 것이 먼저)
+        
+        // 1차: 결재일 비교 (최근 것이 먼저)
+        if (dateB.getTime() !== dateA.getTime()) {
+          return dateB - dateA;
+        }
+        
+        // 2차: 결재일이 같으면 ID 비교 (큰 것이 먼저)
+        return (b.id || 0) - (a.id || 0);
       });
       setRecentProposals(sortedByApprovalDate.slice(0, 5)); // 최근 5개
       setMonthlyStats(sortedMonths);
@@ -509,6 +571,53 @@ const Dashboard = () => {
     }
   };
 
+  // 계약방식 한글 변환 (DB 기반 + Fallback)
+  const getContractMethodText = (method) => {
+    if (!method) return '-';
+    
+    // 이미 한글이면 그대로 반환
+    if (/[가-힣]/.test(method) && !method.includes('_')) {
+      return method;
+    }
+    
+    // 1순위: DB에서 가져온 매핑 사용
+    if (contractMethodsMap[method]) {
+      return contractMethodsMap[method];
+    }
+    
+    // 2순위: Fallback 매핑 (DB 로드 실패 시 또는 구버전 코드)
+    const fallbackMap = {
+      // 구버전 영문 코드 - 수의계약 제6조 제1항
+      'private_contract_6_1_a': '수의계약(제6조 제1항의 가)',
+      'private_contract_6_1_b': '수의계약(제6조 제1항의 나)',
+      'private_contract_6_1_c': '수의계약(제6조 제1항의 다)',
+      'private_contract_6_1_d': '수의계약(제6조 제1항의 라)',
+      'private_contract_6_1_e': '수의계약(제6조 제1항의 마)',
+      
+      // 구버전 영문 코드 - 수의계약 제6조 제2항
+      'private_contract_6_2_a': '수의계약(제6조 제2항의 가)',
+      'private_contract_6_2_b': '수의계약(제6조 제2항의 나)',
+      'private_contract_6_2_c': '수의계약(제6조 제2항의 다)',
+      'private_contract_6_2_d': '수의계약(제6조 제2항의 라)',
+      'private_contract_6_2_e': '수의계약(제6조 제2항의 마)',
+      'private_contract_6_2_f': '수의계약(제6조 제2항의 바)',
+      'private_contract_6_2_g': '수의계약(제6조 제2항의 사)',
+      
+      // 구버전 영문 코드 (일반)
+      'private_contract': '수의계약',
+      'general_competition': '경쟁계약(일반경쟁계약)',
+      'limited_competition': '경쟁계약(제한경쟁계약)',
+      'designated_competition': '경쟁계약(지명경쟁계약)',
+      'negotiated_competition': '경쟁계약(협상에 의한 계약)',
+      'lowest_price': '최저가 계약',
+      'lowest': '최저가 계약',
+      'bidding': '입찰',
+      'competition': '경쟁입찰'
+    };
+    
+    return fallbackMap[method] || method;
+  };
+
   // 월 표시 형식
   const formatMonth = (monthKey) => {
     const [year, month] = monthKey.split('-');
@@ -579,6 +688,22 @@ const Dashboard = () => {
     setSelectedProjectInfo({});
   };
 
+  // 계약유형별 카드 클릭 핸들러
+  const handleContractTypeCardClick = (type) => {
+    const proposals = window.dashboardContractMethodProposals?.[type] || [];
+    console.log(`${type} 계약 품의서:`, proposals);
+    setSelectedContractType(type);
+    setContractTypeProposals(proposals);
+    setShowContractTypeModal(true);
+  };
+
+  // 계약유형 모달 닫기
+  const handleCloseContractTypeModal = () => {
+    setShowContractTypeModal(false);
+    setSelectedContractType('');
+    setContractTypeProposals([]);
+  };
+
   // 외주인력 행 클릭 핸들러 (품의서 미리보기)
   const handlePersonnelClick = async (proposalId) => {
     try {
@@ -596,6 +721,7 @@ const Dashboard = () => {
           budget: originalData.budget,
           budgetInfo: originalData.budgetInfo,
           contractMethod: originalData.contractMethod,
+          contractMethodDescription: originalData.contract_method_description, // ⭐ basis 추가
           requestDepartments: originalData.requestDepartments 
             ? originalData.requestDepartments.map(d => d.department || d.name || d)
             : [],
@@ -681,21 +807,33 @@ const Dashboard = () => {
             <div className="stat-label">인력 (만료임박)</div>
           </div>
         </div>
-        <div className="stat-card contract-lowest">
+        <div 
+          className="stat-card contract-lowest clickable" 
+          onClick={() => handleContractTypeCardClick('lowest')}
+          style={{ cursor: 'pointer' }}
+        >
           <div className="stat-icon">💰</div>
           <div className="stat-content">
             <div className="stat-number">{stats.lowestPriceContracts || 0}</div>
             <div className="stat-label">최저가 (최근 1년)</div>
           </div>
         </div>
-        <div className="stat-card contract-competitive">
+        <div 
+          className="stat-card contract-competitive clickable" 
+          onClick={() => handleContractTypeCardClick('competitive')}
+          style={{ cursor: 'pointer' }}
+        >
           <div className="stat-icon">🏆</div>
           <div className="stat-content">
             <div className="stat-number">{stats.competitiveContracts || 0}</div>
             <div className="stat-label">경쟁계약 (최근 1년)</div>
           </div>
         </div>
-        <div className="stat-card contract-private">
+        <div 
+          className="stat-card contract-private clickable" 
+          onClick={() => handleContractTypeCardClick('private')}
+          style={{ cursor: 'pointer' }}
+        >
           <div className="stat-icon">📋</div>
           <div className="stat-content">
             <div className="stat-number">{stats.privateContracts || 0}</div>
@@ -2367,6 +2505,16 @@ const Dashboard = () => {
           box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         }
 
+        .stat-card.clickable:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .stat-card.clickable:active {
+          transform: translateY(0px);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+
         .stat-card.approved {
           border-left: 3px solid #28a745;
         }
@@ -2427,6 +2575,90 @@ const Dashboard = () => {
           color: #666;
           font-size: 0.75rem;
           font-weight: 500;
+        }
+
+        /* 계약유형 모달 스타일 */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+        }
+
+        .contract-type-modal {
+          background: white;
+          border-radius: 12px;
+          width: 90%;
+          max-width: 1200px;
+          max-height: 90vh;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+          padding: 20px 30px;
+          border-bottom: 1px solid #e0e0e0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .modal-header h2 {
+          margin: 0;
+          font-size: 1.5rem;
+          color: #333;
+        }
+
+        .close-button {
+          background: none;
+          border: none;
+          font-size: 2rem;
+          color: #999;
+          cursor: pointer;
+          line-height: 1;
+          padding: 0;
+          width: 30px;
+          height: 30px;
+        }
+
+        .close-button:hover {
+          color: #333;
+        }
+
+        .modal-body {
+          padding: 20px 30px;
+          overflow-y: auto;
+          flex: 1;
+        }
+
+        .modal-footer {
+          padding: 15px 30px;
+          border-top: 1px solid #e0e0e0;
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+        }
+
+        .btn-secondary {
+          padding: 10px 20px;
+          background: #6c757d;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+        }
+
+        .btn-secondary:hover {
+          background: #5a6268;
         }
 
         .card {
@@ -2875,6 +3107,82 @@ const Dashboard = () => {
           }
         }
       `}</style>
+
+      {/* 계약유형별 품의서 리스트 모달 */}
+      {showContractTypeModal && (
+        <div className="modal-overlay" onClick={handleCloseContractTypeModal}>
+          <div className="modal-content contract-type-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>
+                {selectedContractType === 'lowest' && '💰 최저가 계약'}
+                {selectedContractType === 'competitive' && '🏆 경쟁계약'}
+                {selectedContractType === 'private' && '📋 수의계약'}
+                {' '}품의서 목록 ({contractTypeProposals.length}건)
+              </h2>
+              <button className="close-button" onClick={handleCloseContractTypeModal}>×</button>
+            </div>
+            
+            <div className="modal-body">
+              {contractTypeProposals.length > 0 ? (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>번호</th>
+                      <th>품의서 제목</th>
+                      <th>계약 유형</th>
+                      <th>계약방식</th>
+                      <th>계약금액</th>
+                      <th>결재완료일</th>
+                      <th>작성자</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contractTypeProposals.map((proposal, index) => (
+                      <tr 
+                        key={proposal.id}
+                        onClick={() => handlePersonnelClick(proposal.id)}
+                        style={{ cursor: 'pointer' }}
+                        className="clickable-row"
+                      >
+                        <td>{index + 1}</td>
+                        <td>{proposal.title || proposal.purpose}</td>
+                        <td>
+                          <span className="contract-type-badge">
+                            {proposal.contractType === 'purchase' ? '구매계약' :
+                             proposal.contractType === 'service' ? '용역계약' :
+                             proposal.contractType === 'change' ? '변경계약' :
+                             proposal.contractType === 'extension' ? '연장계약' :
+                             proposal.contractType === 'bidding' ? '입찰계약' :
+                             proposal.contractType === 'freeform' ? '자유양식' : proposal.contractType}
+                          </span>
+                        </td>
+                        <td>{getContractMethodText(proposal.contractMethod)}</td>
+                        <td className="amount-cell">
+                          {new Intl.NumberFormat('ko-KR').format(proposal.totalAmount || 0)} 원
+                        </td>
+                        <td>
+                          {proposal.approvalDate ? new Date(proposal.approvalDate).toLocaleDateString('ko-KR') : '-'}
+                        </td>
+                        <td>{proposal.createdBy || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                  해당 계약방식의 품의서가 없습니다.
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={handleCloseContractTypeModal}>
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -826,6 +826,7 @@ const ProposalForm = () => {
             purpose: recycleData.purpose || '',
             basis: recycleData.basis || '',
             budget: recycleData.budget || '', // budgetId가 이미 처리됨
+            selectedBudgetType: recycleData.selectedBudgetType || 'capital', // ⭐ 예산 타입 추가
             contractMethod: recycleData.contractMethod || '',
             accountSubject: recycleData.accountSubject || '',
             // 요청부서 정규화 (객체 배열을 문자열 배열로 변환)
@@ -847,6 +848,11 @@ const ProposalForm = () => {
             evaluationCriteria: recycleData.evaluationCriteria || '',
             priceComparison: recycleData.priceComparison || []
           };
+          
+          console.log('🔍 재활용 예산 정보:', {
+            budget: newFormData.budget,
+            selectedBudgetType: newFormData.selectedBudgetType
+          });
           
           console.log('🔍 설정할 폼 데이터:', newFormData);
           console.log('🔍 구매품목 개수:', newFormData.purchaseItems.length);

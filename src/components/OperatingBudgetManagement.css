@@ -333,6 +333,12 @@
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  transition: all 0.2s;
+}
+
+.data-table th[style*="cursor: pointer"]:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
 }
 
 .data-table td {
@@ -584,12 +590,21 @@
 .execution-table .data-table th {
   font-size: 0.85rem;
   padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .execution-table .data-table td {
   font-size: 0.9rem;
   padding: 1rem;
   white-space: nowrap;
+}
+
+/* 필터 섹션 */
+.filter-section {
+  background: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .loading {

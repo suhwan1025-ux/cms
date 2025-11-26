@@ -429,14 +429,14 @@ export const generateItemsSection = (data) => {
             
             return `
             <tr>
-              <td>${index + 1}</td>
-              <td>${item.item || '-'}</td>
-              <td>${itemData.productName || '-'}</td>
-              <td>${getContractPeriod(itemData)}</td>
-              <td>${item.quantity || 0}${item.unit || '개'}</td>
-              <td>${formatCurrency(itemData.unitPrice || 0)}</td>
-              <td style="font-weight: bold;">${formatCurrency(item.amount || 0)}</td>
-              <td>${item.supplier || '-'}</td>
+              <td style="text-align: center;">${index + 1}</td>
+              <td style="text-align: center;">${item.item || '-'}</td>
+              <td style="text-align: center;">${itemData.productName || '-'}</td>
+              <td style="text-align: center;">${getContractPeriod(itemData)}</td>
+              <td style="text-align: center;">${item.quantity || 0}${item.unit || '개'}</td>
+              <td style="text-align: right;">${formatCurrency(itemData.unitPrice || 0)}</td>
+              <td style="text-align: right; font-weight: bold;">${formatCurrency(item.amount || 0)}</td>
+              <td style="text-align: center;">${item.supplier || '-'}</td>
             </tr>
             `;
           }).join('')}

@@ -16,6 +16,8 @@ COMMENT ON COLUMN operating_budgets.budget_amount IS '예산액';
 COMMENT ON COLUMN operating_budgets.created_at IS '등록일';
 COMMENT ON COLUMN operating_budgets.updated_at IS '수정일';
 
+-- 참고: 집행액(executed_amount)은 조회 시 operating_budget_executions 테이블에서 SUM으로 계산됨
+
 -- 인덱스 생성
 CREATE INDEX IF NOT EXISTS idx_fiscal_year ON operating_budgets(fiscal_year);
 CREATE INDEX IF NOT EXISTS idx_account_subject ON operating_budgets(account_subject);

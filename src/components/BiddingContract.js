@@ -241,14 +241,14 @@ const BiddingContract = () => {
                       setFormData({
                         ...formData, 
                         contractMethod: e.target.value,
-                        contractBasis: selectedMethod.basis
+                        contractBasis: selectedMethod?.regulation || selectedMethod?.basis || ''
                       });
                     }}
                   />
                   <div className="method-info">
                     <h4>{method.name}</h4>
                     <p>{method.description}</p>
-                    <small>근거: {method.basis}</small>
+                    <small>근거: {method.regulation || method.basis || '-'}</small>
                   </div>
                 </label>
               </div>

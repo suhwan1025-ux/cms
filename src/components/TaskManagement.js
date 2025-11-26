@@ -208,6 +208,35 @@ const TaskManagement = () => {
     window.open(filePath, '_blank');
   };
 
+  // 공유폴더 경로 복사
+  const copyToClipboard = async (path) => {
+    if (!path) {
+      alert('복사할 경로가 없습니다.');
+      return;
+    }
+    
+    try {
+      await navigator.clipboard.writeText(path);
+      alert('📋 경로가 클립보드에 복사되었습니다!\n\n' + path);
+    } catch (error) {
+      // Clipboard API 실패 시 fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = path;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert('📋 경로가 클립보드에 복사되었습니다!\n\n' + path);
+      } catch (err) {
+        alert('복사에 실패했습니다.');
+        console.error('복사 실패:', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   // 상태 한글 변환
   const getStatusText = (status) => {
     const statusMap = {
@@ -365,13 +394,22 @@ const TaskManagement = () => {
                       <span className="info-label">📁 공유폴더:</span>
                       <span className="info-value">
                         {task.sharedFolderPath ? (
-                          <button 
-                            className="link-button"
-                            onClick={() => openSharedFolder(task.sharedFolderPath)}
-                            title="폴더 열기"
-                          >
-                            {task.sharedFolderPath}
-                          </button>
+                          <div className="shared-folder-actions">
+                            <button 
+                              className="link-button"
+                              onClick={() => copyToClipboard(task.sharedFolderPath)}
+                              title="경로 복사 (클릭)"
+                            >
+                              📋 {task.sharedFolderPath}
+                            </button>
+                            <button 
+                              className="icon-button"
+                              onClick={() => openSharedFolder(task.sharedFolderPath)}
+                              title="폴더 열기"
+                            >
+                              📂
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-muted">미설정</span>
                         )}
