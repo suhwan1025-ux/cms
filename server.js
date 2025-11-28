@@ -653,16 +653,18 @@ app.get('/api/business-budgets', async (req, res) => {
         COUNT(bbd.id) as detail_count,
         COALESCE(proposal_executions.executed_amount, 0) as actual_executed_amount,
         COALESCE(proposal_executions.proposal_count, 0) as executed_proposal_count,
-        -- 예산초과액: 기집행액이 (예산 + 추가예산)보다 크면 초과분, 아니면 0
+        -- 확정집행액을 실시간으로 계산 (승인된 품의서 합계)
+        COALESCE(proposal_executions.executed_amount, 0) as confirmed_execution_amount,
+        -- 예산초과액: 확정집행액이 (예산 + 추가예산)보다 크면 초과분, 아니면 0
         CASE 
-          WHEN COALESCE(bb.executed_amount, 0) > (bb.budget_amount + COALESCE(bb.additional_budget, 0))
-          THEN COALESCE(bb.executed_amount, 0) - (bb.budget_amount + COALESCE(bb.additional_budget, 0))
+          WHEN COALESCE(proposal_executions.executed_amount, 0) > (bb.budget_amount + COALESCE(bb.additional_budget, 0))
+          THEN COALESCE(proposal_executions.executed_amount, 0) - (bb.budget_amount + COALESCE(bb.additional_budget, 0))
           ELSE 0
         END as budget_excess_amount_calculated,
-        -- 미집행액: 기집행액이 (예산 + 추가예산) 이하면 잔액, 아니면 0
+        -- 미집행액: 확정집행액이 (예산 + 추가예산) 이하면 잔액, 아니면 0
         CASE 
-          WHEN COALESCE(bb.executed_amount, 0) <= (bb.budget_amount + COALESCE(bb.additional_budget, 0))
-          THEN (bb.budget_amount + COALESCE(bb.additional_budget, 0)) - COALESCE(bb.executed_amount, 0)
+          WHEN COALESCE(proposal_executions.executed_amount, 0) <= (bb.budget_amount + COALESCE(bb.additional_budget, 0))
+          THEN (bb.budget_amount + COALESCE(bb.additional_budget, 0)) - COALESCE(proposal_executions.executed_amount, 0)
           ELSE 0
         END as unexecuted_amount_calculated
       FROM business_budgets bb
@@ -685,16 +687,21 @@ app.get('/api/business-budgets', async (req, res) => {
     const budgetsWithCalculations = budgets[0].map(budget => {
       // bb.*에서 가져온 기존 unexecuted_amount를 제거하고 계산된 값 사용
       const { unexecuted_amount, ...budgetWithoutUnexecuted } = budget;
+      
+      // 사업예산의 확정집행액 사용
+      const executedAmount = parseFloat(budget.confirmed_execution_amount || 0);
+      
       const totalBudget = parseFloat(budget.budget_amount || 0) + parseFloat(budget.additional_budget || 0);
+      
       return {
         ...budgetWithoutUnexecuted,
-        executed_amount: budget.actual_executed_amount || 0,
-        confirmed_execution_amount: budget.actual_executed_amount || 0,
+        executed_amount: executedAmount,
+        confirmed_execution_amount: executedAmount,
         unexecuted_amount: budget.unexecuted_amount_calculated || 0,  // 계산된 값 사용 (0 이상)
         budget_excess_amount: budget.budget_excess_amount_calculated || 0,  // 예산초과액 (초과분만)
-        remaining_amount: parseFloat(budget.budget_amount || 0) - parseFloat(budget.actual_executed_amount || 0),
+        remaining_amount: parseFloat(budget.budget_amount || 0) - executedAmount,
         execution_rate: totalBudget > 0 
-          ? Math.round((parseFloat(budget.executed_amount || 0) / totalBudget) * 100) 
+          ? Math.round((executedAmount / totalBudget) * 100) 
           : 0
       };
     });
@@ -711,14 +718,25 @@ app.get('/api/business-budgets/:id', async (req, res) => {
   try {
     const budgetId = req.params.id;
     
-    // 사업예산 기본 정보
+    // 사업예산 기본 정보 + 확정집행액 실시간 계산
     const budget = await sequelize.query(`
-      SELECT * FROM business_budgets WHERE id = ?
+      SELECT 
+        bb.*,
+        COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.total_amount ELSE 0 END), 0) as confirmed_execution_amount
+      FROM business_budgets bb
+      LEFT JOIN proposals p ON p.budget_id = bb.id
+      WHERE bb.id = ?
+      GROUP BY bb.id
     `, { replacements: [budgetId] });
     
     if (budget[0].length === 0) {
       return res.status(404).json({ error: '사업예산을 찾을 수 없습니다.' });
     }
+    
+    const budgetData = budget[0][0];
+    
+    // 확정집행액을 executed_amount로도 사용
+    budgetData.executed_amount = budgetData.confirmed_execution_amount || 0;
     
     // 상세 내역
     const details = await sequelize.query(`
@@ -731,11 +749,12 @@ app.get('/api/business-budgets/:id', async (req, res) => {
     `, { replacements: [budgetId] });
     
     res.json({
-      budget: budget[0][0],
+      budget: budgetData,
       details: details[0],
       approvals: approvals[0]
     });
   } catch (error) {
+    console.error('사업예산 상세 조회 오류:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -749,9 +768,9 @@ app.post('/api/business-budgets', async (req, res) => {
     const budgetResult = await sequelize.query(`
       INSERT INTO business_budgets (
         project_name, initiator_department, executor_department,
-        budget_type, budget_category, budget_amount, executed_amount,
+        budget_type, budget_category, budget_amount, executed_amount, confirmed_execution_amount,
         start_date, end_date, is_essential, project_purpose, budget_year, status, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING id
     `, {
       replacements: [
@@ -762,6 +781,7 @@ app.post('/api/business-budgets', async (req, res) => {
         budgetData.budgetCategory,
         budgetData.budgetAmount,
         budgetData.executedAmount || 0,
+        budgetData.confirmedExecutionAmount || 0,
         budgetData.startDate,
         budgetData.endDate,
         budgetData.isEssential,
@@ -3877,6 +3897,7 @@ async function updateDatabaseSchema() {
           is_it_committee BOOLEAN DEFAULT false,
           status VARCHAR(50) DEFAULT '진행중',
           progress_rate NUMERIC(5, 2) DEFAULT 0,
+          execution_rate NUMERIC(5, 2) DEFAULT 0,
           health_status VARCHAR(20) DEFAULT '양호',
           start_date DATE,
           deadline DATE,
@@ -3921,6 +3942,72 @@ async function updateDatabaseSchema() {
         await sequelize.query(`ALTER TABLE projects ADD COLUMN shared_folder_path VARCHAR(500)`);
         console.log('✅ shared_folder_path 컬럼 추가 완료');
       }
+      
+      if (!projectColumnNames.includes('execution_rate')) {
+        console.log('➕ projects 테이블에 execution_rate 컬럼 추가 중...');
+        await sequelize.query(`ALTER TABLE projects ADD COLUMN execution_rate NUMERIC(5, 2) DEFAULT 0`);
+        console.log('✅ execution_rate 컬럼 추가 완료');
+      }
+    }
+    
+    // ============================================================
+    // project_budgets 중간 테이블 (프로젝트-사업예산 다대다 관계)
+    // ============================================================
+    const [projectBudgetsCheck] = await sequelize.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_name = 'project_budgets'
+    `);
+    
+    if (projectBudgetsCheck.length === 0) {
+      console.log('➕ project_budgets 테이블 생성 중...');
+      await sequelize.query(`
+        CREATE TABLE project_budgets (
+          id SERIAL PRIMARY KEY,
+          project_id INTEGER NOT NULL,
+          business_budget_id INTEGER NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+          FOREIGN KEY (business_budget_id) REFERENCES business_budgets(id) ON DELETE CASCADE,
+          UNIQUE(project_id, business_budget_id)
+        )
+      `);
+      console.log('✅ project_budgets 테이블 생성 완료');
+      
+      // 인덱스 추가
+      await sequelize.query(`CREATE INDEX idx_project_budgets_project ON project_budgets(project_id)`);
+      await sequelize.query(`CREATE INDEX idx_project_budgets_budget ON project_budgets(business_budget_id)`);
+      console.log('✅ project_budgets 테이블 인덱스 생성 완료');
+    } else {
+      console.log('✅ project_budgets 테이블이 이미 존재합니다');
+    }
+    
+    // ============================================================
+    // business_budgets confirmed_execution_amount 초기화
+    // ============================================================
+    console.log('🔄 사업예산 confirmed_execution_amount 확인 중...');
+    
+    // confirmed_execution_amount가 NULL이거나 0인 레코드 확인
+    const [budgetsToUpdate] = await sequelize.query(`
+      SELECT id, executed_amount, confirmed_execution_amount
+      FROM business_budgets
+      WHERE confirmed_execution_amount IS NULL OR confirmed_execution_amount = 0
+    `);
+    
+    if (budgetsToUpdate.length > 0) {
+      console.log(`➕ ${budgetsToUpdate.length}개 사업예산의 confirmed_execution_amount 초기화 중...`);
+      
+      // confirmed_execution_amount를 0으로 초기화 (사용자가 직접 입력해야 함)
+      await sequelize.query(`
+        UPDATE business_budgets 
+        SET confirmed_execution_amount = 0
+        WHERE confirmed_execution_amount IS NULL
+      `);
+      
+      console.log('✅ confirmed_execution_amount 초기화 완료 (사업예산 수정 화면에서 값을 입력해주세요)');
+    } else {
+      console.log('✅ confirmed_execution_amount가 모두 설정되어 있습니다');
     }
     
   } catch (error) {
@@ -4000,7 +4087,13 @@ app.get('/api/projects', async (req, res) => {
       SELECT 
         p.*,
         bb.project_name as business_budget_name,
-        bb.budget_category
+        bb.budget_category,
+        bb.budget_amount as bb_budget_amount,
+        COALESCE((
+          SELECT SUM(pr.total_amount) 
+          FROM proposals pr 
+          WHERE pr.budget_id = bb.id AND pr.status = 'approved'
+        ), 0) as bb_executed_amount
       FROM projects p
       LEFT JOIN business_budgets bb ON p.business_budget_id = bb.id
       ${whereClause}
@@ -4008,6 +4101,59 @@ app.get('/api/projects', async (req, res) => {
     `, {
       replacements
     });
+    
+    // 각 프로젝트에 연결된 사업예산 목록 조회 및 합계 계산
+    for (let project of projects) {
+      // 다대다 관계의 연결된 사업예산 조회 (확정집행액 실시간 계산)
+      const [linkedBudgets] = await sequelize.query(`
+        SELECT 
+          bb.id, 
+          bb.project_name,
+          bb.budget_amount,
+          COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.total_amount ELSE 0 END), 0) as executed_amount
+        FROM project_budgets pb
+        JOIN business_budgets bb ON pb.business_budget_id = bb.id
+        LEFT JOIN proposals p ON p.budget_id = bb.id
+        WHERE pb.project_id = ?
+        GROUP BY bb.id, bb.project_name, bb.budget_amount
+      `, {
+        replacements: [project.id]
+      });
+      // 단일 사업예산도 linked_budgets에 포함시키기
+      if (project.business_budget_id && project.business_budget_name) {
+        // 단일 사업예산이 이미 linked_budgets에 있는지 확인
+        const alreadyLinked = linkedBudgets.some(b => b.id === project.business_budget_id);
+        
+        if (!alreadyLinked) {
+          // 단일 사업예산을 linked_budgets 맨 앞에 추가
+          linkedBudgets.unshift({
+            id: project.business_budget_id,
+            project_name: project.business_budget_name,
+            budget_amount: project.bb_budget_amount || 0,
+            executed_amount: project.bb_executed_amount || 0
+          });
+        }
+      }
+      
+      project.linked_budgets = linkedBudgets;
+      
+      // 모든 연결된 사업예산(단일 + 다중)의 합계를 프로젝트 예산/집행액에 반영
+      if (linkedBudgets.length > 0) {
+        const totalBudget = linkedBudgets.reduce((sum, b) => 
+          sum + (parseFloat(b.budget_amount) || 0), 0
+        );
+        const totalExecuted = linkedBudgets.reduce((sum, b) => 
+          sum + (parseFloat(b.executed_amount) || 0), 0
+        );
+        
+        project.budget_amount = totalBudget;
+        project.executed_amount = totalExecuted;
+      }
+      
+      // 임시 필드 제거
+      delete project.bb_budget_amount;
+      delete project.bb_executed_amount;
+    }
     
     console.log(`✅ 프로젝트 목록 조회: ${projects.length}개`);
     res.json(projects);
@@ -4025,7 +4171,13 @@ app.get('/api/projects/:id', async (req, res) => {
         p.*,
         bb.project_name as business_budget_name,
         bb.budget_category,
-        bb.project_purpose
+        bb.project_purpose,
+        bb.budget_amount as bb_budget_amount,
+        COALESCE((
+          SELECT SUM(pr.total_amount) 
+          FROM proposals pr 
+          WHERE pr.budget_id = bb.id AND pr.status = 'approved'
+        ), 0) as bb_executed_amount
       FROM projects p
       LEFT JOIN business_budgets bb ON p.business_budget_id = bb.id
       WHERE p.id = ?
@@ -4037,7 +4189,60 @@ app.get('/api/projects/:id', async (req, res) => {
       return res.status(404).json({ error: '프로젝트를 찾을 수 없습니다.' });
     }
     
-    res.json(project[0]);
+    const projectData = project[0];
+    
+    // 연결된 사업예산 목록 조회 (확정집행액 실시간 계산)
+    const [linkedBudgets] = await sequelize.query(`
+      SELECT 
+        bb.id, 
+        bb.project_name,
+        bb.budget_amount,
+        COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.total_amount ELSE 0 END), 0) as executed_amount
+      FROM project_budgets pb
+      JOIN business_budgets bb ON pb.business_budget_id = bb.id
+      LEFT JOIN proposals p ON p.budget_id = bb.id
+      WHERE pb.project_id = ?
+      GROUP BY bb.id, bb.project_name, bb.budget_amount
+    `, {
+      replacements: [req.params.id]
+    });
+    
+    // 단일 사업예산도 linked_budgets에 포함시키기
+    if (projectData.business_budget_id && projectData.business_budget_name) {
+      // 단일 사업예산이 이미 linked_budgets에 있는지 확인
+      const alreadyLinked = linkedBudgets.some(b => b.id === projectData.business_budget_id);
+      
+      if (!alreadyLinked) {
+        // 단일 사업예산을 linked_budgets 맨 앞에 추가
+        linkedBudgets.unshift({
+          id: projectData.business_budget_id,
+          project_name: projectData.business_budget_name,
+          budget_amount: projectData.bb_budget_amount || 0,
+          executed_amount: projectData.bb_executed_amount || 0
+        });
+      }
+    }
+    
+    projectData.linked_budgets = linkedBudgets;
+    
+    // 모든 연결된 사업예산(단일 + 다중)의 합계를 프로젝트 예산/집행액에 반영
+    if (linkedBudgets.length > 0) {
+      const totalBudget = linkedBudgets.reduce((sum, b) => 
+        sum + (parseFloat(b.budget_amount) || 0), 0
+      );
+      const totalExecuted = linkedBudgets.reduce((sum, b) => 
+        sum + (parseFloat(b.executed_amount) || 0), 0
+      );
+      
+      projectData.budget_amount = totalBudget;
+      projectData.executed_amount = totalExecuted;
+    }
+    
+    // 임시 필드 제거
+    delete projectData.bb_budget_amount;
+    delete projectData.bb_executed_amount;
+    
+    res.json(projectData);
   } catch (error) {
     console.error('프로젝트 상세 조회 오류:', error);
     res.status(500).json({ error: error.message });
@@ -4108,7 +4313,7 @@ app.post('/api/projects/from-budget/:budgetId', async (req, res) => {
     console.log(`   원본 start_date: ${budgetData.start_date} → ${startDate}`);
     console.log(`   원본 end_date: ${budgetData.end_date} → ${deadline}`);
     
-    // 프로젝트 생성
+    // 프로젝트 생성 (집행액은 사업예산에서 JOIN으로 조회하므로 0으로 저장)
     const [result] = await sequelize.query(`
       INSERT INTO projects (
         project_code,
@@ -4124,7 +4329,7 @@ app.post('/api/projects/from-budget/:budgetId', async (req, res) => {
         start_date,
         deadline,
         created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '준비중', 0, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, '진행중', 0, ?, ?, ?)
       RETURNING id
     `, {
       replacements: [
@@ -4135,7 +4340,6 @@ app.post('/api/projects/from-budget/:budgetId', async (req, res) => {
         budgetData.initiator_department,
         budgetData.executor_department,
         budgetData.budget_amount,
-        budgetData.executed_amount,
         startDate,
         deadline,
         req.body.createdBy || '관리자'
@@ -4165,11 +4369,11 @@ app.put('/api/projects/:id', async (req, res) => {
     const updates = [];
     const replacements = [];
     
-    // 수정 가능한 필드들
+    // 수정 가능한 필드들 (executed_amount는 제외 - 사업예산에서 JOIN으로 조회)
     const allowedFields = [
-      'is_it_committee', 'status', 'progress_rate', 'health_status',
+      'project_name', 'is_it_committee', 'status', 'progress_rate', 'execution_rate', 'health_status',
       'start_date', 'deadline', 'pm', 'issues', 'shared_folder_path',
-      'budget_amount', 'executed_amount'
+      'budget_amount'
     ];
     
     allowedFields.forEach(field => {
@@ -4207,7 +4411,220 @@ app.put('/api/projects/:id', async (req, res) => {
   }
 });
 
-// 4-5. 프로젝트 삭제
+// 4-5. 프로젝트 수기 등록 (여러 사업예산을 하나의 프로젝트로)
+app.post('/api/projects/manual', async (req, res) => {
+  try {
+    const { 
+      projectName, 
+      budgetYear, 
+      initiatorDepartment, 
+      executorDepartment, 
+      budgetIds, // 배열: 선택된 사업예산 ID들
+      isItCommittee,
+      createdBy 
+    } = req.body;
+    
+    console.log('📋 프로젝트 수기 등록 시작:', {
+      projectName, budgetYear, initiatorDepartment, executorDepartment, 
+      budgetIds, isItCommittee
+    });
+    
+    // 입력값 검증
+    if (!projectName || !budgetYear || !budgetIds || budgetIds.length === 0) {
+      return res.status(400).json({ 
+        error: '프로젝트명, 연도, 관련 사업예산은 필수입니다.' 
+      });
+    }
+    
+    // 프로젝트 코드 자동생성
+    const projectCode = await generateProjectCode(budgetYear);
+    
+    // 선택된 사업예산들의 정보 조회 및 합산
+    const [budgets] = await sequelize.query(`
+      SELECT id, budget_amount, confirmed_execution_amount 
+      FROM business_budgets 
+      WHERE id IN (${budgetIds.map(() => '?').join(',')})
+    `, {
+      replacements: budgetIds
+    });
+    
+    if (budgets.length === 0) {
+      return res.status(400).json({ error: '유효한 사업예산을 찾을 수 없습니다.' });
+    }
+    
+    // 예산액 합산 (집행액은 project_budgets JOIN으로 조회)
+    const totalBudgetAmount = budgets.reduce((sum, b) => sum + parseFloat(b.budget_amount || 0), 0);
+    
+    console.log(`💰 예산 합산: 예산액=${totalBudgetAmount}`);
+    
+    // 프로젝트 생성 (집행액은 0으로, 조회 시 linked_budgets에서 합산)
+    const [result] = await sequelize.query(`
+      INSERT INTO projects (
+        project_code,
+        project_name,
+        budget_year,
+        initiator_department,
+        executor_department,
+        budget_amount,
+        executed_amount,
+        is_it_committee,
+        status,
+        progress_rate,
+        created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, '진행중', 0, ?)
+      RETURNING id
+    `, {
+      replacements: [
+        projectCode,
+        projectName,
+        budgetYear,
+        initiatorDepartment || null,
+        executorDepartment || null,
+        totalBudgetAmount,
+        isItCommittee || false,
+        createdBy || '관리자'
+      ]
+    });
+    
+    const projectId = result[0].id;
+    
+    // project_budgets 중간 테이블에 연결 정보 저장
+    for (const budgetId of budgetIds) {
+      await sequelize.query(`
+        INSERT INTO project_budgets (project_id, business_budget_id)
+        VALUES (?, ?)
+      `, {
+        replacements: [projectId, budgetId]
+      });
+    }
+    
+    console.log(`✅ 프로젝트 생성: ${projectCode} (ID: ${projectId})`);
+    console.log(`   연결된 사업예산: ${budgetIds.length}개`);
+    
+    res.json({
+      success: true,
+      projectId: projectId,
+      projectCode: projectCode,
+      message: `프로젝트 ${projectCode}가 생성되었습니다.`
+    });
+  } catch (error) {
+    console.error('프로젝트 수기 등록 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4-6. 프로젝트에 사업예산 추가
+app.post('/api/projects/:projectId/budgets', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { budgetIds } = req.body;
+    
+    if (!budgetIds || !Array.isArray(budgetIds) || budgetIds.length === 0) {
+      return res.status(400).json({ error: '추가할 사업예산을 선택해주세요.' });
+    }
+    
+    console.log(`📎 프로젝트 ${projectId}에 사업예산 추가:`, budgetIds);
+    
+    // 각 사업예산을 project_budgets에 추가
+    for (const budgetId of budgetIds) {
+      // 이미 연결되어 있는지 확인
+      const [existing] = await sequelize.query(`
+        SELECT id FROM project_budgets 
+        WHERE project_id = ? AND business_budget_id = ?
+      `, {
+        replacements: [projectId, budgetId]
+      });
+      
+      if (existing.length === 0) {
+        await sequelize.query(`
+          INSERT INTO project_budgets (project_id, business_budget_id)
+          VALUES (?, ?)
+        `, {
+          replacements: [projectId, budgetId]
+        });
+      }
+    }
+    
+    // 프로젝트의 총 예산액 재계산 (집행액은 조회 시 JOIN으로 계산)
+    const [budgets] = await sequelize.query(`
+      SELECT 
+        COALESCE(SUM(bb.budget_amount), 0) as total_budget
+      FROM project_budgets pb
+      JOIN business_budgets bb ON pb.business_budget_id = bb.id
+      WHERE pb.project_id = ?
+    `, {
+      replacements: [projectId]
+    });
+    
+    // 프로젝트 예산액만 업데이트 (집행액은 사업예산에서 JOIN으로 조회)
+    await sequelize.query(`
+      UPDATE projects 
+      SET budget_amount = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, {
+      replacements: [budgets[0].total_budget, projectId]
+    });
+    
+    console.log(`✅ 사업예산 추가 완료: ${budgetIds.length}개`);
+    
+    res.json({
+      success: true,
+      message: `${budgetIds.length}개의 사업예산이 추가되었습니다.`
+    });
+  } catch (error) {
+    console.error('사업예산 추가 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4-7. 프로젝트에서 사업예산 삭제
+app.delete('/api/projects/:projectId/budgets/:budgetId', async (req, res) => {
+  try {
+    const { projectId, budgetId } = req.params;
+    
+    console.log(`🗑️ 프로젝트 ${projectId}에서 사업예산 ${budgetId} 삭제`);
+    
+    // project_budgets에서 삭제
+    await sequelize.query(`
+      DELETE FROM project_budgets 
+      WHERE project_id = ? AND business_budget_id = ?
+    `, {
+      replacements: [projectId, budgetId]
+    });
+    
+    // 프로젝트의 총 예산액 재계산 (집행액은 조회 시 JOIN으로 계산)
+    const [budgets] = await sequelize.query(`
+      SELECT 
+        COALESCE(SUM(bb.budget_amount), 0) as total_budget
+      FROM project_budgets pb
+      JOIN business_budgets bb ON pb.business_budget_id = bb.id
+      WHERE pb.project_id = ?
+    `, {
+      replacements: [projectId]
+    });
+    
+    // 프로젝트 예산액만 업데이트 (집행액은 사업예산에서 JOIN으로 조회)
+    await sequelize.query(`
+      UPDATE projects 
+      SET budget_amount = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, {
+      replacements: [budgets[0].total_budget, projectId]
+    });
+    
+    console.log(`✅ 사업예산 삭제 완료`);
+    
+    res.json({
+      success: true,
+      message: '사업예산이 삭제되었습니다.'
+    });
+  } catch (error) {
+    console.error('사업예산 삭제 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4-8. 프로젝트 삭제
 app.delete('/api/projects/:id', async (req, res) => {
   try {
     await sequelize.query(`

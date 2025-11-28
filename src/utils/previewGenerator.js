@@ -727,7 +727,7 @@ export const generatePreviewHTML = (data, options = {}) => {
       <style>
         body {
           font-family: 'Malgun Gothic', sans-serif;
-          font-size: 10pt;
+          font-size: 12pt;
           line-height: 1.6;
           margin: 0;
           padding: 20px;
@@ -748,7 +748,7 @@ export const generatePreviewHTML = (data, options = {}) => {
         }
         .info-table th, .info-table td {
           border: 1px solid #ddd;
-          padding: 12px;
+          padding: 14px;
           white-space: pre-wrap; /* 줄바꿈 보존 */
           word-wrap: break-word; /* 긴 단어 자동 줄바꿈 */
         }
@@ -765,11 +765,11 @@ export const generatePreviewHTML = (data, options = {}) => {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 20px;
-          font-size: 9pt;
+          font-size: 11pt;
         }
         .items-table th, .items-table td {
           border: 1px solid #ddd;
-          padding: 6px 4px;
+          padding: 8px 6px;
           text-align: left;
           white-space: pre-wrap; /* 줄바꿈 보존 */
           word-wrap: break-word; /* 긴 단어 자동 줄바꿈 */
@@ -785,7 +785,7 @@ export const generatePreviewHTML = (data, options = {}) => {
           font-weight: bold;
         }
         .section-title {
-          font-size: 12pt;
+          font-size: 14pt;
           font-weight: bold;
           margin: 20px 0 10px 0;
           color: #333;
@@ -807,7 +807,7 @@ export const generatePreviewHTML = (data, options = {}) => {
           padding: 10px 20px;
           border-radius: 5px;
           cursor: pointer;
-          font-size: 10pt;
+          font-size: 12pt;
           min-width: 100px;
           transition: all 0.3s ease;
         }

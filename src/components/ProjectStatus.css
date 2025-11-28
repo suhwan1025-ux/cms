@@ -176,6 +176,11 @@
   color: #c62828;
 }
 
+.project-status .alert-stats .stat-item.risk {
+  background: #f3e5f5;
+  color: #6a1b9a;
+}
+
 .project-status .alert-stats .stat-item.warning {
   background: #ffe0b2;
   color: #e65100;
@@ -349,6 +354,10 @@
 }
 
 /* 건강도별 색상 */
+.project-status .chart-fill.health-우수 {
+  background: linear-gradient(90deg, #2196F3 0%, #1565C0 100%);
+}
+
 .project-status .chart-fill.health-양호 {
   background: linear-gradient(90deg, #4CAF50 0%, #388E3C 100%);
 }
@@ -359,6 +368,10 @@
 
 .project-status .chart-fill.health-미흡 {
   background: linear-gradient(90deg, #FF9800 0%, #F57C00 100%);
+}
+
+.project-status .chart-fill.health-위험 {
+  background: linear-gradient(90deg, #9C27B0 0%, #6A1B9A 100%);
 }
 
 .project-status .chart-fill.health-심각 {
@@ -484,6 +497,11 @@
   display: inline-block;
 }
 
+.project-status .health-badge.health-우수 {
+  background: #E3F2FD;
+  color: #1565C0;
+}
+
 .project-status .health-badge.health-양호 {
   background: #E8F5E9;
   color: #2E7D32;
@@ -497,6 +515,11 @@
 .project-status .health-badge.health-미흡 {
   background: #FFE0B2;
   color: #E65100;
+}
+
+.project-status .health-badge.health-위험 {
+  background: #F3E5F5;
+  color: #6A1B9A;
 }
 
 .project-status .health-badge.health-심각 {

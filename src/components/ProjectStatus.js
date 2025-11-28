@@ -15,6 +15,8 @@ const ProjectStatus = () => {
   const [showProposalsModal, setShowProposalsModal] = useState(false);
   const [selectedProjectForProposals, setSelectedProjectForProposals] = useState(null);
   const [proposals, setProposals] = useState([]);
+  const [showBudgetListModal, setShowBudgetListModal] = useState(false);
+  const [selectedProjectForBudgets, setSelectedProjectForBudgets] = useState(null);
 
   useEffect(() => {
     fetchProjects();
@@ -42,12 +44,14 @@ const ProjectStatus = () => {
         isItCommittee: item.is_it_committee,
         status: item.status,
         progressRate: item.progress_rate,
+        executionRate: Number(item.execution_rate) || 0,
         healthStatus: item.health_status,
         startDate: item.start_date,
         deadline: item.deadline,
         pm: item.pm,
         issues: item.issues,
-        sharedFolderPath: item.shared_folder_path
+        sharedFolderPath: item.shared_folder_path,
+        linked_budgets: item.linked_budgets || []
       }));
       
       setProjects(convertedData);
@@ -59,13 +63,66 @@ const ProjectStatus = () => {
     }
   };
 
-  // 프로젝트 관련 결재완료 품의서 조회
-  const fetchProposalsByProject = async (businessBudgetId) => {
+  // 프로젝트 관련 결재완료 품의서 조회 (모든 연결된 사업예산의 품의서 취합)
+  const fetchProposalsByProject = async (project) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/proposals/by-budget/${businessBudgetId}?status=approved`);
-      if (!response.ok) throw new Error('품의서 조회 실패');
-      const data = await response.json();
-      setProposals(data);
+      // 모든 연결된 사업예산 ID 수집
+      const budgetIds = [];
+      const budgetNames = {};
+      
+      // 단일 사업예산
+      if (project.businessBudgetId) {
+        budgetIds.push(project.businessBudgetId);
+        // 사업예산명 조회
+        try {
+          const budgetResponse = await fetch(`${API_BASE_URL}/api/business-budgets/${project.businessBudgetId}`);
+          if (budgetResponse.ok) {
+            const budgetData = await budgetResponse.json();
+            budgetNames[project.businessBudgetId] = budgetData.project_name;
+          }
+        } catch (err) {
+          console.error('사업예산 조회 오류:', err);
+        }
+      }
+      
+      // 다중 사업예산
+      if (project.linked_budgets && project.linked_budgets.length > 0) {
+        project.linked_budgets.forEach(budget => {
+          if (!budgetIds.includes(budget.id)) {
+            budgetIds.push(budget.id);
+            budgetNames[budget.id] = budget.project_name;
+          }
+        });
+      }
+      
+      // 각 사업예산별로 품의서 조회
+      const allProposals = [];
+      for (const budgetId of budgetIds) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/proposals/by-budget/${budgetId}?status=approved`);
+          if (response.ok) {
+            const data = await response.json();
+            // 각 품의서에 사업예산명 추가
+            data.forEach(proposal => {
+              allProposals.push({
+                ...proposal,
+                budgetName: budgetNames[budgetId] || '-'
+              });
+            });
+          }
+        } catch (err) {
+          console.error(`사업예산 ${budgetId} 품의서 조회 오류:`, err);
+        }
+      }
+      
+      // 결재일자 기준으로 정렬 (최신순)
+      allProposals.sort((a, b) => {
+        if (!a.approvalDate) return 1;
+        if (!b.approvalDate) return -1;
+        return new Date(b.approvalDate) - new Date(a.approvalDate);
+      });
+      
+      setProposals(allProposals);
     } catch (error) {
       console.error('품의서 조회 오류:', error);
       setProposals([]);
@@ -76,7 +133,37 @@ const ProjectStatus = () => {
   const handleOpenProposalsModal = async (project) => {
     setSelectedProjectForProposals(project);
     setShowProposalsModal(true);
-    await fetchProposalsByProject(project.businessBudgetId);
+    await fetchProposalsByProject(project);
+  };
+
+  // 프로젝트 상세 모달 열기
+  const handleShowIssueModal = (project) => {
+    setSelectedProjectForIssue(project);
+    setShowIssueModal(true);
+  };
+
+  // 관련예산 모달 열기
+  const handleShowBudgetList = async (project) => {
+    // 단일예산인 경우 사업예산 정보를 가져와서 linked_budgets 형태로 만들기
+    if ((!project.linked_budgets || project.linked_budgets.length === 0) && project.businessBudgetId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/business-budgets/${project.businessBudgetId}`);
+        if (response.ok) {
+          const budgetData = await response.json();
+          project.linked_budgets = [{
+            id: budgetData.id,
+            project_name: budgetData.project_name,
+            budget_amount: budgetData.budget_amount,
+            executed_amount: budgetData.executed_amount
+          }];
+        }
+      } catch (error) {
+        console.error('사업예산 조회 오류:', error);
+      }
+    }
+    
+    setSelectedProjectForBudgets(project);
+    setShowBudgetListModal(true);
   };
 
   // 품의서 미리보기 열기
@@ -163,9 +250,11 @@ const ProjectStatus = () => {
       중단: filteredProjects.filter(p => p.status === '중단').length
     },
     byHealth: {
-      양호: filteredProjects.filter(p => p.healthStatus === '양호').length,
+      우수: filteredProjects.filter(p => p.healthStatus === '우수').length,
+      양호: filteredProjects.filter(p => p.healthStatus === '양호' || !p.healthStatus).length,
       지연: filteredProjects.filter(p => p.healthStatus === '지연').length,
       미흡: filteredProjects.filter(p => p.healthStatus === '미흡').length,
+      위험: filteredProjects.filter(p => p.healthStatus === '위험').length,
       심각: filteredProjects.filter(p => p.healthStatus === '심각').length
     },
     totalBudget: filteredProjects.reduce((sum, p) => sum + (Number(p.budgetAmount) || 0), 0),
@@ -175,12 +264,12 @@ const ProjectStatus = () => {
       : 0
   };
 
-  // 주의 필요 프로젝트 (건강도: 지연/미흡/심각)
+  // 주의 필요 프로젝트 (건강도: 지연/미흡/위험/심각)
   const attentionProjects = filteredProjects.filter(p => 
-    p.healthStatus === '지연' || p.healthStatus === '미흡' || p.healthStatus === '심각'
+    p.healthStatus === '지연' || p.healthStatus === '미흡' || p.healthStatus === '위험' || p.healthStatus === '심각'
   ).sort((a, b) => {
-    // 심각 → 미흡 → 지연 순으로 정렬
-    const order = { '심각': 1, '미흡': 2, '지연': 3 };
+    // 심각 → 위험 → 미흡 → 지연 순으로 정렬
+    const order = { '심각': 1, '위험': 2, '미흡': 3, '지연': 4 };
     return order[a.healthStatus] - order[b.healthStatus];
   });
 
@@ -274,12 +363,15 @@ const ProjectStatus = () => {
               </div>
               <div className="alert-stats">
                 <span className="stat-item critical">🔴 심각 {attentionProjects.filter(p => p.healthStatus === '심각').length}건</span>
+                <span className="stat-item risk">🟣 위험 {attentionProjects.filter(p => p.healthStatus === '위험').length}건</span>
                 <span className="stat-item warning">🟠 미흡 {attentionProjects.filter(p => p.healthStatus === '미흡').length}건</span>
                 <span className="stat-item caution">🟡 지연 {attentionProjects.filter(p => p.healthStatus === '지연').length}건</span>
               </div>
               <div className="alert-list">
                 {attentionProjects.slice(0, 10).map(p => {
-                  const icon = p.healthStatus === '심각' ? '🔴' : p.healthStatus === '미흡' ? '🟠' : '🟡';
+                  const icon = p.healthStatus === '심각' ? '🔴' : 
+                               p.healthStatus === '위험' ? '🟣' : 
+                               p.healthStatus === '미흡' ? '🟠' : '🟡';
                   return (
                     <div 
                       key={p.id} 
@@ -340,17 +432,29 @@ const ProjectStatus = () => {
           <div className="health-chart">
             {Object.entries(stats.byHealth).map(([health, count]) => {
               const percentage = stats.total > 0 ? (count / stats.total * 100).toFixed(1) : 0;
-              const icon = health === '양호' ? '🟢' : health === '지연' ? '🟡' : health === '미흡' ? '🟠' : '🔴';
+              const healthInfo = {
+                '우수': { icon: '🔵', color: '#2196F3' },
+                '양호': { icon: '🟢', color: '#4CAF50' },
+                '지연': { icon: '🟡', color: '#FFC107' },
+                '미흡': { icon: '🟠', color: '#FF9800' },
+                '위험': { icon: '🟣', color: '#9C27B0' },
+                '심각': { icon: '🔴', color: '#f44336' }
+              };
+              const info = healthInfo[health] || { icon: '⚪', color: '#999' };
+              
               return count > 0 ? (
                 <div key={health} className="chart-bar">
                   <div className="chart-label">
-                    <span className={`health-badge health-${health}`}>{icon} {health}</span>
+                    <span className={`health-badge health-${health}`}>{info.icon} {health}</span>
                     <span className="chart-count">{count}건 ({percentage}%)</span>
                   </div>
                   <div className="chart-progress">
                     <div 
                       className={`chart-fill health-${health}`}
-                      style={{ width: `${percentage}%` }}
+                      style={{ 
+                        width: `${percentage}%`,
+                        backgroundColor: info.color
+                      }}
                     />
                   </div>
                 </div>
@@ -418,16 +522,16 @@ const ProjectStatus = () => {
                     <tr>
                       <th>코드</th>
                       <th>프로젝트명</th>
-                      <th>연도</th>
-                      <th>추진부서</th>
+                      <th style={{ textAlign: 'center' }}>전산운영위</th>
                       <th style={{ textAlign: 'center' }}>상태</th>
                       <th style={{ textAlign: 'center' }}>건강도</th>
                       <th style={{ textAlign: 'center' }}>추진률</th>
-                      <th style={{ textAlign: 'center' }}>예산</th>
-                      <th style={{ textAlign: 'center' }}>확정집행액</th>
+                      <th style={{ textAlign: 'center' }}>진척률</th>
                       <th>PM</th>
                       <th style={{ textAlign: 'center' }}>공유폴더</th>
+                      <th style={{ textAlign: 'center' }}>관련예산</th>
                       <th style={{ textAlign: 'center' }}>품의서</th>
+                      <th style={{ textAlign: 'center' }}>자세히보기</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -442,8 +546,9 @@ const ProjectStatus = () => {
                         <tr key={project.id}>
                           <td className="code-cell">{project.projectCode}</td>
                           <td className="name-cell">{project.projectName}</td>
-                          <td>{project.budgetYear}년</td>
-                          <td>{project.executorDepartment || '-'}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            {project.isItCommittee ? '✅' : ''}
+                          </td>
                           <td style={{ textAlign: 'center' }}>
                             <span className={`status-badge status-${project.status}`}>
                               {project.status}
@@ -452,8 +557,10 @@ const ProjectStatus = () => {
                           <td style={{ textAlign: 'center' }}>
                             <span className={`health-badge health-${project.healthStatus}`}>
                               {project.healthStatus === '심각' ? '🔴' : 
+                               project.healthStatus === '위험' ? '🟣' :
                                project.healthStatus === '미흡' ? '🟠' : 
-                               project.healthStatus === '지연' ? '🟡' : '🟢'} {project.healthStatus || '양호'}
+                               project.healthStatus === '지연' ? '🟡' : 
+                               project.healthStatus === '우수' ? '🔵' : '🟢'} {project.healthStatus || '양호'}
                             </span>
                           </td>
                           <td style={{ textAlign: 'center' }}>
@@ -467,8 +574,20 @@ const ProjectStatus = () => {
                               <span className="progress-text-mini">{project.progressRate || 0}%</span>
                             </div>
                           </td>
-                          <td className="amount-cell">{formatCurrency(project.budgetAmount)}</td>
-                          <td className="amount-cell">{formatCurrency(project.executedAmount)}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div className="progress-cell">
+                              <div className="progress-bar-mini">
+                                <div 
+                                  className="progress-fill-mini" 
+                                  style={{ 
+                                    width: `${Number(project.executionRate) || 0}%`,
+                                    backgroundColor: (Number(project.executionRate) || 0) >= 80 ? '#f44336' : (Number(project.executionRate) || 0) >= 50 ? '#ff9800' : '#4CAF50'
+                                  }}
+                                />
+                              </div>
+                              <span className="progress-text-mini">{Number(project.executionRate || 0).toFixed(1)}%</span>
+                            </div>
+                          </td>
                           <td>{project.pm || '-'}</td>
                           <td style={{ textAlign: 'center' }}>
                             {project.sharedFolderPath ? (
@@ -484,11 +603,40 @@ const ProjectStatus = () => {
                             )}
                           </td>
                           <td style={{ textAlign: 'center' }}>
+                            {(() => {
+                              const budgetCount = project.linked_budgets && project.linked_budgets.length > 0 
+                                ? project.linked_budgets.length 
+                                : project.businessBudgetId ? 1 : 0;
+                              
+                              if (budgetCount > 0) {
+                                return (
+                                  <button
+                                    className="btn-link"
+                                    onClick={() => handleShowBudgetList(project)}
+                                    style={{ fontWeight: '600' }}
+                                  >
+                                    보기({budgetCount}개)
+                                  </button>
+                                );
+                              } else {
+                                return <span style={{ color: '#999' }}>-</span>;
+                              }
+                            })()}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
                             <button 
                               className="btn-link"
                               onClick={() => handleOpenProposalsModal(project)}
                             >
                               품의서
+                            </button>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button 
+                              className="btn-link"
+                              onClick={() => handleShowIssueModal(project)}
+                            >
+                              상세
                             </button>
                           </td>
                         </tr>
@@ -507,7 +655,7 @@ const ProjectStatus = () => {
         <div className="modal-overlay" onClick={() => setShowIssueModal(false)}>
           <div className="modal-content issue-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>⚠️ 프로젝트 이슈사항</h2>
+              <h2>📋 프로젝트 상세정보</h2>
               <button className="modal-close" onClick={() => setShowIssueModal(false)}>✕</button>
             </div>
             <div className="modal-body">
@@ -522,11 +670,22 @@ const ProjectStatus = () => {
                   <span className="info-value">{selectedProjectForIssue.projectName}</span>
                 </div>
                 <div className="info-row">
+                  <span className="info-label">상태</span>
+                  <span className="info-value">
+                    <span className={`status-badge status-${selectedProjectForIssue.status}`}>
+                      {selectedProjectForIssue.status}
+                    </span>
+                  </span>
+                </div>
+                <div className="info-row">
                   <span className="info-label">건강도</span>
                   <span className="info-value">
                     <span className={`health-badge health-${selectedProjectForIssue.healthStatus}`}>
                       {selectedProjectForIssue.healthStatus === '심각' ? '🔴' : 
-                       selectedProjectForIssue.healthStatus === '미흡' ? '🟠' : '🟡'} {selectedProjectForIssue.healthStatus}
+                       selectedProjectForIssue.healthStatus === '위험' ? '🟣' :
+                       selectedProjectForIssue.healthStatus === '미흡' ? '🟠' : 
+                       selectedProjectForIssue.healthStatus === '지연' ? '🟡' :
+                       selectedProjectForIssue.healthStatus === '우수' ? '🔵' : '🟢'} {selectedProjectForIssue.healthStatus || '양호'}
                     </span>
                   </span>
                 </div>
@@ -543,6 +702,31 @@ const ProjectStatus = () => {
                       <span className="progress-text-large">{selectedProjectForIssue.progressRate || 0}%</span>
                     </div>
                   </span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">진척률</span>
+                  <span className="info-value">
+                    <div className="progress-cell">
+                      <div className="progress-bar-large">
+                        <div 
+                          className="progress-fill-large" 
+                          style={{ 
+                            width: `${Number(selectedProjectForIssue.executionRate) || 0}%`,
+                            backgroundColor: (Number(selectedProjectForIssue.executionRate) || 0) >= 80 ? '#f44336' : (Number(selectedProjectForIssue.executionRate) || 0) >= 50 ? '#ff9800' : '#4CAF50'
+                          }}
+                        />
+                      </div>
+                      <span className="progress-text-large">{Number(selectedProjectForIssue.executionRate || 0).toFixed(1)}%</span>
+                    </div>
+                  </span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">예산</span>
+                  <span className="info-value">{formatCurrency(selectedProjectForIssue.budgetAmount)}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">확정집행액</span>
+                  <span className="info-value">{formatCurrency(selectedProjectForIssue.executedAmount)}</span>
                 </div>
                 <div className="info-row">
                   <span className="info-label">PM</span>
@@ -598,6 +782,27 @@ const ProjectStatus = () => {
                   <span className="info-label">프로젝트 코드</span>
                   <span className="info-value code">{selectedProjectForProposals.projectCode}</span>
                 </div>
+                <div className="info-row">
+                  <span className="info-label">연결된 사업예산</span>
+                  <span className="info-value">
+                    <span style={{ 
+                      display: 'inline-block',
+                      padding: '4px 10px',
+                      backgroundColor: '#4CAF50',
+                      color: 'white',
+                      borderRadius: '12px',
+                      fontSize: '13px',
+                      fontWeight: '600'
+                    }}>
+                      {(() => {
+                        const budgetCount = selectedProjectForProposals.linked_budgets && selectedProjectForProposals.linked_budgets.length > 0 
+                          ? selectedProjectForProposals.linked_budgets.length 
+                          : selectedProjectForProposals.businessBudgetId ? 1 : 0;
+                        return `${budgetCount}개`;
+                      })()}
+                    </span>
+                  </span>
+                </div>
               </div>
 
               {/* 품의서 목록 */}
@@ -613,39 +818,13 @@ const ProjectStatus = () => {
                     <table className="proposals-table">
                       <thead>
                         <tr>
-                          <th>계약유형</th>
-                          <th>제목</th>
-                          <th>목적</th>
-                          <th>총계약금(백만원)</th>
-                          <th>결재일</th>
-                          <th>작성자</th>
+                          <th style={{ width: '30%' }}>사업예산</th>
+                          <th style={{ width: '50%' }}>품의서명</th>
+                          <th style={{ width: '20%' }}>작성자</th>
                         </tr>
                       </thead>
                       <tbody>
                         {proposals.map((proposal) => {
-                          // 계약유형 한글 변환
-                          const getContractTypeKorean = (type) => {
-                            const typeMap = {
-                              'purchase': '구매계약',
-                              'service': '용역계약',
-                              'change': '변경계약',
-                              'extension': '연장계약',
-                              'bidding': '입찰계약',
-                              'freeform': '기타'
-                            };
-                            return typeMap[type] || type || '-';
-                          };
-
-                          // 백만원 단위로 변환
-                          const formatMillionWon = (amount) => {
-                            if (!amount) return '-';
-                            const millionWon = Number(amount) / 1000000;
-                            return millionWon.toLocaleString('ko-KR', {
-                              minimumFractionDigits: 1,
-                              maximumFractionDigits: 1
-                            });
-                          };
-
                           return (
                             <tr 
                               key={proposal.id}
@@ -653,18 +832,26 @@ const ProjectStatus = () => {
                               style={{ cursor: 'pointer' }}
                               className="proposal-row-clickable"
                             >
-                              <td>
-                                <span className="contract-type-badge">
-                                  {getContractTypeKorean(proposal.contractType)}
-                                </span>
+                              <td style={{ 
+                                fontWeight: '600',
+                                color: '#667eea',
+                                fontSize: '14px'
+                              }}>
+                                {proposal.budgetName || '-'}
                               </td>
-                              <td className="proposal-title">{proposal.title}</td>
-                              <td className="proposal-purpose">{proposal.purpose || '-'}</td>
-                              <td className="amount-cell">
-                                {formatMillionWon(proposal.totalAmount)}
+                              <td className="proposal-title" style={{ 
+                                fontSize: '14px',
+                                color: '#333'
+                              }}>
+                                {proposal.title}
                               </td>
-                              <td>{proposal.approvalDate ? new Date(proposal.approvalDate).toLocaleDateString('ko-KR') : '-'}</td>
-                              <td>{proposal.createdBy || '-'}</td>
+                              <td style={{ 
+                                textAlign: 'center',
+                                fontSize: '14px',
+                                color: '#666'
+                              }}>
+                                {proposal.createdBy || '-'}
+                              </td>
                             </tr>
                           );
                         })}
@@ -673,6 +860,285 @@ const ProjectStatus = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 관련예산 목록 모달 */}
+      {showBudgetListModal && selectedProjectForBudgets && (
+        <div className="modal-overlay" onClick={() => setShowBudgetListModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1000px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header" style={{ 
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              padding: '25px 30px',
+              borderRadius: '8px 8px 0 0'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '600', color: 'white' }}>
+                    📎 관련 사업예산 목록
+                  </h2>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '14px', opacity: 0.9, color: 'white' }}>
+                    이 프로젝트에 연결된 사업예산들을 확인하세요
+                  </p>
+                </div>
+                <button 
+                  className="modal-close" 
+                  onClick={() => setShowBudgetListModal(false)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    border: 'none',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    fontSize: '20px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.3)'}
+                  onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '30px' }}>
+              {/* 프로젝트 정보 카드 */}
+              <div style={{ 
+                marginBottom: '30px', 
+                padding: '20px 25px',
+                background: 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)',
+                borderRadius: '8px',
+                border: '1px solid #e0e0e0'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                  <div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', color: '#333', marginBottom: '8px' }}>
+                      {selectedProjectForBudgets.projectName}
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#666', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <span style={{ 
+                        display: 'inline-block',
+                        padding: '4px 10px',
+                        backgroundColor: '#667eea',
+                        color: 'white',
+                        borderRadius: '4px',
+                        fontWeight: '500',
+                        fontSize: '12px'
+                      }}>
+                        {selectedProjectForBudgets.projectCode}
+                      </span>
+                      <span>📅 {selectedProjectForBudgets.budgetYear}년</span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>총 예산 / 집행</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', color: '#667eea' }}>
+                      {formatCurrency(selectedProjectForBudgets.budgetAmount)}
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: '500', color: '#764ba2' }}>
+                      {formatCurrency(selectedProjectForBudgets.executedAmount)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {selectedProjectForBudgets.linked_budgets && selectedProjectForBudgets.linked_budgets.length > 0 ? (
+                <div>
+                  <div style={{ 
+                    fontSize: '15px', 
+                    fontWeight: '600', 
+                    marginBottom: '20px', 
+                    color: '#333',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '6px 14px',
+                      backgroundColor: '#4CAF50',
+                      color: 'white',
+                      borderRadius: '20px',
+                      fontSize: '13px',
+                      fontWeight: '600'
+                    }}>
+                      {selectedProjectForBudgets.linked_budgets.length}개
+                    </span>
+                    <span>사업예산이 연결되어 있습니다</span>
+                  </div>
+                  
+                  <div style={{ 
+                    borderRadius: '8px', 
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    border: '1px solid #e0e0e0'
+                  }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ 
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          color: 'white'
+                        }}>
+                          <th style={{ width: '60px', textAlign: 'center', padding: '15px 10px', fontWeight: '600', fontSize: '14px' }}>번호</th>
+                          <th style={{ textAlign: 'left', padding: '15px 20px', fontWeight: '600', fontSize: '14px' }}>사업예산명</th>
+                          <th style={{ width: '140px', textAlign: 'right', padding: '15px 20px', fontWeight: '600', fontSize: '14px' }}>예산액</th>
+                          <th style={{ width: '140px', textAlign: 'right', padding: '15px 20px', fontWeight: '600', fontSize: '14px' }}>집행액</th>
+                          <th style={{ width: '100px', textAlign: 'center', padding: '15px 10px', fontWeight: '600', fontSize: '14px' }}>집행률</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedProjectForBudgets.linked_budgets.map((budget, index) => {
+                          const executionRate = budget.budget_amount > 0
+                            ? ((budget.executed_amount / budget.budget_amount) * 100).toFixed(1)
+                            : 0;
+                          
+                          return (
+                            <tr key={budget.id} style={{ 
+                              backgroundColor: index % 2 === 0 ? 'white' : '#f9f9f9',
+                              transition: 'background-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0ff'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#f9f9f9'}>
+                              <td style={{ textAlign: 'center', padding: '14px 10px', fontSize: '13px', color: '#666', fontWeight: '500' }}>
+                                {index + 1}
+                              </td>
+                              <td style={{ padding: '14px 20px', fontSize: '14px', color: '#333', fontWeight: '500' }}>
+                                {budget.project_name}
+                              </td>
+                              <td style={{ textAlign: 'right', padding: '14px 20px', fontSize: '14px', color: '#555', fontWeight: '500' }}>
+                                {formatCurrency(budget.budget_amount)}
+                              </td>
+                              <td style={{ textAlign: 'right', padding: '14px 20px', fontSize: '14px', color: '#555', fontWeight: '500' }}>
+                                {formatCurrency(budget.executed_amount)}
+                              </td>
+                              <td style={{ textAlign: 'center', padding: '14px 10px' }}>
+                                <span style={{ 
+                                  display: 'inline-block',
+                                  padding: '4px 12px',
+                                  borderRadius: '12px',
+                                  fontSize: '13px',
+                                  fontWeight: '600',
+                                  backgroundColor: executionRate >= 80 ? '#ffebee' : executionRate >= 50 ? '#fff3e0' : '#e8f5e9',
+                                  color: executionRate >= 80 ? '#d32f2f' : executionRate >= 50 ? '#f57c00' : '#388e3c'
+                                }}>
+                                  {executionRate}%
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ 
+                          background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
+                          fontWeight: '700',
+                          borderTop: '2px solid #667eea'
+                        }}>
+                          <td colSpan="2" style={{ textAlign: 'right', padding: '16px 20px', fontSize: '15px', color: '#333' }}>
+                            💰 합계
+                          </td>
+                          <td style={{ textAlign: 'right', padding: '16px 20px', fontSize: '15px', color: '#667eea', fontWeight: '700' }}>
+                            {formatCurrency(
+                              selectedProjectForBudgets.linked_budgets.reduce((sum, b) => 
+                                sum + parseFloat(b.budget_amount || 0), 0
+                              )
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'right', padding: '16px 20px', fontSize: '15px', color: '#764ba2', fontWeight: '700' }}>
+                            {formatCurrency(
+                              selectedProjectForBudgets.linked_budgets.reduce((sum, b) => 
+                                sum + parseFloat(b.executed_amount || 0), 0
+                              )
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center', padding: '16px 10px' }}>
+                            {(() => {
+                              const totalBudget = selectedProjectForBudgets.linked_budgets.reduce((sum, b) => 
+                                sum + parseFloat(b.budget_amount || 0), 0
+                              );
+                              const totalExecuted = selectedProjectForBudgets.linked_budgets.reduce((sum, b) => 
+                                sum + parseFloat(b.executed_amount || 0), 0
+                              );
+                              const totalRate = totalBudget > 0 ? ((totalExecuted / totalBudget) * 100).toFixed(1) : 0;
+                              return (
+                                <span style={{ 
+                                  display: 'inline-block',
+                                  padding: '6px 14px',
+                                  borderRadius: '12px',
+                                  fontSize: '14px',
+                                  fontWeight: '700',
+                                  backgroundColor: totalRate >= 80 ? '#d32f2f' : totalRate >= 50 ? '#f57c00' : '#388e3c',
+                                  color: 'white'
+                                }}>
+                                  {totalRate}%
+                                </span>
+                              );
+                            })()}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '60px 20px', 
+                  backgroundColor: '#f9f9f9',
+                  borderRadius: '8px',
+                  border: '2px dashed #ddd'
+                }}>
+                  <div style={{ fontSize: '48px', marginBottom: '15px', opacity: 0.5 }}>📋</div>
+                  <div style={{ fontSize: '18px', marginBottom: '10px', fontWeight: '600', color: '#666' }}>
+                    연결된 사업예산이 없습니다
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#999' }}>
+                    단일 사업예산으로 생성된 프로젝트입니다
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="modal-footer" style={{ 
+              padding: '20px 30px',
+              borderTop: '1px solid #e0e0e0',
+              backgroundColor: '#fafafa'
+            }}>
+              <button 
+                onClick={() => setShowBudgetListModal(false)}
+                style={{
+                  padding: '12px 30px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  backgroundColor: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 2px 4px rgba(102, 126, 234, 0.3)'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#5568d3';
+                  e.target.style.transform = 'translateY(-1px)';
+                  e.target.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#667eea';
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = '0 2px 4px rgba(102, 126, 234, 0.3)';
+                }}
+              >
+                닫기
+              </button>
             </div>
           </div>
         </div>
