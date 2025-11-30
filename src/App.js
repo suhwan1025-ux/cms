@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import './App.css';
 import { getApiUrl } from './config/api';
+import OverallDashboard from './components/OverallDashboard';
 import Dashboard from './components/Dashboard';
 import ProjectStatus from './components/ProjectStatus';
 import BudgetDashboard from './components/BudgetDashboard';
@@ -22,6 +23,7 @@ import PersonnelManagement from './components/PersonnelManagement';
 import PersonnelRegister from './components/PersonnelRegister';
 import ExternalPersonnelManagement from './components/ExternalPersonnelManagement';
 import ProjectManagement from './components/ProjectManagement';
+import ProjectRegister from './components/ProjectRegister';
 
 const API_BASE_URL = getApiUrl();
 
@@ -44,8 +46,7 @@ function AppLayout({ children }) {
       {showSidebar && (
         <aside className="sidebar">
           <div className="sidebar-header">
-            <img src="/logo.svg" alt="Logo" className="sidebar-logo" />
-            <h1>계약 관리시스템</h1>
+            <div className="logo-text">ORDIN</div>
           </div>
           <nav className="sidebar-nav">
             {/* 대시보드 드롭다운 메뉴 */}
@@ -60,7 +61,10 @@ function AppLayout({ children }) {
               </button>
               {dashboardMenuOpen && (
                 <div className="dropdown-menu">
-                  <Link to="/" className="dropdown-item">
+                  <Link to="/overall" className="dropdown-item">
+                    전체 현황
+                  </Link>
+                  <Link to="/contracts" className="dropdown-item">
                     계약현황
                   </Link>
                   <Link to="/project-status" className="dropdown-item">
@@ -222,7 +226,9 @@ function App() {
       <div className="App">
         <AppLayout>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<OverallDashboard />} />
+            <Route path="/overall" element={<OverallDashboard />} />
+            <Route path="/contracts" element={<Dashboard />} />
             <Route path="/project-status" element={<ProjectStatus />} />
             <Route path="/budget-dashboard" element={<BudgetDashboard />} />
             <Route path="/budget-proposals" element={<BudgetProposalsView />} />
@@ -240,6 +246,8 @@ function App() {
             <Route path="/external-personnel" element={<ExternalPersonnelManagement />} />
             <Route path="/work-report" element={<WorkReport />} />
             <Route path="/project-management" element={<ProjectManagement />} />
+            <Route path="/projects" element={<ProjectManagement />} />
+            <Route path="/projects/register" element={<ProjectRegister />} />
             <Route path="/ai-assistant" element={<AIAssistantPage />} />
           </Routes>
         </AppLayout>

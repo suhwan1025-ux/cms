@@ -6542,6 +6542,166 @@ app.get('/api/personnel/:id', async (req, res) => {
   }
 });
 
+// 5-1. 엑셀 업로드로 인력현황 일괄 등록
+const multer = require('multer');
+const xlsx = require('xlsx');
+const upload = multer({ dest: 'uploads/' });
+
+app.post('/api/personnel/import/excel', upload.single('file'), async (req, res) => {
+  try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📤 [API 호출] POST /api/personnel/import/excel');
+    console.log(`   📍 Client IP: ${req.clientIP || req.ip}`);
+    console.log(`   📁 업로드 파일: ${req.file?.originalname}`);
+    
+    if (!req.file) {
+      return res.status(400).json({ error: '파일이 업로드되지 않았습니다.' });
+    }
+    
+    // 엑셀 파일 읽기
+    const workbook = xlsx.readFile(req.file.path);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const data = xlsx.utils.sheet_to_json(sheet);
+    
+    console.log(`   📊 엑셀 데이터: ${data.length}개 행`);
+    
+    // 데이터 검증 및 변환
+    const personnelData = data.map((row, index) => {
+      // 필수 필드 검증
+      if (!row['성명']) {
+        throw new Error(`${index + 2}번째 행: 성명은 필수입니다.`);
+      }
+      
+      // Boolean 필드 변환 (O/X, Y/N, 예/아니오, true/false 등)
+      const parseBoolean = (value) => {
+        if (!value) return false;
+        const str = String(value).toUpperCase().trim();
+        return ['O', 'Y', '예', 'TRUE', '1'].includes(str);
+      };
+      
+      // 날짜 필드 변환 (엑셀 날짜를 YYYY-MM-DD 형식으로)
+      const parseDate = (value) => {
+        if (!value) return null;
+        
+        // 이미 YYYY-MM-DD 형식인 경우
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          return value;
+        }
+        
+        // 엑셀 날짜 숫자인 경우
+        if (typeof value === 'number') {
+          const date = xlsx.SSF.parse_date_code(value);
+          return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
+        }
+        
+        // Date 객체인 경우
+        if (value instanceof Date) {
+          return value.toISOString().split('T')[0];
+        }
+        
+        return null;
+      };
+      
+      // 숫자 필드 변환
+      const parseNumber = (value) => {
+        if (!value) return null;
+        const num = parseFloat(value);
+        return isNaN(num) ? null : num;
+      };
+      
+      return {
+        // 기본 정보
+        division: row['본부'] || null,
+        department: row['부서'] || null,
+        position: row['직책'] || null,
+        employee_number: row['사번'] ? String(row['사번']) : null,
+        name: row['성명'],
+        rank: row['직위'] || null,
+        duties: row['담당업무'] || null,
+        job_function: row['직능'] || null,
+        bok_job_function: row['한국은행직능'] || null,
+        job_category: row['직종구분'] || null,
+        is_it_personnel: parseBoolean(row['정보기술인력']),
+        is_security_personnel: parseBoolean(row['정보보호인력']),
+        
+        // 개인 정보
+        birth_date: parseDate(row['생년월일']),
+        gender: row['성별'] || null,
+        age: parseNumber(row['나이']),
+        
+        // 입사 및 경력 정보
+        group_join_date: parseDate(row['그룹입사일']),
+        join_date: parseDate(row['입사일']),
+        resignation_date: parseDate(row['퇴사일']),
+        total_service_years: parseNumber(row['총재직기간(년)']),
+        career_base_date: parseDate(row['정산경력기준일']),
+        it_career_years: parseNumber(row['전산경력']),
+        current_duty_date: parseDate(row['현업무발령일']),
+        current_duty_period: parseNumber(row['현업무기간']),
+        previous_department: row['직전소속'] || null,
+        
+        // 학력 및 자격증
+        major: row['전공'] || null,
+        is_it_major: parseBoolean(row['전산전공여부']),
+        it_certificate_1: row['전산자격증1'] || null,
+        it_certificate_2: row['전산자격증2'] || null,
+        it_certificate_3: row['전산자격증3'] || null,
+        it_certificate_4: row['전산자격증4'] || null,
+        
+        // 기타
+        notes: row['비고'] || null,
+        is_active: true
+      };
+    });
+    
+    console.log(`   ✅ 데이터 변환 완료: ${personnelData.length}개`);
+    
+    // DB에 일괄 등록 (트랜잭션 사용)
+    const result = await sequelize.transaction(async (t) => {
+      const created = await models.Personnel.bulkCreate(personnelData, {
+        transaction: t,
+        validate: true,
+        returning: true
+      });
+      return created;
+    });
+    
+    console.log(`   ✅ DB 등록 완료: ${result.length}개`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // 업로드된 임시 파일 삭제
+    const fs = require('fs');
+    fs.unlinkSync(req.file.path);
+    
+    res.json({
+      success: true,
+      message: `${result.length}개의 인력 데이터가 성공적으로 등록되었습니다.`,
+      count: result.length
+    });
+  } catch (error) {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('❌ 엑셀 업로드 오류:', error.message);
+    console.error('   전체 에러:', error);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // 업로드된 임시 파일이 있으면 삭제
+    if (req.file) {
+      try {
+        const fs = require('fs');
+        fs.unlinkSync(req.file.path);
+      } catch (e) {
+        console.error('임시 파일 삭제 오류:', e);
+      }
+    }
+    
+    res.status(500).json({ 
+      error: '엑셀 업로드 중 오류가 발생했습니다.',
+      details: error.message 
+    });
+  }
+});
+
 // 5. 인력현황 등록
 app.post('/api/personnel', async (req, res) => {
   try {
@@ -6712,13 +6872,19 @@ app.get('/api/external-personnel', async (req, res) => {
 app.put('/api/external-personnel/:serviceItemId', async (req, res) => {
   try {
     const { serviceItemId } = req.params;
-    const { employee_number, rank, work_type, is_onsite, work_load } = req.body;
+    const { employee_number, rank, work_type, is_onsite, work_load, contract_start_date, contract_end_date } = req.body;
 
     // ServiceItem 존재 확인
     const serviceItem = await models.ServiceItem.findByPk(serviceItemId);
     if (!serviceItem) {
       return res.status(404).json({ error: '용역항목을 찾을 수 없습니다.' });
     }
+
+    // ServiceItem의 계약 기간 정보 업데이트
+    await serviceItem.update({
+      contractPeriodStart: contract_start_date || null,
+      contractPeriodEnd: contract_end_date || null
+    });
 
     // ExternalPersonnelInfo가 있으면 업데이트, 없으면 생성
     const [personnelInfo, created] = await models.ExternalPersonnelInfo.findOrCreate({

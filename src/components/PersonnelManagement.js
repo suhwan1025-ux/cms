@@ -29,6 +29,9 @@ function PersonnelManagement() {
     weekAgo.setDate(weekAgo.getDate() - 7);
     return weekAgo.toISOString().split('T')[0];
   });
+  
+  // 엑셀 업로드 상태
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     fetchPersonnel();
@@ -60,6 +63,117 @@ function PersonnelManagement() {
     } catch (error) {
       console.error('인력현황 조회 오류:', error);
       alert('인력현황 조회 중 오류가 발생했습니다.');
+    }
+  };
+  
+  // 엑셀 템플릿 다운로드
+  const handleDownloadTemplate = () => {
+    // 엑셀 템플릿 데이터 (샘플 1개 포함)
+    const templateData = [
+      {
+        '본부': '예시본부',
+        '부서': '예시부서',
+        '직책': '팀장',
+        '사번': 'EMP001',
+        '성명': '홍길동',
+        '직위': '부장',
+        '담당업무': '인사관리',
+        '직능': 'IT',
+        '한국은행직능': 'IT전문가',
+        '직종구분': '정규직',
+        '정보기술인력': 'O',
+        '정보보호인력': 'X',
+        '생년월일': '1980-01-01',
+        '성별': '남',
+        '나이': '44',
+        '그룹입사일': '2000-01-01',
+        '입사일': '2010-01-01',
+        '퇴사일': '',
+        '총재직기간(년)': '14',
+        '정산경력기준일': '2010-01-01',
+        '전산경력': '10',
+        '현업무발령일': '2020-01-01',
+        '현업무기간': '4',
+        '직전소속': '이전부서',
+        '전공': '컴퓨터공학',
+        '전산전공여부': 'O',
+        '전산자격증1': '정보처리기사',
+        '전산자격증2': '정보보안기사',
+        '전산자격증3': '',
+        '전산자격증4': '',
+        '비고': '예시 데이터입니다. 이 행을 삭제하고 실제 데이터를 입력하세요.'
+      }
+    ];
+    
+    // xlsx 라이브러리 동적 import
+    import('xlsx').then((XLSX) => {
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, '인력현황');
+      
+      // 파일 다운로드
+      XLSX.writeFile(workbook, '인력현황_업로드_템플릿.xlsx');
+    }).catch(error => {
+      console.error('xlsx 로드 오류:', error);
+      alert('템플릿 다운로드 중 오류가 발생했습니다.');
+    });
+  };
+  
+  // 엑셀 업로드 핸들러
+  const handleExcelUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // 파일 확장자 검증
+    const allowedExtensions = ['.xlsx', '.xls'];
+    const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    
+    if (!allowedExtensions.includes(fileExtension)) {
+      alert('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.');
+      event.target.value = '';
+      return;
+    }
+    
+    // 파일 크기 검증 (10MB 제한)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('파일 크기는 10MB 이하여야 합니다.');
+      event.target.value = '';
+      return;
+    }
+    
+    // 확인 메시지
+    if (!window.confirm(`${file.name} 파일을 업로드하시겠습니까?\n\n엑셀 파일의 데이터가 DB에 등록됩니다.`)) {
+      event.target.value = '';
+      return;
+    }
+    
+    setIsUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(`${API_BASE_URL}/api/personnel/import/excel`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        alert(`✅ ${result.message}`);
+        // 목록 새로고침
+        await fetchPersonnel();
+      } else {
+        throw new Error(result.error || result.details || '업로드 실패');
+      }
+    } catch (error) {
+      console.error('엑셀 업로드 오류:', error);
+      alert(`❌ 엑셀 업로드 중 오류가 발생했습니다.\n\n${error.message}`);
+    } finally {
+      setIsUploading(false);
+      // 파일 input 초기화
+      event.target.value = '';
     }
   };
 
@@ -408,9 +522,53 @@ function PersonnelManagement() {
 
           {/* 버튼 */}
           {!isBackupView && (
-            <button onClick={() => navigate('/personnel/register')} className="btn-primary">
-              신규 등록
-            </button>
+            <>
+              <button onClick={() => navigate('/personnel/register')} className="btn-primary">
+                신규 등록
+              </button>
+              <button 
+                onClick={handleDownloadTemplate} 
+                className="btn-template"
+                style={{
+                  backgroundColor: '#17a2b8',
+                  color: 'white',
+                  padding: '10px 20px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  fontWeight: '500',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                📋 템플릿 다운로드
+              </button>
+              <label 
+                htmlFor="excel-upload" 
+                className="btn-excel-upload"
+                style={{
+                  backgroundColor: isUploading ? '#ccc' : '#28a745',
+                  cursor: isUploading ? 'not-allowed' : 'pointer',
+                  opacity: isUploading ? 0.6 : 1,
+                  display: 'inline-block',
+                  padding: '10px 20px',
+                  borderRadius: '4px',
+                  color: 'white',
+                  fontWeight: '500',
+                  fontSize: '14px',
+                  border: 'none'
+                }}
+              >
+                {isUploading ? '⏳ 업로드 중...' : '📤 엑셀 업로드'}
+              </label>
+              <input
+                id="excel-upload"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleExcelUpload}
+                disabled={isUploading}
+                style={{ display: 'none' }}
+              />
+            </>
           )}
           <button onClick={handleExcelDownload} className="btn-excel">
             엑셀 다운로드

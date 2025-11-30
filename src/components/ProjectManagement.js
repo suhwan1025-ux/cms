@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getApiUrl } from '../config/api';
 import { getCurrentUser } from '../utils/userHelper';
 import './ProjectManagement.css';
@@ -6,6 +7,7 @@ import './ProjectManagement.css';
 const API_BASE_URL = getApiUrl();
 
 const ProjectManagement = () => {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,27 +18,19 @@ const ProjectManagement = () => {
   const [healthFilter, setHealthFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   
+  // 일괄 삭제를 위한 체크박스 상태
+  const [selectedProjectIds, setSelectedProjectIds] = useState([]);
+  
   // 사업예산 전용 필터
   const [budgetYearFilter, setBudgetYearFilter] = useState('all');
   const [budgetSearchTerm, setBudgetSearchTerm] = useState('');
-
-  // 수기 등록 모달
-  const [showManualModal, setShowManualModal] = useState(false);
-  const [manualForm, setManualForm] = useState({
-    projectName: '',
-    budgetYear: new Date().getFullYear(),
-    initiatorDepartment: '',
-    executorDepartment: '',
-    selectedBudgetIds: [],
-    isItCommittee: false
-  });
-  const [manualBudgetYearFilter, setManualBudgetYearFilter] = useState('all'); // 수기 등록 모달의 사업예산 연도 필터
 
   // 관련예산 모달
   const [showBudgetListModal, setShowBudgetListModal] = useState(false);
   const [selectedProjectForBudgets, setSelectedProjectForBudgets] = useState(null);
   const [isEditingBudgets, setIsEditingBudgets] = useState(false);
   const [selectedBudgetsToAdd, setSelectedBudgetsToAdd] = useState([]);
+  const [budgetAddSearchTerm, setBudgetAddSearchTerm] = useState(''); // 사업예산 추가 검색어
 
   // 편집 폼 데이터
   const [editForm, setEditForm] = useState({
@@ -279,33 +273,68 @@ const ProjectManagement = () => {
       alert(`프로젝트 삭제 중 오류가 발생했습니다.\n\n${error.message}`);
     }
   };
-
-  // 수기 등록 모달 열기
-  const handleOpenManualModal = () => {
-    setManualForm({
-      projectName: '',
-      budgetYear: new Date().getFullYear(),
-      initiatorDepartment: '',
-      executorDepartment: '',
-      selectedBudgetIds: [],
-      isItCommittee: false
-    });
-    setManualBudgetYearFilter('all'); // 사업예산 연도 필터 초기화
-    setShowManualModal(true);
+  
+  // 전체 선택/해제
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      const allIds = filteredProjects.map(p => p.id);
+      setSelectedProjectIds(allIds);
+    } else {
+      setSelectedProjectIds([]);
+    }
   };
-
-  // 사업예산 선택 토글
-  const handleToggleBudgetSelection = (budgetId) => {
-    setManualForm(prev => {
-      const isSelected = prev.selectedBudgetIds.includes(budgetId);
-      return {
-        ...prev,
-        selectedBudgetIds: isSelected
-          ? prev.selectedBudgetIds.filter(id => id !== budgetId)
-          : [...prev.selectedBudgetIds, budgetId]
-      };
+  
+  // 개별 선택/해제
+  const handleSelectProject = (projectId) => {
+    setSelectedProjectIds(prev => {
+      if (prev.includes(projectId)) {
+        return prev.filter(id => id !== projectId);
+      } else {
+        return [...prev, projectId];
+      }
     });
   };
+  
+  // 일괄 삭제
+  const handleBulkDelete = async () => {
+    if (selectedProjectIds.length === 0) {
+      alert('삭제할 프로젝트를 선택해주세요.');
+      return;
+    }
+    
+    if (!window.confirm(`선택한 ${selectedProjectIds.length}개의 프로젝트를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+      return;
+    }
+    
+    try {
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const projectId of selectedProjectIds) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+            method: 'DELETE'
+          });
+          
+          if (response.ok) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (error) {
+          failCount++;
+        }
+      }
+      
+      setSelectedProjectIds([]);
+      alert(`✅ 삭제 완료!\n\n성공: ${successCount}개\n실패: ${failCount}개`);
+      fetchProjects();
+    } catch (error) {
+      console.error('일괄 삭제 오류:', error);
+      alert(`일괄 삭제 중 오류가 발생했습니다.\n\n${error.message}`);
+    }
+  };
+
 
   // 관련예산 모달 열기
   const handleShowBudgetList = (project) => {
@@ -326,7 +355,16 @@ const ProjectManagement = () => {
     setSelectedProjectForBudgets(project);
     setIsEditingBudgets(false);
     setSelectedBudgetsToAdd([]);
+    setBudgetAddSearchTerm('');
     setShowBudgetListModal(true);
+  };
+
+  // 관련예산 모달 닫기
+  const handleCloseBudgetListModal = () => {
+    setShowBudgetListModal(false);
+    setIsEditingBudgets(false);
+    setSelectedBudgetsToAdd([]);
+    setBudgetAddSearchTerm('');
   };
 
   // 사업예산 추가
@@ -464,78 +502,6 @@ const ProjectManagement = () => {
     }
   };
 
-  // 수기 프로젝트 저장
-  const handleSaveManualProject = async () => {
-    try {
-      // 입력값 검증
-      if (!manualForm.projectName.trim()) {
-        alert('프로젝트명을 입력해주세요.');
-        return;
-      }
-      if (manualForm.selectedBudgetIds.length === 0) {
-        alert('최소 하나 이상의 사업예산을 선택해주세요.');
-        return;
-      }
-
-      const user = await getCurrentUser();
-      
-      console.log('📤 프로젝트 수기 등록 요청:', {
-        url: `${API_BASE_URL}/api/projects/manual`,
-        data: {
-          projectName: manualForm.projectName,
-          budgetYear: manualForm.budgetYear,
-          initiatorDepartment: manualForm.initiatorDepartment,
-          executorDepartment: manualForm.executorDepartment,
-          budgetIds: manualForm.selectedBudgetIds,
-          isItCommittee: manualForm.isItCommittee,
-          createdBy: user.name
-        }
-      });
-      
-      const response = await fetch(`${API_BASE_URL}/api/projects/manual`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          projectName: manualForm.projectName,
-          budgetYear: manualForm.budgetYear,
-          initiatorDepartment: manualForm.initiatorDepartment,
-          executorDepartment: manualForm.executorDepartment,
-          budgetIds: manualForm.selectedBudgetIds,
-          isItCommittee: manualForm.isItCommittee,
-          createdBy: user.name
-        })
-      });
-      
-      console.log('📥 응답 상태:', response.status, response.statusText);
-      
-      // 응답 타입 확인
-      const contentType = response.headers.get('content-type');
-      console.log('📋 Content-Type:', contentType);
-      
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error('❌ JSON이 아닌 응답:', text.substring(0, 200));
-        throw new Error('서버에서 올바른 응답을 받지 못했습니다. 서버가 재시작되었는지 확인해주세요.');
-      }
-      
-      const result = await response.json();
-      console.log('📥 응답 데이터:', result);
-      
-      if (!response.ok) {
-        throw new Error(result.error || '프로젝트 생성 실패');
-      }
-      
-      alert(`✅ ${result.message}`);
-      setShowManualModal(false);
-      fetchProjects();
-      fetchBudgets();
-    } catch (error) {
-      console.error('❌ 프로젝트 수기 등록 오류:', error);
-      alert(`프로젝트 생성 중 오류가 발생했습니다.\n\n${error.message}\n\n서버가 재시작되었는지 확인해주세요.`);
-    }
-  };
 
   // 필터링된 프로젝트 목록
   const filteredProjects = projects.filter(project => {
@@ -640,7 +606,7 @@ const ProjectManagement = () => {
           <p>사업예산 기반 프로젝트 관리 시스템</p>
           <button 
             className="btn-add-manual-project"
-            onClick={handleOpenManualModal}
+            onClick={() => navigate('/projects/register')}
           >
             ➕ 프로젝트 수기 등록
           </button>
@@ -709,6 +675,24 @@ const ProjectManagement = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        {selectedProjectIds.length > 0 && (
+          <button 
+            onClick={handleBulkDelete}
+            className="btn-bulk-delete"
+            style={{
+              backgroundColor: '#f44336',
+              color: 'white',
+              padding: '10px 20px',
+              borderRadius: '4px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '14px'
+            }}
+          >
+            🗑️ 선택 삭제 ({selectedProjectIds.length})
+          </button>
+        )}
       </div>
 
       {/* 프로젝트 테이블 */}
@@ -716,9 +700,17 @@ const ProjectManagement = () => {
         <table className="project-table">
           <thead>
             <tr>
+              <th style={{ width: '40px' }}>
+                <input
+                  type="checkbox"
+                  checked={filteredProjects.length > 0 && selectedProjectIds.length === filteredProjects.length}
+                  onChange={handleSelectAll}
+                  style={{ cursor: 'pointer' }}
+                />
+              </th>
+              <th style={{ width: '100px' }}>관리</th>
               <th>프로젝트 코드</th>
               <th>프로젝트명</th>
-              <th>연도</th>
               <th>발의부서</th>
               <th>추진부서</th>
               <th>관련예산</th>
@@ -730,13 +722,12 @@ const ProjectManagement = () => {
               <th>시작일</th>
               <th>완료기한</th>
               <th>PM</th>
-              <th>관리</th>
             </tr>
           </thead>
           <tbody>
             {filteredProjects.length === 0 ? (
               <tr>
-                <td colSpan="15" style={{ textAlign: 'center', padding: '40px' }}>
+                <td colSpan="16" style={{ textAlign: 'center', padding: '40px' }}>
                   {loading ? '데이터를 불러오는 중...' : (
                     <div>
                       <div style={{ fontSize: '16px', marginBottom: '10px' }}>
@@ -753,9 +744,32 @@ const ProjectManagement = () => {
               filteredProjects.map((project) => {
                 return (
                   <tr key={project.id}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedProjectIds.includes(project.id)}
+                        onChange={() => handleSelectProject(project.id)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button 
+                          className="btn-edit"
+                          onClick={() => handleEditProject(project)}
+                        >
+                          수정
+                        </button>
+                        <button 
+                          className="btn-delete"
+                          onClick={() => handleDeleteProject(project.id)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </td>
                     <td className="project-code">{project.projectCode}</td>
                     <td className="project-name">{project.projectName}</td>
-                    <td>{project.budgetYear}년</td>
                     <td>{project.initiatorDepartment || '-'}</td>
                     <td>{project.executorDepartment || '-'}</td>
                     <td style={{ textAlign: 'center' }}>
@@ -836,22 +850,6 @@ const ProjectManagement = () => {
                     <td>{project.startDate || '-'}</td>
                     <td>{project.deadline || '-'}</td>
                     <td>{project.pm || '-'}</td>
-                    <td>
-                      <div className="action-buttons">
-                        <button 
-                          className="btn-edit"
-                          onClick={() => handleEditProject(project)}
-                        >
-                          수정
-                        </button>
-                        <button 
-                          className="btn-delete"
-                          onClick={() => handleDeleteProject(project.id)}
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 );
               })
@@ -1011,8 +1009,8 @@ const ProjectManagement = () => {
 
       {/* 관련예산 목록 모달 */}
       {showBudgetListModal && selectedProjectForBudgets && (
-        <div className="modal-overlay" onClick={() => setShowBudgetListModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1000px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '1000px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header" style={{ 
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
@@ -1030,7 +1028,7 @@ const ProjectManagement = () => {
                 </div>
                 <button 
                   className="modal-close" 
-                  onClick={() => setShowBudgetListModal(false)}
+                  onClick={handleCloseBudgetListModal}
                   style={{
                     background: 'rgba(255, 255, 255, 0.2)',
                     color: 'white',
@@ -1106,6 +1104,26 @@ const ProjectManagement = () => {
                   <div style={{ marginBottom: '15px', fontSize: '16px', fontWeight: '600', color: '#333' }}>
                     ➕ 사업예산 추가
                   </div>
+                  
+                  {/* 검색창 */}
+                  <div style={{ marginBottom: '12px' }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 사업예산명으로 검색..."
+                      value={budgetAddSearchTerm}
+                      onChange={(e) => setBudgetAddSearchTerm(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 15px',
+                        border: '2px solid #667eea',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                     <select
                       multiple
@@ -1140,6 +1158,15 @@ const ProjectManagement = () => {
                             return false;
                           }
                           
+                          // 검색어 필터링
+                          if (budgetAddSearchTerm.trim()) {
+                            const searchLower = budgetAddSearchTerm.toLowerCase();
+                            const projectName = (b.projectName || '').toLowerCase();
+                            const budgetYear = String(b.budgetYear || '');
+                            
+                            return projectName.includes(searchLower) || budgetYear.includes(searchLower);
+                          }
+                          
                           return true;
                         })
                         .map(budget => (
@@ -1170,6 +1197,7 @@ const ProjectManagement = () => {
                         onClick={() => {
                           setIsEditingBudgets(false);
                           setSelectedBudgetsToAdd([]);
+                          setBudgetAddSearchTerm('');
                         }}
                         style={{
                           padding: '10px 20px',
@@ -1398,7 +1426,7 @@ const ProjectManagement = () => {
               </button>
               
               <button 
-                onClick={() => setShowBudgetListModal(false)}
+                onClick={handleCloseBudgetListModal}
                 style={{
                   padding: '12px 30px',
                   fontSize: '14px',
@@ -1429,238 +1457,11 @@ const ProjectManagement = () => {
         </div>
       )}
 
-      {/* 프로젝트 수기 등록 모달 */}
-      {showManualModal && (
-        <div className="modal-overlay" onClick={() => setShowManualModal(false)}>
-          <div className="modal-content modal-manual" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
-            <div className="modal-header">
-              <h2>프로젝트 수기 등록</h2>
-              <button className="modal-close" onClick={() => setShowManualModal(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-section">
-                <div className="form-row">
-                  <div className="form-group full-width">
-                    <label>프로젝트명 <span style={{ color: 'red' }}>*</span></label>
-                    <input
-                      type="text"
-                      placeholder="프로젝트명을 입력하세요"
-                      value={manualForm.projectName}
-                      onChange={(e) => setManualForm({...manualForm, projectName: e.target.value})}
-                    />
-                  </div>
-                </div>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>프로젝트 연도 <span style={{ color: 'red' }}>*</span></label>
-                    <select
-                      value={manualForm.budgetYear}
-                      onChange={(e) => setManualForm({...manualForm, budgetYear: parseInt(e.target.value)})}
-                    >
-                      {yearRange.map(year => (
-                        <option key={year} value={year}>{year}년</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={manualForm.isItCommittee}
-                        onChange={(e) => setManualForm({...manualForm, isItCommittee: e.target.checked})}
-                      />
-                      전산운영위 안건
-                    </label>
-                  </div>
-                </div>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>발의부서</label>
-                    <input
-                      type="text"
-                      placeholder="발의부서를 입력하세요"
-                      value={manualForm.initiatorDepartment}
-                      onChange={(e) => setManualForm({...manualForm, initiatorDepartment: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>추진부서</label>
-                    <input
-                      type="text"
-                      placeholder="추진부서를 입력하세요"
-                      value={manualForm.executorDepartment}
-                      onChange={(e) => setManualForm({...manualForm, executorDepartment: e.target.value})}
-                    />
-                  </div>
-                </div>
-                
-                <div className="form-row">
-                  <div className="form-group full-width">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <label>관련 사업예산 선택 <span style={{ color: 'red' }}>*</span></label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <label style={{ fontSize: '14px', fontWeight: '500', whiteSpace: 'nowrap' }}>사업예산 연도:</label>
-                        <select 
-                          value={manualBudgetYearFilter} 
-                          onChange={(e) => setManualBudgetYearFilter(e.target.value)}
-                          style={{
-                            padding: '6px 12px',
-                            border: '1px solid #ddd',
-                            borderRadius: '4px',
-                            fontSize: '14px',
-                            cursor: 'pointer',
-                            minWidth: '120px'
-                          }}
-                        >
-                          {years.map(year => (
-                            <option key={year} value={year}>
-                              {year === 'all' ? '전체 연도' : `${year}년`}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div style={{ 
-                      maxHeight: '300px', 
-                      overflowY: 'auto', 
-                      border: '1px solid #ddd', 
-                      borderRadius: '4px',
-                      padding: '10px',
-                      backgroundColor: '#f9f9f9'
-                    }}>
-                      {(() => {
-                        // 이미 프로젝트에 사용된 사업예산 필터링
-                        const availableBudgets = budgets.filter(budget => {
-                          // 연도 필터 적용
-                          if (manualBudgetYearFilter !== 'all' && budget.budgetYear !== parseInt(manualBudgetYearFilter)) {
-                            return false;
-                          }
-                          
-                          // 이미 프로젝트에 사용된 사업예산 제외
-                          const isUsedInProjects = projects.some(project => {
-                            // 단일 사업예산으로 연결된 경우
-                            if (project.businessBudgetId === budget.id) {
-                              return true;
-                            }
-                            
-                            // 다중 사업예산으로 연결된 경우
-                            if (project.linked_budgets && project.linked_budgets.some(lb => lb.id === budget.id)) {
-                              return true;
-                            }
-                            
-                            return false;
-                          });
-                          
-                          return !isUsedInProjects;
-                        });
-                        
-                        if (budgets.length === 0) {
-                          return (
-                            <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>
-                              선택 가능한 사업예산이 없습니다.
-                            </p>
-                          );
-                        }
-                        
-                        if (availableBudgets.length === 0) {
-                          return (
-                            <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>
-                              {manualBudgetYearFilter !== 'all' ? (
-                                <>{manualBudgetYearFilter}년 사용 가능한 사업예산이 없습니다.<br/>다른 연도를 선택해주세요.</>
-                              ) : (
-                                <>모든 사업예산이 이미 프로젝트에 등록되었습니다.</>
-                              )}
-                            </p>
-                          );
-                        }
-                        
-                        return availableBudgets.map(budget => (
-                            <div 
-                              key={budget.id} 
-                              style={{ 
-                                padding: '12px', 
-                                marginBottom: '8px',
-                                backgroundColor: manualForm.selectedBudgetIds.includes(budget.id) ? '#e8f5e9' : 'white',
-                                border: manualForm.selectedBudgetIds.includes(budget.id) ? '2px solid #4CAF50' : '1px solid #ddd',
-                                borderRadius: '4px',
-                                cursor: 'pointer'
-                              }}
-                              onClick={() => handleToggleBudgetSelection(budget.id)}
-                            >
-                              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'flex-start' }}>
-                                <input
-                                  type="checkbox"
-                                  checked={manualForm.selectedBudgetIds.includes(budget.id)}
-                                  onChange={() => {}}
-                                  style={{ marginRight: '10px', marginTop: '2px' }}
-                                />
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontWeight: '500', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span>{budget.projectName}</span>
-                                    <span style={{ 
-                                      fontSize: '11px', 
-                                      color: '#fff', 
-                                      backgroundColor: '#2196F3', 
-                                      padding: '2px 6px', 
-                                      borderRadius: '3px',
-                                      fontWeight: 'normal'
-                                    }}>
-                                      {budget.budgetYear}년
-                                    </span>
-                                  </div>
-                                  <div style={{ fontSize: '12px', color: '#666' }}>
-                                    예산: {formatCurrency(budget.budgetAmount)} | 
-                                    집행: {formatCurrency(budget.executedAmount)} | 
-                                    발의: {budget.initiatorDepartment || '-'} | 
-                                    추진: {budget.executorDepartment || '-'}
-                                  </div>
-                                </div>
-                              </label>
-                            </div>
-                          ));
-                      })()}
-                    </div>
-                    <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
-                      {manualBudgetYearFilter !== 'all' && (
-                        <span style={{ marginRight: '15px', color: '#2196F3' }}>
-                          🔍 {manualBudgetYearFilter}년 사업예산: {budgets.filter(b => b.budgetYear === parseInt(manualBudgetYearFilter)).length}개
-                        </span>
-                      )}
-                      선택된 사업예산: {manualForm.selectedBudgetIds.length}개
-                      {manualForm.selectedBudgetIds.length > 0 && (
-                        <span style={{ marginLeft: '10px', color: '#4CAF50', fontWeight: '500' }}>
-                          (총 예산: {formatCurrency(
-                            budgets
-                              .filter(b => manualForm.selectedBudgetIds.includes(b.id))
-                              .reduce((sum, b) => sum + (Number(b.budgetAmount) || 0), 0)
-                          )})
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowManualModal(false)}>
-                취소
-              </button>
-              <button className="btn-save" onClick={handleSaveManualProject}>
-                프로젝트 생성
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 프로젝트 편집 모달 */}
       {showEditModal && selectedProject && (
-        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="modal-content modal-edit" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="modal-content modal-edit">
             <div className="modal-header">
               <h2>프로젝트 수정</h2>
               <button className="modal-close" onClick={() => setShowEditModal(false)}>✕</button>

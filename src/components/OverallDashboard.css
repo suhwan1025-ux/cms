@@ -1,0 +1,591 @@
+.cockpit-dashboard {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  min-height: 100vh;
+  padding: 0;
+  margin: -2rem;
+  color: #e9ecef;
+  width: calc(100% + 4rem);
+  position: relative;
+}
+
+/* 로딩 화면 */
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #e9ecef;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #495057;
+  border-top: 4px solid #e9ecef;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 헤더 */
+.cockpit-header {
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 20px 30px;
+  backdrop-filter: blur(10px);
+}
+
+.header-content {
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cockpit-header h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  color: #ffffff;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.year-filter {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  outline: none;
+}
+
+.year-filter:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.year-filter option {
+  background: #2c3e50;
+  color: #ffffff;
+}
+
+.header-time {
+  font-size: 0.9rem;
+  color: #adb5bd;
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+}
+
+/* KPI 섹션 */
+.kpi-section {
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 30px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.kpi-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 20px 15px;
+  text-align: center;
+  transition: all 0.3s;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.kpi-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.kpi-label {
+  font-size: 0.75rem;
+  color: #adb5bd;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.kpi-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.kpi-value-small {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+
+.kpi-subtitle {
+  font-size: 0.7rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* 대시보드 그리드 */
+.dashboard-grid {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 30px 30px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.dashboard-panel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 25px;
+  transition: all 0.3s;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.dashboard-panel:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.dashboard-panel.wide {
+  grid-column: span 3;
+  cursor: pointer;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.panel-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.panel-badge {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.panel-content {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+/* 차트 컨테이너 */
+.chart-container {
+  flex: 1;
+  height: 180px;
+  max-width: 200px;
+}
+
+.chart-container-bar {
+  flex: 1;
+  height: 220px;
+}
+
+/* 패널 통계 */
+.panel-stats {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border-left: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #adb5bd;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* 예산 오버뷰 */
+.budget-overview {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 25px;
+}
+
+.budget-item {
+  flex: 1;
+  text-align: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.budget-label {
+  font-size: 0.85rem;
+  color: #adb5bd;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.budget-amount {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+}
+
+.budget-amount.highlighted {
+  font-size: 2.2rem;
+  color: #4CAF50;
+}
+
+/* 프로그레스 바 */
+.progress-bar-large {
+  width: 100%;
+  height: 50px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 25px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2c3e50 0%, #34495e 100%);
+  border-radius: 25px;
+  transition: width 1.5s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progress-text {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+}
+
+/* 통합 섹션 - 계약 분포와 프로젝트 테이블을 한 줄에 배치 */
+.combined-section {
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 0 30px 30px;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 20px;
+}
+
+/* 계약 유형별 분포 섹션 */
+.contract-type-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.contract-type-container {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(10px);
+  height: 100%;
+}
+
+.contract-type-chart-full {
+  width: 100%;
+  max-width: 350px;
+  height: 350px;
+  margin: 0 auto;
+}
+
+/* 프로젝트 상세 섹션 */
+.project-details-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header-main h2 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.view-all-btn {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.view-all-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.project-chart-container {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 30px;
+  backdrop-filter: blur(10px);
+  height: 450px;
+}
+
+.chart-footer {
+  padding: 15px 20px;
+  text-align: center;
+  color: #6c757d;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin-top: 10px;
+  backdrop-filter: blur(10px);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 1400px) {
+  .kpi-section {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .dashboard-panel.wide {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 1200px) {
+  .kpi-section {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .kpi-section {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-panel.wide {
+    grid-column: span 1;
+  }
+  
+  .cockpit-header h1 {
+    font-size: 1.4rem;
+  }
+  
+  .kpi-value {
+    font-size: 1.6rem;
+  }
+  
+  .kpi-value-small {
+    font-size: 1rem;
+  }
+  
+  .combined-section {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .contract-type-chart-full {
+    max-width: 300px;
+    height: 300px;
+  }
+  
+  .project-chart-container {
+    height: 400px;
+  }
+}
+
+@media (max-width: 900px) {
+  .kpi-section {
+    grid-template-columns: repeat(1, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .cockpit-dashboard {
+    margin: -1rem;
+    width: calc(100% + 2rem);
+  }
+  
+  .cockpit-header {
+    padding: 15px 20px;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+  
+  .header-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+  
+  .year-filter {
+    width: 100%;
+  }
+  
+  .kpi-section {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+  
+  .dashboard-grid {
+    padding: 0 20px 20px;
+  }
+  
+  .panel-content {
+    flex-direction: column;
+  }
+  
+  .chart-container {
+    max-width: 100%;
+    width: 100%;
+  }
+  
+  .budget-overview {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .combined-section {
+    grid-template-columns: 1fr;
+    padding: 0 20px 20px;
+  }
+  
+  .contract-type-container {
+    padding: 20px;
+  }
+  
+  .contract-type-chart-full {
+    max-width: 100%;
+    height: 250px;
+  }
+  
+  .section-header-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .project-chart-container {
+    height: 350px;
+    padding: 20px;
+  }
+}

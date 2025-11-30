@@ -25,7 +25,9 @@ function ExternalPersonnelManagement() {
     rank: '',
     work_type: '',
     is_onsite: true,
-    work_load: ''
+    work_load: '',
+    contract_start_date: '',
+    contract_end_date: ''
   });
 
   // 외주인력 데이터 조회
@@ -236,7 +238,9 @@ function ExternalPersonnelManagement() {
       rank: person.rank || '',
       work_type: person.work_type || '',
       is_onsite: person.is_onsite !== null ? person.is_onsite : true,
-      work_load: person.work_load || ''
+      work_load: person.work_load || '',
+      contract_start_date: person.contract_start_date || '',
+      contract_end_date: person.contract_end_date || ''
     });
     setShowModal(true);
   };
@@ -250,7 +254,9 @@ function ExternalPersonnelManagement() {
       rank: '',
       work_type: '',
       is_onsite: true,
-      work_load: ''
+      work_load: '',
+      contract_start_date: '',
+      contract_end_date: ''
     });
   };
 
@@ -611,6 +617,26 @@ function ExternalPersonnelManagement() {
                         value={formData.rank}
                         onChange={handleInputChange}
                         placeholder="직위 입력"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>계약시작일</label>
+                      <input
+                        type="date"
+                        name="contract_start_date"
+                        value={formData.contract_start_date}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>계약종료일</label>
+                      <input
+                        type="date"
+                        name="contract_end_date"
+                        value={formData.contract_end_date}
+                        onChange={handleInputChange}
                       />
                     </div>
                   </div>
