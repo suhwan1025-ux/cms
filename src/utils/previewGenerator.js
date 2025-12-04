@@ -999,17 +999,7 @@ export const generatePreviewHTML = (data, options = {}) => {
                   result = budgetName;
                 }
 
-                // 금액 정보 표시
-                if (totalBudget > 0) {
-                  if (result) result += ' - ';
-
-                  result += formatCurrency(totalBudget);
-
-                  // 추가예산이 있으면 별도 표시
-                  if (additionalBudget > 0) {
-                    result += ` (기본: ${formatCurrency(baseBudget)} + 추가: ${formatCurrency(additionalBudget)})`;
-                  }
-                }
+                // 금액 정보 표시하지 않음
 
                 return result || '-';
               })()}</td>
