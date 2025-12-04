@@ -168,53 +168,133 @@ export const getAccountSubjectByCategory = (category) => {
   const accountMap = {
     '소프트웨어': {
       관: '고정자산',
-      항: '유형자산',
-      목: '전산기구비품',
-      절: '전산기구비품'
+      항: '기타고정자산',
+      목: '무형자산',
+      절: '소프트웨어'
     },
     '전산기구비품': {
       관: '고정자산',
       항: '유형자산',
-      목: '전산기구비품',
-      절: '전산기구비품'
+      목: '전산기구비품'
     },
-    '전산용역비': {
+    '전산수선': {
+      관: '고정자산',
+      항: '유형자산',
+      목: '전산수선비'
+    },
+    '전산설치': {
+      관: '영업비용',
+      항: '판관비',
+      목: '전산운용비',
+      절: '전산설치비'
+    },
+    '전산소모품': {
+      관: '영업비용',
+      항: '판관비',
+      목: '전산운용비',
+      절: '전산소모품비'
+    },
+    '전산용역': {
+      관: '영업비용',
+      항: '판관비',
+      목: '전산운용비',
+      절: '전산용역비'
+    },
+    '전산임차': {
+      관: '영업비용',
+      항: '판관비',
+      목: '전산운용비',
+      절: '전산임차료'
+    },
+    '전산회선': {
+      관: '영업비용',
+      항: '판관비',
+      목: '전산운용비',
+      절: '전산회선료'
+    },
+    '전신전화': {
+      관: '영업비용',
+      항: '판관비',
+      목: '전산운용비',
+      절: '전신전화료'
+    },
+    '증권전산운용': {
+      관: '영업비용',
+      항: '판관비',
+      목: '전산운용비',
+      절: '증권전산운용비'
+    },
+    '보험비': {
+      관: '영업비용',
+      항: '판관비',
+      목: '기타판관비',
+      절: '보험료'
+    },
+    '일반업무수수료': {
+      관: '영업비용',
+      항: '판관비',
+      목: '기타판관비',
+      절: '일반업무수수료'
+    },
+    '통신정보료': {
+      관: '영업비용',
+      항: '판관비',
+      목: '기타판관비',
+      절: '통신정보료'
+    },
+    '회비및공과금': {
+      관: '영업비용',
+      항: '판관비',
+      목: '세금과공과금',
+      절: '회비및공과금'
+    },
+    '전산용역비': { // 용역계약 기본값
       관: '운영비',
       항: '일반운영비',
       목: '전산용역비',
       절: null
     },
-    '기타': {
+    '기타': { // 기본값
       관: '운영비',
       항: '일반운영비',
       목: '기타운영비',
       절: null
     }
   };
-  
+
   return accountMap[category] || accountMap['기타'];
 };
 
-// 계정과목 그룹 정보 생성
+// 계정과목 그룹 정보 생성 (ProposalForm.js와 동일한 로직)
 export const getAccountSubjectGroups = (data) => {
-  const groups = [];
-  
+  const accountMap = new Map(); // 구분+계정과목을 키로 사용하여 품목들을 그룹화
+
   // 구매계약의 경우
   if (['purchase', 'change', 'extension'].includes(data.contractType) && data.purchaseItems?.length > 0) {
     data.purchaseItems.forEach(item => {
       if (item.productName && item.item) {
         const accountSubject = getAccountSubjectByCategory(item.item);
-        
+
         if (accountSubject) {
           let accountInfo = `관: ${accountSubject.관} > 항: ${accountSubject.항} > 목: ${accountSubject.목}`;
           if (accountSubject.절) {
             accountInfo += ` > 절: ${accountSubject.절}`;
           }
-          
-          groups.push({
-            name: item.productName,
-            accountInfo: accountInfo
-          });
+
+          // 구분(item)도 키에 포함하여 다른 구분끼리는 별도로 그룹화
+          const groupKey = `${item.item}|${accountInfo}`;
+
+          // 같은 구분 + 같은 계정과목을 가진 품목들을 배열로 묶음
+          if (!accountMap.has(groupKey)) {
+            accountMap.set(groupKey, {
+              구분: item.item,
+              accountInfo: accountInfo
+            });
+          }
+          if (!accountMap.get(groupKey).names) {
+            accountMap.get(groupKey).names = [];
+          }
+          accountMap.get(groupKey).names.push(item.productName);
         }
       }
     });
@@ -224,22 +304,43 @@ export const getAccountSubjectGroups = (data) => {
   if (data.contractType === 'service' && data.serviceItems?.length > 0) {
     data.serviceItems.forEach(item => {
       if (item.item) {
-        const accountSubject = getAccountSubjectByCategory('전산용역비');
-        
+        const accountSubject = getAccountSubjectByCategory(item.item);
+
         if (accountSubject) {
           let accountInfo = `관: ${accountSubject.관} > 항: ${accountSubject.항} > 목: ${accountSubject.목}`;
           if (accountSubject.절) {
             accountInfo += ` > 절: ${accountSubject.절}`;
           }
-          
-          groups.push({
-            name: item.item,
-            accountInfo: accountInfo
-          });
+
+          // 구분(item)도 키에 포함
+          const groupKey = `${item.item}|${accountInfo}`;
+
+          // 같은 구분 + 같은 계정과목을 가진 품목들을 배열로 묶음
+          if (!accountMap.has(groupKey)) {
+            accountMap.set(groupKey, {
+              구분: item.item,
+              accountInfo: accountInfo
+            });
+          }
+          if (!accountMap.get(groupKey).names) {
+            accountMap.get(groupKey).names = [];
+          }
+          accountMap.get(groupKey).names.push(item.item);
         }
       }
     });
   }
+
+  // Map을 배열로 변환 (품목명들을 쉼표로 연결)
+  const groups = [];
+  accountMap.forEach((value) => {
+    if (value.names && value.names.length > 0) {
+      groups.push({
+        names: value.names.join(', '), // 여러 품목명을 쉼표로 연결
+        accountInfo: value.accountInfo
+      });
+    }
+  });
 
   return groups;
 };
@@ -662,7 +763,7 @@ export const generateAccountSubjectSection = (data) => {
       <div style="padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
         ${accountSubjects.map(account => `
           <div style="margin-bottom: 10px; padding: 8px 0; border-bottom: 1px solid #eee;">
-            <strong>품목:</strong> ${account.name} > ${account.accountInfo}
+            <strong>품목:</strong> ${account.names} > ${account.accountInfo}
           </div>
         `).join('')}
       </div>
@@ -732,6 +833,7 @@ export const generatePreviewHTML = (data, options = {}) => {
           margin: 0;
           padding: 20px;
           background-color: #f5f5f5;
+          font-weight: bold !important; /* 모든 폰트에 볼드 강제 */
         }
         .preview-container {
           max-width: 880px;
@@ -745,6 +847,7 @@ export const generatePreviewHTML = (data, options = {}) => {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 20px;
+          font-weight: bold; /* 테이블도 볼드 */
         }
         .info-table th, .info-table td {
           border: 1px solid #ddd;
@@ -754,7 +857,7 @@ export const generatePreviewHTML = (data, options = {}) => {
         }
         .info-table th {
           background-color: #f8f9fa;
-          font-weight: bold;
+          font-weight: 800; /* 헤더는 더 굵게 */
           width: 150px;
           text-align: center;
         }
@@ -834,7 +937,10 @@ export const generatePreviewHTML = (data, options = {}) => {
         }
         @media print {
           .action-buttons { display: none; }
-          body { background: white; }
+          body { 
+            background: white; 
+            font-weight: bold !important;
+          }
           .preview-container { 
             box-shadow: none; 
             padding: 20px;
@@ -865,26 +971,47 @@ export const generatePreviewHTML = (data, options = {}) => {
               <th>사업 예산</th>
               <td>${(() => {
                 // 사업예산 이름 (budgetInfo 우선)
-                const budgetName = data.budgetInfo?.projectName || 
-                                  data.businessBudget?.project_name || 
-                                  data.budgetName || 
-                                  data.budget_name || 
+                const budgetName = data.budgetInfo?.projectName ||
+                                  data.businessBudget?.project_name ||
+                                  data.budgetName ||
+                                  data.budget_name ||
                                   (typeof data.budget === 'string' ? data.budget : '') || '';
-                
+
                 // 사업예산 연도 (budgetInfo 우선)
-                const budgetYear = data.budgetInfo?.budgetYear || 
-                                  data.businessBudget?.budget_year || 
-                                  data.budgetYear || 
+                const budgetYear = data.budgetInfo?.budgetYear ||
+                                  data.businessBudget?.budget_year ||
+                                  data.budgetYear ||
                                   data.budget_year || '';
-                
-                if (!budgetName && !budgetYear) return '-';
-                
-                // 연도가 있으면 함께 표시
+
+                // 사업예산 총액 계산 (기본예산 + 추가예산)
+                const baseBudget = data.businessBudget?.budget_amount || data.budgetInfo?.budgetAmount || 0;
+                const additionalBudget = data.businessBudget?.additional_budget || 0;
+                const totalBudget = baseBudget + additionalBudget;
+
+                if (!budgetName && !budgetYear && totalBudget === 0) return '-';
+
+                let result = '';
+
+                // 프로젝트명 표시
                 if (budgetYear) {
-                  return `${budgetName} (${budgetYear}년)`;
+                  result = `${budgetName} (${budgetYear}년)`;
+                } else if (budgetName) {
+                  result = budgetName;
                 }
-                
-                return budgetName;
+
+                // 금액 정보 표시
+                if (totalBudget > 0) {
+                  if (result) result += ' - ';
+
+                  result += formatCurrency(totalBudget);
+
+                  // 추가예산이 있으면 별도 표시
+                  if (additionalBudget > 0) {
+                    result += ` (기본: ${formatCurrency(baseBudget)} + 추가: ${formatCurrency(additionalBudget)})`;
+                  }
+                }
+
+                return result || '-';
               })()}</td>
             </tr>
             <tr>

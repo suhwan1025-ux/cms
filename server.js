@@ -2391,29 +2391,32 @@ app.get('/api/proposals/by-budget/:businessBudgetId', async (req, res) => {
 // 6. 품의서 상세 조회
 app.get('/api/proposals/:id', async (req, res) => {
   try {
+    // include 배열 구성
+    const includeArray = [
+      {
+        model: models.PurchaseItem,
+        as: 'purchaseItems'
+      },
+      {
+        model: models.ServiceItem,
+        as: 'serviceItems'
+      },
+      {
+        model: models.CostDepartment,
+        as: 'costDepartments'
+      },
+      {
+        model: models.ApprovalLine,
+        as: 'approvalLines'
+      },
+      {
+        model: models.RequestDepartment,
+        as: 'requestDepartments'
+      }
+    ];
+    
     const proposal = await models.Proposal.findByPk(req.params.id, {
-      include: [
-        {
-          model: models.PurchaseItem,
-          as: 'purchaseItems'
-        },
-        {
-          model: models.ServiceItem,
-          as: 'serviceItems'
-        },
-        {
-          model: models.CostDepartment,
-          as: 'costDepartments'
-        },
-        {
-          model: models.ApprovalLine,
-          as: 'approvalLines'
-        },
-        {
-          model: models.RequestDepartment,
-          as: 'requestDepartments'
-        }
-      ]
+      include: includeArray
     });
     
     if (!proposal) {
@@ -5618,6 +5621,9 @@ app.get('/api/work-reports', async (req, res) => {
     
     // 부서별 비용귀속 집계
     const departmentStats = {};
+    // 품의서별 부서 카운트 추적 (중복 카운트 방지)
+    const proposalDeptCounted = {};
+    
     proposals.forEach(proposal => {
       if (proposal.costDepartments && proposal.costDepartments.length > 0) {
         proposal.costDepartments.forEach(dept => {
@@ -5628,12 +5634,23 @@ app.get('/api/work-reports', async (req, res) => {
               amount: 0
             };
           }
-          // 비용귀속부서는 ratio(비율)을 가지고 있음
-          const ratio = parseFloat(dept.ratio || 0) / 100; // 비율을 소수로 변환
-          const allocatedAmount = parseFloat(proposal.totalAmount || 0) * ratio;
           
-          departmentStats[deptName].count++;
+          // 배분금액 사용 (amount 필드에 품목별로 계산된 실제 배분금액이 저장됨)
+          // amount가 없거나 0인 경우 ratio로 계산 (하위 호환성)
+          let allocatedAmount = parseFloat(dept.amount || 0);
+          if (allocatedAmount === 0 && dept.ratio) {
+            const ratio = parseFloat(dept.ratio || 0) / 100;
+            allocatedAmount = parseFloat(proposal.totalAmount || 0) * ratio;
+          }
+          
           departmentStats[deptName].amount += allocatedAmount;
+          
+          // 품의서별로 해당 부서가 처음 나오면 건수 증가 (중복 카운트 방지)
+          const countKey = `${proposal.id}_${deptName}`;
+          if (!proposalDeptCounted[countKey]) {
+            departmentStats[deptName].count++;
+            proposalDeptCounted[countKey] = true;
+          }
         });
       } else {
         // 비용귀속부서가 없는 경우 미지정으로 처리
@@ -6610,6 +6627,42 @@ app.post('/api/personnel/import/excel', upload.single('file'), async (req, res) 
         return isNaN(num) ? null : num;
       };
       
+      // 날짜 파싱
+      const birthDate = parseDate(row['생년월일']);
+      const groupJoinDate = parseDate(row['그룹입사일']);
+      const joinDate = parseDate(row['입사일']);
+      const resignationDate = parseDate(row['퇴사일']);
+      const careerBaseDate = parseDate(row['정산경력기준일']);
+      const currentDutyDate = parseDate(row['현업무발령일']);
+      
+      // 자동 계산 함수들 (웹 화면과 동일한 로직)
+      const calculateAge = (birthDate) => {
+        if (!birthDate) return null;
+        const birth = new Date(birthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        return age;
+      };
+      
+      const calculateYearsDiff = (startDate) => {
+        if (!startDate) return null;
+        const today = new Date();
+        const start = new Date(startDate);
+        const diffTime = Math.abs(today - start);
+        const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+        return parseFloat(diffYears.toFixed(2)); // 소수점 둘째 자리까지
+      };
+      
+      // 자동 계산된 값 (엑셀 값이 없을 경우에만 사용)
+      const calculatedAge = calculateAge(birthDate);
+      const calculatedTotalServiceYears = calculateYearsDiff(groupJoinDate); // 그룹입사일 기준
+      const calculatedItCareerYears = calculateYearsDiff(careerBaseDate);
+      const calculatedCurrentDutyPeriod = calculateYearsDiff(currentDutyDate);
+      
       return {
         // 기본 정보
         division: row['본부'] || null,
@@ -6626,19 +6679,19 @@ app.post('/api/personnel/import/excel', upload.single('file'), async (req, res) 
         is_security_personnel: parseBoolean(row['정보보호인력']),
         
         // 개인 정보
-        birth_date: parseDate(row['생년월일']),
+        birth_date: birthDate,
         gender: row['성별'] || null,
-        age: parseNumber(row['나이']),
+        age: parseNumber(row['나이']) || calculatedAge,
         
         // 입사 및 경력 정보
         group_join_date: parseDate(row['그룹입사일']),
-        join_date: parseDate(row['입사일']),
-        resignation_date: parseDate(row['퇴사일']),
-        total_service_years: parseNumber(row['총재직기간(년)']),
-        career_base_date: parseDate(row['정산경력기준일']),
-        it_career_years: parseNumber(row['전산경력']),
-        current_duty_date: parseDate(row['현업무발령일']),
-        current_duty_period: parseNumber(row['현업무기간']),
+        join_date: joinDate,
+        resignation_date: resignationDate,
+        total_service_years: parseNumber(row['총재직기간(년)']) || calculatedTotalServiceYears,
+        career_base_date: careerBaseDate,
+        it_career_years: parseNumber(row['전산경력']) || calculatedItCareerYears,
+        current_duty_date: currentDutyDate,
+        current_duty_period: parseNumber(row['현업무기간']) || calculatedCurrentDutyPeriod,
         previous_department: row['직전소속'] || null,
         
         // 학력 및 자격증
@@ -7038,7 +7091,58 @@ function schedulePersonnelBackup() {
   }, msUntilMidnight);
 }
 
+// =====================================================
+// 품의서 정정 API
+// =====================================================
+
+// 결재 완료된 품의서 목록 조회
+app.get('/api/proposals/approved', async (req, res) => {
+  try {
+    console.log('=== 결재 완료된 품의서 조회 시작 ===');
+    
+    // 먼저 모든 품의서의 status 값 확인
+    const allProposals = await models.Proposal.findAll({
+      attributes: ['id', 'status', 'isDraft'],
+      limit: 10
+    });
+    console.log('전체 품의서 status 샘플:', allProposals.map(p => ({ id: p.id, status: p.status, isDraft: p.isDraft })));
+    
+    // 결재 완료된 품의서 조회 (여러 상태 허용)
+    const proposals = await models.Proposal.findAll({
+      where: {
+        [Op.and]: [
+          { isDraft: false }, // 임시저장이 아닌 것
+          {
+            [Op.or]: [
+              { status: 'approved' },
+              { status: '작성완료' },
+              { status: '결재완료' },
+              { status: 'submitted' }
+            ]
+          }
+        ]
+      },
+      attributes: ['id', 'purpose', 'contractType', 'totalAmount', 'createdAt', 'status'],
+      order: [['createdAt', 'DESC']]
+    });
+
+    console.log('결재 완료된 품의서 조회 결과:', proposals.length, '건');
+    console.log('조회된 품의서:', proposals.map(p => ({ id: p.id, purpose: p.purpose, status: p.status })));
+    
+    res.json(proposals);
+  } catch (error) {
+    console.error('❌ 결재 완료된 품의서 조회 오류:', error);
+    console.error('에러 상세:', error.stack);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.stack 
+    });
+  }
+});
+
+// =====================================================
 // 서버 시작
+// =====================================================
 app.listen(PORT, '0.0.0.0', async () => {
   try {
     await sequelize.authenticate();

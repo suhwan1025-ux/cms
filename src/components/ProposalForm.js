@@ -1298,9 +1298,28 @@ const ProposalForm = () => {
   }, [departmentSearchTerm, formData.requestDepartments]);
 
   const formatCurrency = (amount) => {
+    // NaN, undefined, null인 경우 0으로 처리
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      amount = 0;
+    }
     // 소수점 제거하고 정수로 변환
     const integerAmount = Math.round(amount);
     return new Intl.NumberFormat('ko-KR').format(integerAmount) + '원';
+  };
+
+  // 백만원 단위 표시 함수
+  const formatCurrencyMillion = (amount) => {
+    // NaN, undefined, null인 경우 0으로 처리
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      amount = 0;
+    }
+    // 백만원 단위로 변환 후 반올림하여 정수로 표시
+    const millionAmount = Math.round(amount / 1000000);
+
+    // 3자리마다 콤마 추가
+    const formattedAmount = millionAmount.toLocaleString('ko-KR');
+
+    return formattedAmount + '백만원';
   };
 
   // 한글 금액 표시
@@ -3155,7 +3174,9 @@ const ProposalForm = () => {
           budgetYear: selectedBudget.budget_year || selectedBudget.budgetYear,
           budgetType: budgetTypeLabel, // 예산 유형 라벨 사용
           budgetCategory: selectedBudget.budget_category || selectedBudget.budgetCategory,
-          budgetAmount: selectedBudget.budget_amount || selectedBudget.budgetAmount
+          budgetAmount: selectedBudget.budget_amount || selectedBudget.budgetAmount,
+          additionalBudget: selectedBudget.additional_budget || 0,
+          totalBudgetAmount: (selectedBudget.budget_amount || selectedBudget.budgetAmount || 0) + (selectedBudget.additional_budget || 0)
         };
         console.log('  - 구성된 budgetInfo:', budgetInfo);
       } else {
@@ -3223,9 +3244,9 @@ const ProposalForm = () => {
     return items || '-';
   };
 
-  // 계정과목 그룹 생성 (품의서 계정과목 섹션 값 참조)
+  // 계정과목 그룹 생성 (같은 구분 + 같은 관항목절인 품목들을 하나로 묶음)
   const getAccountSubjectGroups = () => {
-    const groups = [];
+    const accountMap = new Map(); // 구분+계정과목을 키로 사용하여 품목들을 그룹화
     
     // 구매계약의 경우
     if (['purchase', 'change'].includes(contractType) && formData.purchaseItems?.length > 0) {
@@ -3239,10 +3260,20 @@ const ProposalForm = () => {
               accountInfo += ` > 절: ${accountSubject.절}`;
             }
             
-            groups.push({
-              name: item.productName,
-              accountInfo: accountInfo
-            });
+            // 구분(item)도 키에 포함하여 다른 구분끼리는 별도로 그룹화
+            const groupKey = `${item.item}|${accountInfo}`;
+            
+            // 같은 구분 + 같은 계정과목을 가진 품목들을 배열로 묶음
+            if (!accountMap.has(groupKey)) {
+              accountMap.set(groupKey, {
+                구분: item.item,
+                accountInfo: accountInfo
+              });
+            }
+            if (!accountMap.get(groupKey).names) {
+              accountMap.get(groupKey).names = [];
+            }
+            accountMap.get(groupKey).names.push(item.productName);
           }
         }
       });
@@ -3260,10 +3291,20 @@ const ProposalForm = () => {
               accountInfo += ` > 절: ${accountSubject.절}`;
             }
             
-            groups.push({
-              name: item.item,
-              accountInfo: accountInfo
-            });
+            // 구분(item)도 키에 포함
+            const groupKey = `${item.item}|${accountInfo}`;
+            
+            // 같은 구분 + 같은 계정과목을 가진 품목들을 배열로 묶음
+            if (!accountMap.has(groupKey)) {
+              accountMap.set(groupKey, {
+                구분: item.item,
+                accountInfo: accountInfo
+              });
+            }
+            if (!accountMap.get(groupKey).names) {
+              accountMap.get(groupKey).names = [];
+            }
+            accountMap.get(groupKey).names.push(item.item);
           }
         }
       });
@@ -3271,6 +3312,17 @@ const ProposalForm = () => {
     
     // 자유양식의 경우 - 계정과목 정보 없음
     // (자유양식은 계정과목이 정해지지 않음)
+    
+    // Map을 배열로 변환 (품목명들을 쉼표로 연결)
+    const groups = [];
+    accountMap.forEach((value) => {
+      if (value.names && value.names.length > 0) {
+        groups.push({
+          names: value.names.join(', '), // 여러 품목명을 쉼표로 연결
+          accountInfo: value.accountInfo
+        });
+      }
+    });
     
     return groups;
   };
@@ -3290,7 +3342,7 @@ const ProposalForm = () => {
         <div style="padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
           ${accountSubjects.map(account => `
             <div style="margin-bottom: 10px; padding: 8px 0; border-bottom: 1px solid #eee;">
-              <strong>품목:</strong> ${account.name} > ${account.accountInfo}
+              <strong>품목:</strong> ${account.names} > ${account.accountInfo}
             </div>
           `).join('')}
         </div>
@@ -3523,8 +3575,17 @@ const ProposalForm = () => {
     
     if (budget) {
       const projectName = budget.project_name || budget.projectName || budget.name;
-      const budgetAmount = budget.budget_amount || budget.budgetAmount || 0;
-      return `${projectName} (${formatCurrency(budgetAmount)})`;
+      const baseBudget = budget.budget_amount || budget.budgetAmount || 0;
+      const additionalBudget = budget.additional_budget || 0;
+      const totalBudget = baseBudget + additionalBudget;
+
+      let result = `${projectName} (${formatCurrency(totalBudget)})`;
+
+      if (additionalBudget > 0) {
+        result += ` (+추가 ${formatCurrency(additionalBudget)})`;
+      }
+
+      return result;
     }
     
     return `미등록 예산 (${formData.budget})`;
@@ -4431,16 +4492,16 @@ const ProposalForm = () => {
             신규 계약
           </button>
           <button
-            className={`type-btn ${contractType === 'change' ? 'active' : ''}`}
-            onClick={() => changeContractType('change')}
-          >
-            변경 계약
-          </button>
-          <button
             className={`type-btn ${contractType === 'service' ? 'active' : ''}`}
             onClick={() => changeContractType('service')}
           >
             용역 계약
+          </button>
+          <button
+            className={`type-btn ${contractType === 'change' ? 'active' : ''}`}
+            onClick={() => changeContractType('change')}
+          >
+            변경 계약
           </button>
 
           <button
@@ -4574,12 +4635,17 @@ const ProposalForm = () => {
                         }
                         
                         if (selectedBudget) {
-                          const remainingAmount = (selectedBudget.budget_amount || 0) - (selectedBudget.executed_amount || 0);
+                          const totalBudgetAmount = (selectedBudget.budget_amount || 0) + (selectedBudget.additional_budget || 0);
+                          const remainingAmount = totalBudgetAmount - (selectedBudget.executed_amount || 0);
                           return (
                             <>
                               <span>예산유형: {budgetType}</span>
                               <span>선택된 예산: {selectedBudget.project_name || selectedBudget.account_subject}</span>
-                              <span>예산총액: {formatCurrency(selectedBudget.budget_amount || 0)}</span>
+                              <span>기본예산: {formatCurrency(selectedBudget.budget_amount || 0)}</span>
+                              {selectedBudget.additional_budget > 0 && (
+                                <span>추가예산: {formatCurrency(selectedBudget.additional_budget)}</span>
+                              )}
+                              <span>총 예산액: {formatCurrency(totalBudgetAmount)}</span>
                               <span>사용금액: {formatCurrency(selectedBudget.executed_amount || 0)}</span>
                               <span>잔여예산: {formatCurrency(remainingAmount)}</span>
                             </>
@@ -5373,7 +5439,7 @@ const ProposalForm = () => {
                 ))}
               </div>
 
-              {/* 계정과목 섹션 - 통합 표시 */}
+              {/* 계정과목 섹션 - 같은 구분 + 같은 관항목절인 품목들을 묶어서 표시 */}
               {(() => {
                 const itemsWithAccount = (formData.purchaseItems || []).filter(item => {
                   const accountSubject = getAccountSubjectByCategory(item.item);
@@ -5384,6 +5450,23 @@ const ProposalForm = () => {
                   return null;
                 }
                 
+                // 구분 + 계정과목별로 품목들을 그룹화
+                const accountGroups = new Map();
+                itemsWithAccount.forEach(item => {
+                  const accountSubject = getAccountSubjectByCategory(item.item);
+                  // 구분(item.item)도 키에 포함하여 다른 구분끼리는 별도로 그룹화
+                  const accountKey = `${item.item}|${accountSubject.관}|${accountSubject.항}|${accountSubject.목}|${accountSubject.절 || ''}`;
+                  
+                  if (!accountGroups.has(accountKey)) {
+                    accountGroups.set(accountKey, {
+                      accountSubject: accountSubject,
+                      구분: item.item,
+                      items: []
+                    });
+                  }
+                  accountGroups.get(accountKey).items.push(item.productName || item.item);
+                });
+                
                 return (
                   <div className="account-subjects-container">
                     <div className="account-subject-section">
@@ -5392,12 +5475,12 @@ const ProposalForm = () => {
                       </div>
                       
                       <div className="account-list">
-                        {itemsWithAccount.map((item, index) => {
-                          const accountSubject = getAccountSubjectByCategory(item.item);
+                        {Array.from(accountGroups.values()).map((group, index) => {
+                          const { accountSubject, items } = group;
                           
                           return (
-                            <div key={`account-${item.id}`} className="account-item">
-                              <div className="item-name">{item.productName || item.item}</div>
+                            <div key={`account-group-${index}`} className="account-item">
+                              <div className="item-name">{items.join(', ')}</div>
                               <div className="account-path">
                                 <span className="path-item">
                                   <span className="path-label">관:</span>
@@ -6483,19 +6566,20 @@ const ProposalForm = () => {
             <div className="budget-list">
               {filteredBudgets.length > 0 ? (
                 filteredBudgets.map(budget => {
-                  const remainingAmount = (budget.budget_amount || 0) - (budget.executed_amount || 0);
+                  const totalBudgetAmount = (parseFloat(budget.budget_amount) || 0) + (parseFloat(budget.additional_budget) || 0);
+                  const remainingAmount = totalBudgetAmount - (budget.executed_amount || 0);
                   const budgetTypeLabel = budget.budgetType === 'operating' ? '전산운용비' : '자본예산';
                   const budgetTypeColor = budget.budgetType === 'operating' ? '#28a745' : '#007bff';
                   return (
-                    <div 
-                      key={`${budget.budgetType}-${budget.id}`} 
+                    <div
+                      key={`${budget.budgetType}-${budget.id}`}
                       className="budget-item"
                       onClick={() => selectBudget(budget)}
                     >
                       <div className="budget-header">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <h4>{budget.project_name}</h4>
-                          <span 
+                          <span
                             className="budget-type-badge"
                             style={{
                               backgroundColor: budgetTypeColor,
@@ -6511,15 +6595,22 @@ const ProposalForm = () => {
                         </div>
                         <span className="budget-year">{budget.budget_year}년</span>
                       </div>
-                      <div className="budget-details">
-                        <span className="budget-amount">총액: {formatCurrency(budget.budget_amount || 0)}</span>
-                        <span className="budget-remaining">잔여: {formatCurrency(remainingAmount)}</span>
+                      <div className="budget-details" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '1rem' }}>
+                        <span className="budget-amount">
+                          총액: {formatCurrencyMillion(totalBudgetAmount)}
+                          {budget.additional_budget > 0 && (
+                            <small style={{ color: '#ff6b35', marginLeft: '4px', fontWeight: 'bold' }}>
+                              (+추가 {formatCurrencyMillion(budget.additional_budget)})
+                            </small>
+                          )}
+                        </span>
+                        <span className="budget-remaining">잔여: {formatCurrencyMillion(remainingAmount)}</span>
                       </div>
                       <div className="budget-progress">
-                        <div 
+                        <div
                           className="progress-bar"
                           style={{
-                            width: `${budget.budget_amount > 0 ? (budget.executed_amount / budget.budget_amount) * 100 : 0}%`
+                            width: `${totalBudgetAmount > 0 ? (budget.executed_amount / totalBudgetAmount) * 100 : 0}%`
                           }}
                         ></div>
                       </div>

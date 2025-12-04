@@ -371,7 +371,7 @@ function OverallDashboard() {
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
               className="year-filter"
             >
-              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+              {Array.from({ length: 7 }, (_, i) => new Date().getFullYear() + 1 - i).map(year => (
                 <option key={year} value={year}>{year}년</option>
               ))}
             </select>
