@@ -1921,6 +1921,15 @@ app.post('/api/proposals', async (req, res) => {
     console.log('🔍 최종 budget 값:', proposalData.budget);
     console.log('🔍 최종 operatingBudgetId 값:', proposalData.operatingBudgetId);
     
+    // 정정 모드인 경우 원본 품의서 상태 변경
+    if (proposalData.originalProposalId) {
+      const originalProposal = await models.Proposal.findByPk(proposalData.originalProposalId);
+      if (originalProposal) {
+        await originalProposal.update({ status: '정정전' });
+        console.log(`✅ 원본 품의서 ID ${proposalData.originalProposalId}의 상태를 '정정전'으로 변경`);
+      }
+    }
+
     const createData = {
       contractType: proposalData.contractType, // camelCase 사용 (Sequelize가 자동 변환)
       title: proposalData.title || '',
@@ -1938,9 +1947,12 @@ app.post('/api/proposals', async (req, res) => {
       contractEndDate: proposalData.contractEndDate || null,
       paymentMethod: processedPaymentMethodGeneral,
       wysiwygContent: proposalData.wysiwygContent || '', // 자유양식 문서 내용 추가
-      status: proposalData.isDraft ? 'draft' : 'submitted', // 요청된 상태에 따라 설정
+      other: proposalData.other || '', // 기타 사항 추가
+      correctionReason: proposalData.correctionReason || null, // 정정 사유 (정정 모드일 때만)
+      status: proposalData.status || (proposalData.isDraft ? 'draft' : 'submitted'), // 클라이언트에서 전달된 status 사용 (pending, submitted, draft 등)
       createdBy: proposalData.createdBy, // camelCase 사용
-      isDraft: proposalData.isDraft !== undefined ? proposalData.isDraft : true // 요청된 값 또는 기본값
+      isDraft: proposalData.isDraft !== undefined ? proposalData.isDraft : true, // 요청된 값 또는 기본값
+      originalProposalId: proposalData.originalProposalId || null // 원본 품의서 ID 저장
     };
     console.log('createData:', JSON.stringify(createData, null, 2));
     
@@ -2165,6 +2177,11 @@ app.get('/api/proposals', async (req, res) => {
     // status 필터링 (승인 상태)
     if (req.query.status) {
       whereClause.status = req.query.status;
+    }
+    
+    // originalProposalId 필터링 (정정 품의서 찾기)
+    if (req.query.originalProposalId) {
+      whereClause.originalProposalId = req.query.originalProposalId;
     }
     
     // 등록일 필터링 (최근 N개월)
@@ -2645,9 +2662,12 @@ app.put('/api/proposals/:id', async (req, res) => {
         contractEndDate: proposalData.contractEndDate || proposal.contractEndDate || null,
       paymentMethod: processedPaymentMethod,
       wysiwygContent: proposalData.wysiwygContent || proposal.wysiwygContent || '', // 자유양식 문서 내용 추가
+      other: proposalData.other !== undefined ? proposalData.other : proposal.other, // 기타 사항 추가
+      correctionReason: proposalData.correctionReason !== undefined ? proposalData.correctionReason : proposal.correctionReason, // 정정 사유 추가
       createdBy: proposalData.createdBy || proposal.createdBy || '사용자1',
-      status: proposalData.isDraft ? 'draft' : 'submitted',
-      isDraft: proposalData.isDraft !== undefined ? proposalData.isDraft : false
+      status: proposalData.status || (proposalData.isDraft ? 'draft' : 'submitted'), // 클라이언트에서 전달된 status 사용
+      isDraft: proposalData.isDraft !== undefined ? proposalData.isDraft : false,
+      originalProposalId: proposalData.originalProposalId !== undefined ? proposalData.originalProposalId : proposal.originalProposalId // 원본 품의서 ID 추가
     });
 
     // 트랜잭션 시작
@@ -2926,32 +2946,53 @@ app.patch('/api/proposals/:id/status', async (req, res) => {
     const previousStatus = proposal.status;
     console.log('이전 상태:', previousStatus);
     
-    // 상태는 submitted 또는 approved만 허용
+    // 상태 매핑 (모든 상태 지원)
     let dbStatus;
     if (status === 'approved' || status === '결재완료') {
       dbStatus = 'approved';
     } else if (status === 'submitted' || status === '결재대기') {
       dbStatus = 'submitted';
+    } else if (status === 'pending') {
+      dbStatus = 'pending';
+    } else if (status === 'draft' || status === '임시저장') {
+      dbStatus = 'draft';
+    } else if (status === '정정전') {
+      dbStatus = '정정전';
+    } else if (status === '정정후') {
+      dbStatus = '정정후';
     } else {
-      // 기본값: submitted
-      dbStatus = 'submitted';
+      // 그 외의 상태는 그대로 사용
+      dbStatus = status;
     }
     
     console.log('변환된 DB 상태:', status, '->', dbStatus);
     
     // 상태 변경 유효성 검사
-    if (previousStatus === 'approved' && dbStatus === 'submitted') {
-      console.log('⚠️ approved -> submitted 변경 불가');
+    console.log('상태 변경 검증:', { previousStatus, dbStatus });
+    
+    // 1. 결재완료된 품의서는 상태 변경 불가
+    if (previousStatus === 'approved') {
+      console.log('⚠️ 결재완료된 품의서는 상태 변경 불가');
       return res.status(400).json({ 
-        error: '결재완료된 품의서는 결재대기로 변경할 수 없습니다.' 
+        error: '이미 결재완료된 품의서는 상태를 변경할 수 없습니다.' 
       });
     }
     
-    // 결재완료로 변경하려면 submitted 상태여야 함
-    if (dbStatus === 'approved' && previousStatus !== 'submitted') {
-      console.log('⚠️ submitted 상태가 아닌 품의서는 결재완료로 변경 불가');
+    // 2. 결재대기 상태만 결재완료로 변경 가능
+    if (dbStatus === 'approved') {
+      if (previousStatus !== 'submitted' && previousStatus !== 'pending') {
+        console.log('⚠️ 결재대기 상태가 아닌 품의서는 결재완료로 변경 불가');
+        return res.status(400).json({ 
+          error: '결재대기 상태의 품의서만 결재완료로 변경할 수 있습니다.' 
+        });
+      }
+    }
+    
+    // 3. 결재완료 이외의 상태 변경은 허용하지 않음
+    if (dbStatus !== 'approved') {
+      console.log('⚠️ 결재완료 이외의 상태로는 변경할 수 없음');
       return res.status(400).json({ 
-        error: '결재대기 상태의 품의서만 결재완료로 변경할 수 있습니다.' 
+        error: '결재대기 상태는 결재완료로만 변경할 수 있습니다.' 
       });
     }
     
@@ -3205,6 +3246,8 @@ app.post('/api/proposals/draft', async (req, res) => {
         paymentMethod: processedPaymentMethodDraft,
         wysiwygContent: proposalData.wysiwygContent || proposal.wysiwygContent || '', // 자유양식 내용 추가
         other: proposalData.other || proposal.other || '', // 기타 사항 추가
+        correctionReason: proposalData.correctionReason !== undefined ? proposalData.correctionReason : proposal.correctionReason, // 정정 사유 추가
+        originalProposalId: proposalData.originalProposalId !== undefined ? proposalData.originalProposalId : proposal.originalProposalId, // 원본 품의서 ID 추가
         status: proposalData.status || 'draft', // 요청된 상태 또는 기본값
         createdBy: proposalData.createdBy || proposal.createdBy || '시스템',
         proposalDate: new Date().toISOString().split('T')[0],

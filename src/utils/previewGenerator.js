@@ -1,5 +1,7 @@
 // 미리보기 HTML 생성 공통 유틸리티 (ProposalForm 로직 기반으로 개선)
 
+import { hasChanged, renderChangedValue, renderChangedNumber, renderChangedArray } from './comparisonHelper.js';
+
 // 통화 포맷팅 함수
 export const formatCurrency = (amount) => {
   if (!amount) return '-';
@@ -346,7 +348,7 @@ export const getAccountSubjectGroups = (data) => {
 };
 
 // 품목 섹션 생성 (ProposalForm 로직 기반)
-export const generateItemsSection = (data) => {
+export const generateItemsSection = (data, originalData = null) => {
   console.log('=== generateItemsSection 디버깅 ===');
   
   // 서버 데이터와 클라이언트 데이터 모두 지원
@@ -354,6 +356,9 @@ export const generateItemsSection = (data) => {
   console.log('contractType:', contractType, '(원본:', data.contractType, ', 서버:', data.contract_type, ')');
   console.log('purchaseItems:', data.purchaseItems);
   console.log('serviceItems:', data.serviceItems);
+  console.log('originalData:', originalData);
+  
+  const isCorrection = !!originalData;
   
   // 자유양식인 경우
   if (contractType === 'freeform') {
@@ -388,6 +393,9 @@ export const generateItemsSection = (data) => {
       });
     });
     
+    const originalServiceItems = originalData?.serviceItems || [];
+    const hasItemsChanged = isCorrection && JSON.stringify(data.serviceItems) !== JSON.stringify(originalServiceItems);
+    
     return `
       <div class="section-title">2. 상세 내역</div>
       <table class="items-table">
@@ -408,74 +416,154 @@ export const generateItemsSection = (data) => {
         </thead>
         <tbody>
           ${data.serviceItems.map((item, index) => {
-            // ProposalForm 구조와 서버 구조 모두 지원
-            const contractAmount = item.contractAmount || item.contract_amount ||
-                                 (parseFloat(item.monthlyRate || item.monthly_rate) * parseFloat(item.period)) || 
-                                 (parseFloat(item.unitPrice || item.unit_price) * parseFloat(item.quantity)) || 0;
-            
-            const paymentMethodMap = {
-              'monthly': '월별',
-              'quarterly': '분기별',
-              'lump': '일시'
-            };
-            const paymentMethod = item.paymentMethod || item.payment_method;
-            const paymentMethodText = paymentMethodMap[paymentMethod] || paymentMethod || '-';
-            
-            const contractPeriodStart = item.contractPeriodStart || item.contract_period_start;
-            const contractPeriodEnd = item.contractPeriodEnd || item.contract_period_end;
-            
-            // 계약기간 포맷팅 (시작일 ~ 종료일)
-            let contractPeriodText = '-';
-            if (contractPeriodStart && contractPeriodEnd) {
-              const startDate = contractPeriodStart.split ? contractPeriodStart.split('T')[0] : contractPeriodStart;
-              const endDate = contractPeriodEnd.split ? contractPeriodEnd.split('T')[0] : contractPeriodEnd;
-              contractPeriodText = `${startDate}<br>~ ${endDate}`;
-            } else if (contractPeriodStart) {
-              contractPeriodText = contractPeriodStart.split ? contractPeriodStart.split('T')[0] : contractPeriodStart;
-            } else if (contractPeriodEnd) {
-              contractPeriodText = '~ ' + (contractPeriodEnd.split ? contractPeriodEnd.split('T')[0] : contractPeriodEnd);
-            }
-            
-            const skillLevel = item.skillLevel || item.skill_level;
-            
-            // 기간 포맷팅 (소수점 있으면 표시, 없으면 정수로 표시)
-            const period = parseFloat(item.period || 0);
-            const periodText = period % 1 === 0 ? period.toString() : period.toFixed(2);
+            const originalItem = originalServiceItems[index];
+            const isRowChanged = isCorrection && originalItem && JSON.stringify(item) !== JSON.stringify(originalItem);
+            const isNewRow = isCorrection && !originalItem;
+            const rowStyle = isNewRow ? 'background-color: #e8f5e9;' : (isRowChanged ? 'background-color: #fff9c4;' : '');
             
             return `
-            <tr>
-              <td style="text-align: center;">${index + 1}</td>
-              <td style="text-align: center;">${item.item || '-'}</td>
-              <td style="text-align: center;">${item.name || item.personnel || '-'}</td>
-              <td style="text-align: center;">${getSkillLevelKorean(skillLevel)}</td>
-              <td style="text-align: center;">${periodText}개월</td>
-              <td style="text-align: right;">${formatCurrency(item.monthlyRate || item.monthly_rate || item.unitPrice || item.unit_price || 0)}</td>
-              <td style="text-align: right; font-weight: bold;">${formatCurrency(contractAmount)}</td>
-              <td style="text-align: center;">${item.supplier || '-'}</td>
-              <td style="text-align: center;">${item.creditRating || item.credit_rating || '-'}</td>
-              <td style="text-align: center; font-size: 0.85em; line-height: 1.3;">${contractPeriodText}</td>
-              <td style="text-align: center;">${paymentMethodText}</td>
+            <tr style="${rowStyle}">
+              <td style="text-align: center;">${index + 1}${isNewRow ? ' <span style="color: #4caf50;">●</span>' : ''}</td>
+              <td style="text-align: center;">${originalItem ? renderChangedValue(originalItem.item, item.item) : (item.item || '-')}</td>
+              <td style="text-align: center;">${originalItem ? renderChangedValue(
+                originalItem.name || originalItem.personnel,
+                item.name || item.personnel
+              ) : (item.name || item.personnel || '-')}</td>
+              <td style="text-align: center;">${originalItem ? renderChangedValue(
+                getSkillLevelKorean(originalItem.skillLevel || originalItem.skill_level),
+                getSkillLevelKorean(item.skillLevel || item.skill_level)
+              ) : getSkillLevelKorean(item.skillLevel || item.skill_level)}</td>
+              <td style="text-align: center;">${(() => {
+                const period = parseFloat(item.period || 0);
+                const periodText = (period % 1 === 0 ? period.toString() : period.toFixed(2)) + '개월';
+                if (originalItem) {
+                  const originalPeriod = parseFloat(originalItem.period || 0);
+                  const originalPeriodText = (originalPeriod % 1 === 0 ? originalPeriod.toString() : originalPeriod.toFixed(2)) + '개월';
+                  return renderChangedValue(originalPeriodText, periodText);
+                }
+                return periodText;
+              })()}</td>
+              <td style="text-align: right;">${originalItem ? renderChangedNumber(
+                originalItem.monthlyRate || originalItem.monthly_rate || originalItem.unitPrice || originalItem.unit_price,
+                item.monthlyRate || item.monthly_rate || item.unitPrice || item.unit_price,
+                formatCurrency
+              ) : formatCurrency(item.monthlyRate || item.monthly_rate || item.unitPrice || item.unit_price || 0)}</td>
+              <td style="text-align: right;">${(() => {
+                const contractAmount = item.contractAmount || item.contract_amount ||
+                                     (parseFloat(item.monthlyRate || item.monthly_rate) * parseFloat(item.period)) || 
+                                     (parseFloat(item.unitPrice || item.unit_price) * parseFloat(item.quantity)) || 0;
+                if (originalItem) {
+                  const originalAmount = originalItem.contractAmount || originalItem.contract_amount ||
+                                       (parseFloat(originalItem.monthlyRate || originalItem.monthly_rate) * parseFloat(originalItem.period)) || 
+                                       (parseFloat(originalItem.unitPrice || originalItem.unit_price) * parseFloat(originalItem.quantity)) || 0;
+                  return renderChangedNumber(originalAmount, contractAmount, formatCurrency);
+                }
+                return formatCurrency(contractAmount);
+              })()}</td>
+              <td style="text-align: center;">${originalItem ? renderChangedValue(originalItem.supplier, item.supplier) : (item.supplier || '-')}</td>
+              <td style="text-align: center;">${originalItem ? renderChangedValue(
+                originalItem.creditRating || originalItem.credit_rating,
+                item.creditRating || item.credit_rating
+              ) : (item.creditRating || item.credit_rating || '-')}</td>
+              <td style="text-align: center; font-size: 0.85em; line-height: 1.3;">${(() => {
+                const contractPeriodStart = item.contractPeriodStart || item.contract_period_start;
+                const contractPeriodEnd = item.contractPeriodEnd || item.contract_period_end;
+                let contractPeriodText = '-';
+                if (contractPeriodStart && contractPeriodEnd) {
+                  const startDate = contractPeriodStart.split ? contractPeriodStart.split('T')[0] : contractPeriodStart;
+                  const endDate = contractPeriodEnd.split ? contractPeriodEnd.split('T')[0] : contractPeriodEnd;
+                  contractPeriodText = `${startDate}<br>~ ${endDate}`;
+                } else if (contractPeriodStart) {
+                  contractPeriodText = contractPeriodStart.split ? contractPeriodStart.split('T')[0] : contractPeriodStart;
+                } else if (contractPeriodEnd) {
+                  contractPeriodText = '~ ' + (contractPeriodEnd.split ? contractPeriodEnd.split('T')[0] : contractPeriodEnd);
+                }
+                return contractPeriodText;
+              })()}</td>
+              <td style="text-align: center;">${(() => {
+                const paymentMethodMap = {
+                  'monthly': '월별',
+                  'quarterly': '분기별',
+                  'lump': '일시'
+                };
+                const paymentMethod = item.paymentMethod || item.payment_method;
+                return paymentMethodMap[paymentMethod] || paymentMethod || '-';
+              })()}</td>
             </tr>
             `;
           }).join('')}
+          
+          ${(() => {
+            // 삭제된 항목 표시
+            if (isCorrection && originalServiceItems.length > data.serviceItems.length) {
+              const deletedItems = originalServiceItems.slice(data.serviceItems.length);
+              return deletedItems.map((item, index) => {
+                const contractAmount = item.contractAmount || item.contract_amount ||
+                                     (parseFloat(item.monthlyRate || item.monthly_rate) * parseFloat(item.period)) || 
+                                     (parseFloat(item.unitPrice || item.unit_price) * parseFloat(item.quantity)) || 0;
+                const period = parseFloat(item.period || 0);
+                const periodText = (period % 1 === 0 ? period.toString() : period.toFixed(2)) + '개월';
+                
+                return `
+                <tr style="background-color: #ffebee; opacity: 0.6;">
+                  <td style="text-align: center;"><span style="color: #f44336;">✕</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${item.item || '-'}</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${item.name || item.personnel || '-'}</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${getSkillLevelKorean(item.skillLevel || item.skill_level)}</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${periodText}</span></td>
+                  <td style="text-align: right;"><span style="text-decoration: line-through; color: #999;">${formatCurrency(item.monthlyRate || item.monthly_rate || item.unitPrice || item.unit_price || 0)}</span></td>
+                  <td style="text-align: right;"><span style="text-decoration: line-through; color: #999;">${formatCurrency(contractAmount)}</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${item.supplier || '-'}</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${item.creditRating || item.credit_rating || '-'}</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">-</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">-</span></td>
+                </tr>
+                `;
+              }).join('');
+            }
+            return '';
+          })()}
         </tbody>
         <tfoot>
           <tr class="total-row">
             <td colspan="6" style="text-align: center; font-weight: bold;">합계</td>
-            <td style="text-align: right; font-weight: bold;">${formatCurrency(data.serviceItems.reduce((sum, item) => {
-              const contractAmount = item.contractAmount || item.contract_amount;
-              if (contractAmount) {
-                return sum + (parseFloat(contractAmount) || 0);
+            <td style="text-align: right; font-weight: bold;">${(() => {
+              const currentTotal = data.serviceItems.reduce((sum, item) => {
+                const contractAmount = item.contractAmount || item.contract_amount;
+                if (contractAmount) {
+                  return sum + (parseFloat(contractAmount) || 0);
+                }
+                
+                const monthlyRate = parseFloat(item.monthlyRate || item.monthly_rate) || 0;
+                const period = parseFloat(item.period) || 0;
+                const unitPrice = parseFloat(item.unitPrice || item.unit_price) || 0;
+                const quantity = parseFloat(item.quantity) || 0;
+                
+                const calculated = (monthlyRate * period) || (unitPrice * quantity) || 0;
+                return sum + calculated;
+              }, 0);
+              
+              if (isCorrection && originalServiceItems.length > 0) {
+                const originalTotal = originalServiceItems.reduce((sum, item) => {
+                  const contractAmount = item.contractAmount || item.contract_amount;
+                  if (contractAmount) {
+                    return sum + (parseFloat(contractAmount) || 0);
+                  }
+                  
+                  const monthlyRate = parseFloat(item.monthlyRate || item.monthly_rate) || 0;
+                  const period = parseFloat(item.period) || 0;
+                  const unitPrice = parseFloat(item.unitPrice || item.unit_price) || 0;
+                  const quantity = parseFloat(item.quantity) || 0;
+                  
+                  const calculated = (monthlyRate * period) || (unitPrice * quantity) || 0;
+                  return sum + calculated;
+                }, 0);
+                
+                return renderChangedNumber(originalTotal, currentTotal, formatCurrency);
               }
               
-              const monthlyRate = parseFloat(item.monthlyRate || item.monthly_rate) || 0;
-              const period = parseFloat(item.period) || 0;
-              const unitPrice = parseFloat(item.unitPrice || item.unit_price) || 0;
-              const quantity = parseFloat(item.quantity) || 0;
-              
-              const calculated = (monthlyRate * period) || (unitPrice * quantity) || 0;
-              return sum + calculated;
-            }, 0))}</td>
+              return formatCurrency(currentTotal);
+            })()}</td>
             <td colspan="4" style="text-align: center; font-weight: bold;">-</td>
           </tr>
         </tfoot>
@@ -501,6 +589,9 @@ export const generateItemsSection = (data) => {
       });
     });
     
+    const originalPurchaseItems = originalData?.purchaseItems || [];
+    const hasItemsChanged = isCorrection && JSON.stringify(data.purchaseItems) !== JSON.stringify(originalPurchaseItems);
+    
     return `
       <div class="section-title">2. 상세 내역</div>
       <table class="items-table">
@@ -518,34 +609,111 @@ export const generateItemsSection = (data) => {
         </thead>
         <tbody>
           ${data.purchaseItems.map((item, index) => {
-            // 서버 데이터 필드명도 지원
-            const itemData = {
-              ...item,
-              productName: item.productName || item.product_name,
-              contractStartDate: item.contractStartDate || item.contract_start_date,
-              contractEndDate: item.contractEndDate || item.contract_end_date,
-              contractPeriodType: item.contractPeriodType || item.contract_period_type,
-              unitPrice: item.unitPrice || item.unit_price
-            };
+            const originalItem = originalPurchaseItems[index];
+            const isRowChanged = isCorrection && originalItem && JSON.stringify(item) !== JSON.stringify(originalItem);
+            const isNewRow = isCorrection && !originalItem;
+            const rowStyle = isNewRow ? 'background-color: #e8f5e9;' : (isRowChanged ? 'background-color: #fff9c4;' : '');
             
             return `
-            <tr>
-              <td style="text-align: center;">${index + 1}</td>
-              <td style="text-align: center;">${item.item || '-'}</td>
-              <td style="text-align: center;">${itemData.productName || '-'}</td>
-              <td style="text-align: center;">${getContractPeriod(itemData)}</td>
-              <td style="text-align: center;">${item.quantity || 0}${item.unit || '개'}</td>
-              <td style="text-align: right;">${formatCurrency(itemData.unitPrice || 0)}</td>
-              <td style="text-align: right; font-weight: bold;">${formatCurrency(item.amount || 0)}</td>
-              <td style="text-align: center;">${item.supplier || '-'}</td>
+            <tr style="${rowStyle}">
+              <td style="text-align: center;">${index + 1}${isNewRow ? ' <span style="color: #4caf50;">●</span>' : ''}</td>
+              <td style="text-align: center;">${originalItem ? renderChangedValue(originalItem.item, item.item) : (item.item || '-')}</td>
+              <td style="text-align: center;">${originalItem ? renderChangedValue(
+                originalItem.productName || originalItem.product_name,
+                item.productName || item.product_name
+              ) : (item.productName || item.product_name || '-')}</td>
+              <td style="text-align: center;">${(() => {
+                const itemData = {
+                  ...item,
+                  productName: item.productName || item.product_name,
+                  contractStartDate: item.contractStartDate || item.contract_start_date,
+                  contractEndDate: item.contractEndDate || item.contract_end_date,
+                  contractPeriodType: item.contractPeriodType || item.contract_period_type,
+                  unitPrice: item.unitPrice || item.unit_price
+                };
+                const currentPeriod = getContractPeriod(itemData);
+                
+                if (originalItem) {
+                  const originalItemData = {
+                    ...originalItem,
+                    productName: originalItem.productName || originalItem.product_name,
+                    contractStartDate: originalItem.contractStartDate || originalItem.contract_start_date,
+                    contractEndDate: originalItem.contractEndDate || originalItem.contract_end_date,
+                    contractPeriodType: originalItem.contractPeriodType || originalItem.contract_period_type,
+                    unitPrice: originalItem.unitPrice || originalItem.unit_price
+                  };
+                  const originalPeriod = getContractPeriod(originalItemData);
+                  return renderChangedValue(originalPeriod, currentPeriod);
+                }
+                return currentPeriod;
+              })()}</td>
+              <td style="text-align: center;">${(() => {
+                const quantityText = `${item.quantity || 0}${item.unit || '개'}`;
+                if (originalItem) {
+                  const originalQuantityText = `${originalItem.quantity || 0}${originalItem.unit || '개'}`;
+                  return renderChangedValue(originalQuantityText, quantityText);
+                }
+                return quantityText;
+              })()}</td>
+              <td style="text-align: right;">${originalItem ? renderChangedNumber(
+                originalItem.unitPrice || originalItem.unit_price,
+                item.unitPrice || item.unit_price,
+                formatCurrency
+              ) : formatCurrency(item.unitPrice || item.unit_price || 0)}</td>
+              <td style="text-align: right;">${originalItem ? renderChangedNumber(
+                originalItem.amount,
+                item.amount,
+                formatCurrency
+              ) : formatCurrency(item.amount || 0)}</td>
+              <td style="text-align: center;">${originalItem ? renderChangedValue(originalItem.supplier, item.supplier) : (item.supplier || '-')}</td>
             </tr>
             `;
           }).join('')}
+          
+          ${(() => {
+            // 삭제된 항목 표시
+            if (isCorrection && originalPurchaseItems.length > data.purchaseItems.length) {
+              const deletedItems = originalPurchaseItems.slice(data.purchaseItems.length);
+              return deletedItems.map((item, index) => {
+                const itemData = {
+                  ...item,
+                  productName: item.productName || item.product_name,
+                  contractStartDate: item.contractStartDate || item.contract_start_date,
+                  contractEndDate: item.contractEndDate || item.contract_end_date,
+                  contractPeriodType: item.contractPeriodType || item.contract_period_type,
+                  unitPrice: item.unitPrice || item.unit_price
+                };
+                
+                return `
+                <tr style="background-color: #ffebee; opacity: 0.6;">
+                  <td style="text-align: center;"><span style="color: #f44336;">✕</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${item.item || '-'}</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${itemData.productName || '-'}</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${getContractPeriod(itemData)}</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${item.quantity || 0}${item.unit || '개'}</span></td>
+                  <td style="text-align: right;"><span style="text-decoration: line-through; color: #999;">${formatCurrency(itemData.unitPrice || 0)}</span></td>
+                  <td style="text-align: right;"><span style="text-decoration: line-through; color: #999;">${formatCurrency(item.amount || 0)}</span></td>
+                  <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${item.supplier || '-'}</span></td>
+                </tr>
+                `;
+              }).join('');
+            }
+            return '';
+          })()}
         </tbody>
         <tfoot>
           <tr class="total-row">
             <td colspan="6" style="text-align: center; font-weight: bold;">합계</td>
-            <td style="text-align: right; font-weight: bold;">${formatCurrency(data.purchaseItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0))}</td>
+            <td style="text-align: right; font-weight: bold;">${(() => {
+              const currentTotal = data.purchaseItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+              
+              if (isCorrection && originalPurchaseItems.length > 0) {
+                const originalTotal = originalPurchaseItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+                return renderChangedNumber(originalTotal, currentTotal, formatCurrency);
+              }
+              
+              return formatCurrency(currentTotal);
+            })()}</td>
             <td style="text-align: center; font-weight: bold;">-</td>
           </tr>
         </tfoot>
@@ -567,7 +735,8 @@ export const generateItemsSection = (data) => {
 };
 
 // 비용귀속분배 섹션 생성 (ProposalForm 로직 기반)
-export const generateCostAllocationSection = (data) => {
+export const generateCostAllocationSection = (data, originalData = null) => {
+  const isCorrection = !!originalData;
   // 구매 품목과 용역 품목의 비용귀속 정보 확인
   // ProposalForm 구조 (costAllocation.allocations)
   const hasPurchaseAllocations = data.purchaseItems?.some(item => 
@@ -685,6 +854,11 @@ export const generateCostAllocationSection = (data) => {
     `;
   }
 
+  // 변경 여부 확인 (간단 비교 - 개수나 전체 내용 비교)
+  const hasCostDepartmentsChanged = isCorrection && originalData && 
+    (data.costDepartments?.length !== originalData.costDepartments?.length ||
+     JSON.stringify(data.costDepartments) !== JSON.stringify(originalData.costDepartments));
+
   let allocationHTML = `
     <div class="section-title">3. 비용귀속분배</div>
     <table class="items-table">
@@ -702,30 +876,117 @@ export const generateCostAllocationSection = (data) => {
       <tbody>
   `;
 
+  // 원본 데이터의 비용귀속분배 정보 수집 (비교용)
+  let originalAllocations = [];
+  if (isCorrection && originalData) {
+    // 원본 구매 품목의 분배 정보
+    originalData.purchaseItems?.forEach((item, itemIndex) => {
+      let allocations = item.costAllocation?.allocations || [];
+      if (allocations.length === 0 && item.costAllocations) {
+        allocations = item.costAllocations.map(alloc => ({
+          department: alloc.department,
+          type: alloc.type || 'percentage',
+          value: alloc.value || alloc.ratio || 0
+        }));
+      }
+      allocations.forEach(allocation => {
+        const itemAmount = parseFloat(item.amount) || 0;
+        const allocValue = parseFloat(allocation.value) || 0;
+        const allocationAmount = allocation.type === 'percentage' 
+          ? (itemAmount * (allocValue / 100))
+          : allocValue;
+        originalAllocations.push({
+          productName: item.productName || `품목 ${itemIndex + 1}`,
+          classification: item.item || '-',
+          department: allocation.department || '-',
+          type: allocation.type === 'percentage' ? '정률 (%)' : '정액 (원)',
+          value: allocation.type === 'percentage' ? allocValue + '%' : formatCurrency(allocValue),
+          amount: allocationAmount
+        });
+      });
+    });
+    
+    // 원본 용역 품목의 분배 정보
+    originalData.serviceItems?.forEach((item, itemIndex) => {
+      let allocations = item.costAllocation?.allocations || [];
+      if (allocations.length === 0 && item.costAllocations) {
+        allocations = item.costAllocations.map(alloc => ({
+          department: alloc.department,
+          type: alloc.type || 'percentage',
+          value: alloc.value || alloc.ratio || 0
+        }));
+      }
+      allocations.forEach(allocation => {
+        const contractAmount = parseFloat(item.contractAmount || item.contract_amount) || 0;
+        const allocValue = parseFloat(allocation.value) || 0;
+        const allocationAmount = allocation.type === 'percentage' 
+          ? (contractAmount * (allocValue / 100))
+          : allocValue;
+        originalAllocations.push({
+          productName: item.item || `용역항목 ${itemIndex + 1}`,
+          classification: '전산용역비',
+          department: allocation.department || '-',
+          type: allocation.type === 'percentage' ? '정률 (%)' : '정액 (원)',
+          value: allocation.type === 'percentage' ? allocValue + '%' : formatCurrency(allocValue),
+          amount: allocationAmount
+        });
+      });
+    });
+  }
+
   // 모든 분배 정보를 하나의 테이블에 표시
   let totalAmount = 0;
   allAllocations.forEach((allocation, index) => {
     totalAmount += (parseFloat(allocation.amount) || 0);
+    
+    const originalAlloc = originalAllocations[index];
+    const isRowChanged = isCorrection && originalAlloc && JSON.stringify(allocation) !== JSON.stringify(originalAlloc);
+    const isNewRow = isCorrection && !originalAlloc;
+    const rowStyle = isNewRow ? 'background-color: #e8f5e9;' : (isRowChanged ? 'background-color: #fff9c4;' : '');
+    
     allocationHTML += `
-      <tr>
-        <td style="text-align: center;">${index + 1}</td>
-        <td style="text-align: center;">${allocation.classification}</td>
-        <td style="text-align: center;">${allocation.productName}</td>
-        <td style="text-align: center;">${allocation.department}</td>
-        <td style="text-align: center;">${allocation.type}</td>
-        <td style="text-align: center;">${allocation.value}</td>
-        <td style="text-align: right; font-weight: bold;">${formatCurrency(allocation.amount)}</td>
+      <tr style="${rowStyle}">
+        <td style="text-align: center;">${index + 1}${isNewRow ? ' <span style="color: #4caf50;">●</span>' : ''}</td>
+        <td style="text-align: center;">${originalAlloc ? renderChangedValue(originalAlloc.classification, allocation.classification) : allocation.classification}</td>
+        <td style="text-align: center;">${originalAlloc ? renderChangedValue(originalAlloc.productName, allocation.productName) : allocation.productName}</td>
+        <td style="text-align: center;">${originalAlloc ? renderChangedValue(originalAlloc.department, allocation.department) : allocation.department}</td>
+        <td style="text-align: center;">${originalAlloc ? renderChangedValue(originalAlloc.type, allocation.type) : allocation.type}</td>
+        <td style="text-align: center;">${originalAlloc ? renderChangedValue(originalAlloc.value, allocation.value) : allocation.value}</td>
+        <td style="text-align: right;">${originalAlloc ? renderChangedNumber(originalAlloc.amount, allocation.amount, formatCurrency) : formatCurrency(allocation.amount)}</td>
       </tr>
     `;
   });
 
+  // 삭제된 항목 표시
+  if (isCorrection && originalAllocations.length > allAllocations.length) {
+    const deletedItems = originalAllocations.slice(allAllocations.length);
+    deletedItems.forEach((allocation, index) => {
+      allocationHTML += `
+        <tr style="background-color: #ffebee; opacity: 0.6;">
+          <td style="text-align: center;"><span style="color: #f44336;">✕</span></td>
+          <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${allocation.classification}</span></td>
+          <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${allocation.productName}</span></td>
+          <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${allocation.department}</span></td>
+          <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${allocation.type}</span></td>
+          <td style="text-align: center;"><span style="text-decoration: line-through; color: #999;">${allocation.value}</span></td>
+          <td style="text-align: right;"><span style="text-decoration: line-through; color: #999;">${formatCurrency(allocation.amount)}</span></td>
+        </tr>
+      `;
+    });
+  }
+
   // 전체 합계 행
+  let originalTotalAmount = 0;
+  if (isCorrection && originalAllocations.length > 0) {
+    originalTotalAmount = originalAllocations.reduce((sum, alloc) => sum + (parseFloat(alloc.amount) || 0), 0);
+  }
+
   allocationHTML += `
       </tbody>
       <tfoot>
         <tr class="total-row">
           <td colspan="6" style="text-align: center; font-weight: bold;">합계</td>
-          <td style="text-align: right; font-weight: bold;">${formatCurrency(totalAmount)}</td>
+          <td style="text-align: right; font-weight: bold;">${isCorrection && originalTotalAmount > 0 ? renderChangedNumber(originalTotalAmount, totalAmount, formatCurrency) : formatCurrency(totalAmount)}</td>
         </tr>
       </tfoot>
     </table>
@@ -735,15 +996,25 @@ export const generateCostAllocationSection = (data) => {
 };
 
 // 계정과목 섹션 생성
-export const generateAccountSubjectSection = (data) => {
+export const generateAccountSubjectSection = (data, originalData = null) => {
+  const isCorrection = !!originalData;
   // 용역계약의 경우 간단하게 한 줄로만 표시
   if (data.contractType === 'service' && data.serviceItems?.length > 0) {
+    // 변경 여부 확인
+    const hasServiceItemsChanged = isCorrection && originalData && 
+      JSON.stringify(data.serviceItems) !== JSON.stringify(originalData.serviceItems);
+    
+    const accountInfoText = '관: 운영비 > 항: 일반운영비 > 목: 전산용역비';
+    const originalAccountInfoText = originalData?.contractType === 'service' && originalData?.serviceItems?.length > 0 
+      ? '관: 운영비 > 항: 일반운영비 > 목: 전산용역비' 
+      : '';
+    
     return `
       <div style="margin-top: 30px; page-break-inside: avoid;">
         <div class="section-title">계정과목</div>
         <div style="padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
           <div style="padding: 8px 0;">
-            관: 운영비 > 항: 일반운영비 > 목: 전산용역비
+            ${isCorrection && originalAccountInfoText ? renderChangedValue(originalAccountInfoText, accountInfoText) : accountInfoText}
           </div>
         </div>
       </div>
@@ -757,18 +1028,83 @@ export const generateAccountSubjectSection = (data) => {
     return '';
   }
 
+  // 원본 계정과목 그룹 (비교용)
+  let originalAccountSubjects = [];
+  if (isCorrection && originalData) {
+    originalAccountSubjects = getAccountSubjectGroups(originalData);
+  }
+
+  // 변경 여부 확인
+  const hasPurchaseItemsChanged = isCorrection && originalData && 
+    JSON.stringify(data.purchaseItems) !== JSON.stringify(originalData.purchaseItems);
+
   return `
     <div style="margin-top: 30px; page-break-inside: avoid;">
       <div class="section-title">계정과목</div>
       <div style="padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
-        ${accountSubjects.map(account => `
-          <div style="margin-bottom: 10px; padding: 8px 0; border-bottom: 1px solid #eee;">
-            <strong>품목:</strong> ${account.names} > ${account.accountInfo}
+        ${accountSubjects.map((account, index) => {
+          const originalAccount = originalAccountSubjects[index];
+          const isChanged = isCorrection && originalAccount && 
+            (account.names !== originalAccount.names || account.accountInfo !== originalAccount.accountInfo);
+          const isNew = isCorrection && !originalAccount;
+          const bgColor = isNew ? '#e8f5e9' : (isChanged ? '#fff9c4' : 'transparent');
+          
+          return `
+          <div style="margin-bottom: 10px; padding: 8px; border-bottom: 1px solid #eee; background-color: ${bgColor}; border-radius: 4px;">
+            ${isNew ? '<span style="color: #4caf50; margin-right: 5px;">●</span>' : ''}
+            <strong>품목:</strong> ${originalAccount ? renderChangedValue(originalAccount.names, account.names) : account.names} | 
+            <strong>계정:</strong> ${originalAccount ? renderChangedValue(originalAccount.accountInfo, account.accountInfo) : account.accountInfo}
           </div>
-        `).join('')}
+        `;
+        }).join('')}
+        
+        ${(() => {
+          // 삭제된 항목 표시
+          if (isCorrection && originalAccountSubjects.length > accountSubjects.length) {
+            const deletedItems = originalAccountSubjects.slice(accountSubjects.length);
+            return deletedItems.map((account, index) => `
+              <div style="margin-bottom: 10px; padding: 8px; border-bottom: 1px solid #eee; background-color: #ffebee; border-radius: 4px; opacity: 0.6;">
+                <span style="color: #f44336; margin-right: 5px;">✕</span>
+                <strong>품목 (삭제됨):</strong> <span style="text-decoration: line-through; color: #999;">${account.names}</span> | 
+                <strong>계정:</strong> <span style="text-decoration: line-through; color: #999;">${account.accountInfo}</span>
+              </div>
+            `).join('');
+          }
+          return '';
+        })()}
       </div>
     </div>
   `;
+};
+
+// 요청부서 배열을 문자열로 변환
+const formatDepartments = (requestDepartments) => {
+  if (!requestDepartments) return '-';
+  
+  if (Array.isArray(requestDepartments)) {
+    return requestDepartments.map(dept => 
+      typeof dept === 'string' ? dept : dept.name || dept.department || dept
+    ).join(', ');
+  }
+  
+  if (typeof requestDepartments === 'string') {
+    return requestDepartments;
+  }
+  
+  return '-';
+};
+
+// 예산 정보를 문자열로 변환
+const formatBudgetInfo = (budgetInfo, businessBudget, budgetName, budgetYear) => {
+  const name = budgetInfo?.projectName || businessBudget?.project_name || budgetName || '';
+  const year = budgetInfo?.budgetYear || businessBudget?.budget_year || budgetYear || '';
+  
+  if (!name && !year) return '-';
+  
+  if (year) {
+    return `${name} (${year}년)`;
+  }
+  return name;
 };
 
 // 총액 계산
@@ -812,10 +1148,13 @@ export const generatePreviewHTML = (data, options = {}) => {
   console.log('showRecycleButton:', options.showRecycleButton);
   console.log('showStatusButton:', options.showStatusButton);
   console.log('contractId:', options.contractId);
+  console.log('originalData:', options.originalData);
   
   const totalAmount = calculateTotalAmount(data);
   const currentDate = new Date().toLocaleDateString('ko-KR');
   const contractId = options.contractId || data.id;
+  const originalData = options.originalData; // 원본 데이터 (정정 모드용)
+  const isCorrection = !!originalData; // 정정 품의서 여부
   
   return `
     <!DOCTYPE html>
@@ -883,6 +1222,13 @@ export const generatePreviewHTML = (data, options = {}) => {
           font-weight: bold;
           text-align: center;
         }
+        /* 정정 품의서 스타일 */
+        .items-table tr[style*="background-color: #fff9c4"] {
+          border-left: 3px solid #ff9800;
+        }
+        .items-table tr[style*="background-color: #e8f5e9"] {
+          border-left: 3px solid #4caf50;
+        }
         .total-row {
           background-color: #f8f9fa;
           font-weight: bold;
@@ -935,6 +1281,24 @@ export const generatePreviewHTML = (data, options = {}) => {
         .status-btn:hover {
           background: #5a67d8;
         }
+        .correction-btn {
+          background: #FF5722;
+        }
+        .correction-btn:hover {
+          background: #E64A19;
+        }
+        .original-btn {
+          background: #9C27B0;
+        }
+        .original-btn:hover {
+          background: #7B1FA2;
+        }
+        .corrected-btn {
+          background: #FF9800;
+        }
+        .corrected-btn:hover {
+          background: #F57C00;
+        }
         @media print {
           .action-buttons { display: none; }
           body { 
@@ -951,6 +1315,11 @@ export const generatePreviewHTML = (data, options = {}) => {
     </head>
     <body>
       <div class="action-buttons">
+        ${options.showCorrectionButton ? `<button class="action-btn correction-btn" onclick="handleCorrection()">📝 정정</button>` : ''}
+        ${options.showRecycleButton ? `<button class="action-btn recycle-btn" onclick="handleRecycle()">♻️ 재활용</button>` : ''}
+        ${options.showStatusButton ? `<button class="action-btn status-btn" onclick="handleStatusChange()">🔄 상태변경</button>` : ''}
+        ${options.originalProposalId ? `<button class="action-btn original-btn" onclick="handleViewOriginal()">📄 원본 품의서 보기</button>` : ''}
+        ${options.correctedProposalId ? `<button class="action-btn corrected-btn" onclick="handleViewCorrected()">📝 정정 품의서 보기</button>` : ''}
         <button class="action-btn copy-btn" onclick="copyToClipboard()">📋 이미지 복사</button>
         <button class="action-btn copy-btn" onclick="copyHTMLToClipboard()" style="background: #17a2b8;">💾 HTML 복사</button>
       </div>
@@ -961,92 +1330,78 @@ export const generatePreviewHTML = (data, options = {}) => {
           <tbody>
             <tr>
               <th>목적</th>
-              <td>${data.purpose || '-'}</td>
+              <td>${isCorrection ? renderChangedValue(originalData.purpose, data.purpose) : (data.purpose || '-')}</td>
             </tr>
             <tr>
               <th>계약 근거</th>
-              <td>${data.basis || '-'}</td>
+              <td>${isCorrection ? renderChangedValue(originalData.basis, data.basis) : (data.basis || '-')}</td>
             </tr>
             <tr>
               <th>사업 예산</th>
-              <td>${(() => {
-                // 사업예산 이름 (budgetInfo 우선)
-                const budgetName = data.budgetInfo?.projectName ||
-                                  data.businessBudget?.project_name ||
-                                  data.budgetName ||
-                                  data.budget_name ||
-                                  (typeof data.budget === 'string' ? data.budget : '') || '';
-
-                // 사업예산 연도 (budgetInfo 우선)
-                const budgetYear = data.budgetInfo?.budgetYear ||
-                                  data.businessBudget?.budget_year ||
-                                  data.budgetYear ||
-                                  data.budget_year || '';
-
-                // 사업예산 총액 계산 (기본예산 + 추가예산)
-                const baseBudget = data.businessBudget?.budget_amount || data.budgetInfo?.budgetAmount || 0;
-                const additionalBudget = data.businessBudget?.additional_budget || 0;
-                const totalBudget = baseBudget + additionalBudget;
-
-                if (!budgetName && !budgetYear && totalBudget === 0) return '-';
-
-                let result = '';
-
-                // 프로젝트명 표시
-                if (budgetYear) {
-                  result = `${budgetName} (${budgetYear}년)`;
-                } else if (budgetName) {
-                  result = budgetName;
-                }
-
-                // 금액 정보 표시하지 않음
-
-                return result || '-';
-              })()}</td>
+              <td>${isCorrection ? (() => {
+                const currentBudget = formatBudgetInfo(data.budgetInfo, data.businessBudget, data.budgetName, data.budgetYear);
+                const originalBudget = formatBudgetInfo(originalData.budgetInfo, originalData.businessBudget, originalData.budgetName, originalData.budgetYear);
+                return renderChangedValue(originalBudget, currentBudget);
+              })() : formatBudgetInfo(data.budgetInfo, data.businessBudget, data.budgetName, data.budgetYear)}</td>
             </tr>
             <tr>
               <th>요청부서</th>
-              <td>${(() => {
-                // ProposalForm 구조 (배열)
-                if (data.requestDepartments && Array.isArray(data.requestDepartments)) {
-                  return data.requestDepartments.map(dept => 
-                    typeof dept === 'string' ? dept : dept.name || dept.department || dept
-                  ).join(', ');
-                }
-                // 서버 구조 (관계 테이블)
-                if (data.requestDepartments && data.requestDepartments.length > 0) {
-                  return data.requestDepartments.map(dept => dept.department || dept.name || dept).join(', ');
-                }
-                // 단일 문자열
-                if (typeof data.requestDepartments === 'string') {
-                  return data.requestDepartments;
-                }
-                return '-';
-              })()}</td>
+              <td>${isCorrection ? (() => {
+                const currentDepts = formatDepartments(data.requestDepartments);
+                const originalDepts = formatDepartments(originalData.requestDepartments);
+                return renderChangedValue(originalDepts, currentDepts);
+              })() : formatDepartments(data.requestDepartments)}</td>
             </tr>
             <tr>
               <th>계약 방식</th>
-              <td><div style="font-weight: 600; margin-bottom: 2px;">${getContractMethodName(data.contractMethod || data.contract_method)}</div>${data.contractMethodDescription || data.contract_method_description ? `<div style="font-size: 0.85em; color: #666; line-height: 1.3; margin-top: 2px;">${data.contractMethodDescription || data.contract_method_description}</div>` : ''}</td>
+              <td>${isCorrection ? (() => {
+                const currentMethod = getContractMethodName(data.contractMethod || data.contract_method);
+                const originalMethod = getContractMethodName(originalData.contractMethod || originalData.contract_method);
+                const currentDescription = data.contractMethodDescription || data.contract_method_description || '';
+                const originalDescription = originalData.contractMethodDescription || originalData.contract_method_description || '';
+                
+                let html = `<div style="font-weight: 600;">${renderChangedValue(originalMethod, currentMethod)}</div>`;
+                
+                // 설명이 있으면 표시 (변경 여부와 관계없이)
+                if (currentDescription || originalDescription) {
+                  if (currentDescription !== originalDescription) {
+                    html += `<div style="font-size: 0.85em; color: #666; line-height: 1.3; margin-top: 2px;">${renderChangedValue(originalDescription, currentDescription)}</div>`;
+                  } else if (currentDescription) {
+                    html += `<div style="font-size: 0.85em; color: #666; line-height: 1.3; margin-top: 2px;">${currentDescription}</div>`;
+                  }
+                }
+                
+                return html;
+              })() : `<div style="font-weight: 600; margin-bottom: 2px;">${getContractMethodName(data.contractMethod || data.contract_method)}</div>${data.contractMethodDescription || data.contract_method_description ? `<div style="font-size: 0.85em; color: #666; line-height: 1.3; margin-top: 2px;">${data.contractMethodDescription || data.contract_method_description}</div>` : ''}`}</td>
             </tr>
             ${data.contractType !== 'freeform' ? `
             <tr>
               <th>총 계약금액</th>
-              <td style="font-weight: bold;">${formatCurrency(totalAmount)} (VAT 포함)</td>
+              <td>${isCorrection ? (() => {
+                const originalTotal = calculateTotalAmount(originalData);
+                return `<span style="font-weight: bold;">${renderChangedNumber(originalTotal, totalAmount, formatCurrency)}</span> (VAT 포함)`;
+              })() : `<span style="font-weight: bold;">${formatCurrency(totalAmount)}</span> (VAT 포함)`}</td>
             </tr>
             ` : ''}
-            ${data.other && data.other.trim() ? `
+            ${(data.other && data.other.trim()) || (isCorrection && originalData?.other && originalData.other.trim()) ? `
             <tr>
               <th>기타</th>
-              <td>${data.other}</td>
+              <td>${isCorrection ? renderChangedValue(originalData.other, data.other) : data.other}</td>
+            </tr>
+            ` : ''}
+            ${(data.correctionReason || data.correction_reason) ? `
+            <tr>
+              <th style="background-color: #fff9f9; color: #d32f2f; font-weight: bold;">정정 사유</th>
+              <td style="background-color: #fff9f9; color: #d32f2f; font-weight: bold; white-space: pre-wrap;">${data.correctionReason || data.correction_reason}</td>
             </tr>
             ` : ''}
           </tbody>
         </table>
         
-        ${generateItemsSection(data)}
+        ${generateItemsSection(data, originalData)}
         
-        ${generateCostAllocationSection(data)}
-        ${generateAccountSubjectSection(data)}
+        ${generateCostAllocationSection(data, originalData)}
+        ${generateAccountSubjectSection(data, originalData)}
       </div>
 
       <script>
@@ -1128,6 +1483,85 @@ export const generatePreviewHTML = (data, options = {}) => {
           } catch (error) {
             console.error('HTML 복사 실패:', error);
             alert('HTML 복사에 실패했습니다: ' + error.message);
+          }
+        }
+
+        // 정정 버튼 클릭 함수
+        function handleCorrection() {
+          if (window.opener && window.opener.handleCorrectProposal) {
+            const contractId = '${contractId || ''}';
+            if (contractId) {
+              if (confirm('이 품의서를 정정하시겠습니까?\\n정정 모드로 이동합니다.')) {
+                window.opener.handleCorrectProposal({ id: contractId });
+                window.close();
+              }
+            } else {
+              alert('품의서 ID를 찾을 수 없습니다.');
+            }
+          } else {
+            alert('정정 기능을 사용할 수 없습니다. 품의서 목록에서 다시 시도해주세요.');
+          }
+        }
+
+        // 재활용 버튼 클릭 함수
+        function handleRecycle() {
+          if (window.opener && window.opener.handleRecycleProposal) {
+            const contractId = '${contractId || ''}';
+            if (contractId) {
+              if (confirm('이 품의서를 재활용하시겠습니까?\\n새 품의서 작성 화면으로 이동합니다.')) {
+                window.opener.handleRecycleProposal({ id: contractId });
+                window.close();
+              }
+            } else {
+              alert('품의서 ID를 찾을 수 없습니다.');
+            }
+          } else {
+            alert('재활용 기능을 사용할 수 없습니다. 품의서 목록에서 다시 시도해주세요.');
+          }
+        }
+
+        // 상태변경 버튼 클릭 함수
+        function handleStatusChange() {
+          if (window.opener && window.opener.handleChangeStatus) {
+            const contractId = '${contractId || ''}';
+            if (contractId) {
+              window.opener.handleChangeStatus({ id: contractId });
+              window.close();
+            } else {
+              alert('품의서 ID를 찾을 수 없습니다.');
+            }
+          } else {
+            alert('상태변경 기능을 사용할 수 없습니다. 품의서 목록에서 다시 시도해주세요.');
+          }
+        }
+
+        // 원본 품의서 보기 버튼 클릭 함수
+        function handleViewOriginal() {
+          if (window.opener && window.opener.handleViewProposal) {
+            const originalId = '${options.originalProposalId || ''}';
+            if (originalId) {
+              window.opener.handleViewProposal({ id: originalId });
+              window.close();
+            } else {
+              alert('원본 품의서 ID를 찾을 수 없습니다.');
+            }
+          } else {
+            alert('원본 품의서 보기 기능을 사용할 수 없습니다. 품의서 목록에서 다시 시도해주세요.');
+          }
+        }
+
+        // 정정 품의서 보기 버튼 클릭 함수
+        function handleViewCorrected() {
+          if (window.opener && window.opener.handleViewProposal) {
+            const correctedId = '${options.correctedProposalId || ''}';
+            if (correctedId) {
+              window.opener.handleViewProposal({ id: correctedId });
+              window.close();
+            } else {
+              alert('정정 품의서 ID를 찾을 수 없습니다.');
+            }
+          } else {
+            alert('정정 품의서 보기 기능을 사용할 수 없습니다. 품의서 목록에서 다시 시도해주세요.');
           }
         }
       </script>

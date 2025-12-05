@@ -178,6 +178,18 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       comment: '기타 사항'
     },
+    originalProposalId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'original_proposal_id',
+      comment: '원본 품의서 ID (정정된 경우)'
+    },
+    correctionReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'correction_reason',
+      comment: '정정 사유'
+    },
     createdAt: {
       type: DataTypes.DATE,
       allowNull: false,

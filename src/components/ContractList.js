@@ -73,9 +73,12 @@ const ContractList = () => {
   useEffect(() => {
     return () => {
       delete window.handleRecycleProposal;
+      delete window.handleCorrectProposal;
       delete window.handleEditProposal;
       delete window.setSelectedContract;
       delete window.openStatusUpdate;
+      delete window.handleViewProposal;
+      delete window.handleChangeStatus;
     };
   }, []);
 
@@ -217,7 +220,9 @@ const ContractList = () => {
          'draft': '작성중',
          'pending': '결재대기',
          'submitted': '결재대기',
-         'approved': '결재완료'
+         'approved': '결재완료',
+         '정정전': '정정전',
+         '정정후': '정정후'
        };
        return labels[status] || status;
      };
@@ -314,7 +319,7 @@ const ContractList = () => {
   const [startWidth, setStartWidth] = useState(0);
 
   // 필터 옵션들
-  const statusOptions = ['전체', '결재대기', '결재완료'];
+  const statusOptions = ['전체', '결재대기', '결재완료', '정정전', '정정후'];
   const typeOptions = ['전체', '구매계약', '용역계약', '변경계약', '입찰계약'];
   const departmentOptions = ['전체', 'IT팀', '총무팀', '기획팀', '영업팀', '재무팀', '법무팀'];
   const dateRangeOptions = ['전체', '최근 1개월', '최근 3개월', '최근 6개월', '최근 1년'];
@@ -1013,6 +1018,10 @@ const ContractList = () => {
         return '#007bff';   // 결재대기: 파란색
       case 'approved': 
         return '#28a745';  // 결재완료: 초록색
+      case '정정전':
+        return '#FF9800';  // 정정전: 주황색
+      case '정정후':
+        return '#9C27B0';  // 정정후: 보라색
       case 'draft': 
         return '#6c757d';     // 작성중: 회색
       default: 
@@ -1025,6 +1034,48 @@ const ContractList = () => {
     return getStatusLabel(status);
   };
 
+  // 품의서 보기 함수 (미리보기에서 다른 품의서로 이동)
+  const handleViewProposal = async (proposal) => {
+    console.log('🔍 품의서 보기 요청:', proposal);
+    
+    try {
+      // contracts 배열에서 해당 품의서 찾기
+      const contract = contracts.find(c => c.id === parseInt(proposal.id));
+      
+      if (contract) {
+        // 기존 handleRowClick 함수 재사용
+        await handleRowClick(contract);
+      } else {
+        // contracts에 없으면 서버에서 직접 조회
+        const response = await fetch(`${API_BASE_URL}/api/proposals/${proposal.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          // 최소한의 contract 객체 구성
+          const contractData = {
+            id: data.id,
+            title: data.title,
+            type: data.contractType || data.contract_type,
+            purpose: data.purpose,
+            basis: data.basis,
+            status: data.status,
+            amount: data.totalAmount || data.total_amount,
+            createdBy: data.createdBy || data.created_by,
+            originalProposalId: data.originalProposalId || data.original_proposal_id
+          };
+          await handleRowClick(contractData);
+        } else {
+          alert('품의서를 찾을 수 없습니다.');
+        }
+      }
+    } catch (error) {
+      console.error('품의서 보기 오류:', error);
+      alert('품의서를 불러오는 중 오류가 발생했습니다.');
+    }
+  };
+  
+  // 전역에 함수 노출
+  window.handleViewProposal = handleViewProposal;
+
   // 미리보기 열기 (리스트 클릭 시)
   const handleRowClick = async (contract) => {
     console.log('🔍 선택된 품의서:', contract);
@@ -1036,6 +1087,21 @@ const ContractList = () => {
       const response = await fetch(`${API_BASE_URL}/api/proposals/${contract.id}`);
       if (response.ok) {
         const originalData = await response.json();
+        
+        // 정정 품의서인 경우 원본 품의서도 조회
+        let comparisonData = null;
+        if (originalData.originalProposalId) {
+          console.log('🔍 정정 품의서 감지, 원본 품의서 조회:', originalData.originalProposalId);
+          try {
+            const originalResponse = await fetch(`${API_BASE_URL}/api/proposals/${originalData.originalProposalId}`);
+            if (originalResponse.ok) {
+              comparisonData = await originalResponse.json();
+              console.log('✅ 원본 품의서 조회 성공:', comparisonData);
+            }
+          } catch (error) {
+            console.error('원본 품의서 조회 실패:', error);
+          }
+        }
         
         // 🔍 예산 정보 디버깅
         console.log('=== 품의서 상세 조회 예산 정보 ===');
@@ -1072,6 +1138,7 @@ const ContractList = () => {
             : (enhancedContract.department ? [enhancedContract.department] : []),
           totalAmount: enhancedContract.amount,
           other: enhancedContract.other,
+          correctionReason: enhancedContract.correctionReason || enhancedContract.correction_reason || '', // 정정 사유 추가
           purchaseItems: enhancedContract.purchaseItems || [],
           serviceItems: enhancedContract.serviceItems || [],
           costDepartments: enhancedContract.costDepartments || [],
@@ -1086,123 +1153,74 @@ const ContractList = () => {
         console.log('wysiwygContent 길이:', previewData.wysiwygContent?.length || 0);
         console.log('contractMethod:', previewData.contractMethod);
         
-        // 재활용 버튼 표시 조건 확인
-        console.log('=== 재활용 버튼 조건 확인 ===');
+        // 버튼 표시 조건 확인
+        console.log('=== 버튼 조건 확인 ===');
         console.log('enhancedContract.status:', enhancedContract.status);
         
-        const showRecycleButton = enhancedContract.status === '결재완료' || 
+        const isApprovedStatus = enhancedContract.status === 'approved' ||
+                                 enhancedContract.status === '결재완료' || 
                                  enhancedContract.status === '계약완료' || 
                                  enhancedContract.status === '완료' || 
                                  enhancedContract.status === 'completed' || 
                                  enhancedContract.status === '계약체결' || 
                                  enhancedContract.status === '승인됨';
         
-        console.log('showRecycleButton:', showRecycleButton);
+        const showRecycleButton = isApprovedStatus;
+        const showCorrectionButton = isApprovedStatus && enhancedContract.status !== '정정전';
         
-        const previewHTML = generatePreviewHTML(previewData);
+        console.log('showRecycleButton:', showRecycleButton);
+        console.log('showCorrectionButton:', showCorrectionButton);
+        
+        // 작성자 여부 확인
+        const isAuthor = currentUser && (
+          enhancedContract.createdBy === currentUser.name || 
+          enhancedContract.author === currentUser.name
+        );
+        
+        console.log('=== 작성자 확인 ===');
+        console.log('currentUser:', currentUser);
+        console.log('enhancedContract.createdBy:', enhancedContract.createdBy);
+        console.log('enhancedContract.author:', enhancedContract.author);
+        console.log('enhancedContract.status:', enhancedContract.status);
+        console.log('isAuthor:', isAuthor);
+        
+        // 상태변경 버튼 표시 조건: 결재대기 상태만
+        const canChangeStatus = enhancedContract.status === 'pending' || 
+          enhancedContract.status === 'submitted' || 
+          enhancedContract.status === '결재대기';
+        
+        console.log('canChangeStatus:', canChangeStatus);
+        
+        // 정정 품의서 찾기 (현재 품의서가 원본인 경우)
+        let correctedProposalId = null;
+        if (!originalData.originalProposalId) {
+          // 현재 품의서가 원본일 수 있으므로, 이를 원본으로 하는 정정 품의서 찾기
+          try {
+            const correctedResponse = await fetch(`${API_BASE_URL}/api/proposals?originalProposalId=${contract.id}`);
+            if (correctedResponse.ok) {
+              const correctedProposals = await correctedResponse.json();
+              if (correctedProposals && correctedProposals.length > 0) {
+                correctedProposalId = correctedProposals[0].id;
+                console.log('✅ 정정 품의서 발견:', correctedProposalId);
+              }
+            }
+          } catch (error) {
+            console.error('정정 품의서 조회 실패:', error);
+          }
+        }
+        
+        const previewHTML = generatePreviewHTML(previewData, {
+          showRecycleButton: showRecycleButton,
+          showCorrectionButton: showCorrectionButton,
+          showStatusButton: canChangeStatus, // 작성자 또는 결재대기/임시저장 상태
+          contractId: enhancedContract.id,
+          originalData: comparisonData, // 정정 품의서인 경우 원본 데이터 전달
+          originalProposalId: originalData.originalProposalId || null, // 정정 품의서인 경우 원본 ID
+          correctedProposalId: correctedProposalId // 원본 품의서인 경우 정정 품의서 ID
+        });
         const previewWindow = window.open('', '_blank', 'width=1200,height=800');
         previewWindow.document.write(previewHTML);
         previewWindow.document.close();
-        
-        // 미리보기 창이 로드된 후 재활용 버튼 추가
-        previewWindow.addEventListener('load', () => {
-          const actionButtons = previewWindow.document.querySelector('.action-buttons');
-          if (actionButtons) {
-            // 재활용 버튼 추가
-            const recycleBtn = previewWindow.document.createElement('button');
-            recycleBtn.className = 'action-btn recycle-btn';
-            recycleBtn.innerHTML = '♻️ 재활용';
-            recycleBtn.style.background = '#28a745';
-            recycleBtn.style.color = 'white';
-            recycleBtn.style.border = 'none';
-            recycleBtn.style.padding = '10px 20px';
-            recycleBtn.style.borderRadius = '5px';
-            recycleBtn.style.cursor = 'pointer';
-            recycleBtn.style.fontSize = '14px';
-            recycleBtn.style.minWidth = '100px';
-            recycleBtn.style.marginRight = '10px';
-            
-            recycleBtn.onclick = () => {
-              if (previewWindow.confirm('이 품의서를 재활용하여 새로운 품의서를 작성하시겠습니까?')) {
-                // 부모 창의 함수 호출
-                window.handleRecycleProposal(enhancedContract);
-                previewWindow.close();
-              }
-            };
-            
-            // 수정 버튼 추가 (결재대기 상태만)
-            const isWaitingApproval = enhancedContract.status === 'pending' || 
-                                     enhancedContract.status === 'draft';
-            
-            if (isWaitingApproval) {
-              const editBtn = previewWindow.document.createElement('button');
-              editBtn.className = 'action-btn edit-btn';
-              editBtn.innerHTML = '✏️ 수정';
-              editBtn.style.background = '#FF9800';
-              editBtn.style.color = 'white';
-              editBtn.style.border = 'none';
-              editBtn.style.padding = '10px 20px';
-              editBtn.style.borderRadius = '5px';
-              editBtn.style.cursor = 'pointer';
-              editBtn.style.fontSize = '14px';
-              editBtn.style.minWidth = '100px';
-              editBtn.style.marginRight = '10px';
-              
-              editBtn.onclick = () => {
-                if (previewWindow.confirm('이 품의서를 수정하시겠습니까?')) {
-                  // 부모 창의 함수 호출
-                  window.handleEditProposal(enhancedContract);
-                  previewWindow.close();
-                }
-              };
-              
-              actionButtons.insertBefore(editBtn, actionButtons.firstChild);
-            }
-            
-            // 상태변경 버튼 추가 (작성자만 가능)
-            const isAuthor = currentUser && (
-              enhancedContract.createdBy === currentUser.name || 
-              enhancedContract.author === currentUser.name
-            );
-            
-            console.log('=== 상태변경 버튼 권한 확인 ===');
-            console.log('현재 사용자:', currentUser?.name);
-            console.log('품의서 작성자(createdBy):', enhancedContract.createdBy);
-            console.log('품의서 작성자(author):', enhancedContract.author);
-            console.log('작성자 여부:', isAuthor);
-            
-            if (isAuthor) {
-              const statusBtn = previewWindow.document.createElement('button');
-              statusBtn.className = 'action-btn status-btn';
-              statusBtn.innerHTML = '🔄 상태변경';
-              statusBtn.style.background = '#667eea';
-              statusBtn.style.color = 'white';
-              statusBtn.style.border = 'none';
-              statusBtn.style.padding = '10px 20px';
-              statusBtn.style.borderRadius = '5px';
-              statusBtn.style.cursor = 'pointer';
-              statusBtn.style.fontSize = '14px';
-              statusBtn.style.minWidth = '100px';
-              statusBtn.style.marginRight = '10px';
-              
-              statusBtn.onclick = () => {
-                // 부모 창의 함수 호출 - contract 직접 전달
-                window.openStatusUpdate(enhancedContract);
-                previewWindow.close();
-              };
-              
-              // 복사 버튼 앞에 추가
-              const copyBtn = actionButtons.querySelector('.copy-btn');
-              actionButtons.insertBefore(statusBtn, copyBtn);
-            }
-            
-            // 복사 버튼 앞에 재활용 버튼 추가
-            const copyBtn = actionButtons.querySelector('.copy-btn');
-            actionButtons.insertBefore(recycleBtn, copyBtn);
-          }
-        });
-
-        // 메시지 리스너는 더 이상 필요하지 않음 (직접 함수 호출 방식 사용)
 
       } else {
         // 서버 데이터를 가져올 수 없으면 기본 데이터로 미리보기
@@ -1216,6 +1234,7 @@ const ContractList = () => {
           requestDepartments: contract.department ? [contract.department] : [],
           totalAmount: contract.amount,
           other: contract.other,
+          correctionReason: contract.correctionReason || contract.correction_reason || '', // 정정 사유 추가
           purchaseItems: [],
           serviceItems: [],
           costDepartments: []
@@ -1225,123 +1244,88 @@ const ContractList = () => {
         console.log('원본 contract:', contract);
         console.log('변환된 데이터:', previewData);
         
-        // 재활용 버튼 표시 조건 확인
-        console.log('=== 기본 재활용 버튼 조건 확인 ===');
+        // 버튼 표시 조건 확인
+        console.log('=== 기본 버튼 조건 확인 ===');
         console.log('contract.status:', contract.status);
         
-        const showRecycleButton = contract.status === '결재완료' || 
-                                 contract.status === '계약완료' || 
-                                 contract.status === '완료' || 
-                                 contract.status === 'completed' || 
-                                 contract.status === '계약체결' || 
-                                 contract.status === '승인됨';
+        const isApprovedStatus2 = contract.status === 'approved' ||
+                                  contract.status === '결재완료' || 
+                                  contract.status === '계약완료' || 
+                                  contract.status === '완료' || 
+                                  contract.status === 'completed' || 
+                                  contract.status === '계약체결' || 
+                                  contract.status === '승인됨';
         
-        console.log('showRecycleButton:', showRecycleButton);
+        const showRecycleButton2 = isApprovedStatus2;
+        const showCorrectionButton2 = isApprovedStatus2 && contract.status !== '정정전';
         
-        const previewHTML = generatePreviewHTML(previewData);
+        console.log('showRecycleButton2:', showRecycleButton2);
+        console.log('showCorrectionButton2:', showCorrectionButton2);
+        
+        // 작성자 여부 확인
+        const isAuthor2 = currentUser && (
+          contract.createdBy === currentUser.name || 
+          contract.author === currentUser.name
+        );
+        
+        console.log('=== 기본 미리보기 작성자 확인 ===');
+        console.log('currentUser:', currentUser);
+        console.log('contract.createdBy:', contract.createdBy);
+        console.log('contract.author:', contract.author);
+        console.log('contract.status:', contract.status);
+        console.log('isAuthor2:', isAuthor2);
+        
+        // 상태변경 버튼 표시 조건: 결재대기 상태만
+        const canChangeStatus2 = contract.status === 'pending' || 
+          contract.status === 'submitted' || 
+          contract.status === '결재대기';
+        
+        console.log('canChangeStatus2:', canChangeStatus2);
+        
+        // 정정 품의서인 경우 원본 품의서 조회 시도
+        let comparisonData2 = null;
+        if (contract.originalProposalId) {
+          console.log('🔍 기본 미리보기에서 정정 품의서 감지, 원본 품의서 조회:', contract.originalProposalId);
+          try {
+            const originalResponse = await fetch(`${API_BASE_URL}/api/proposals/${contract.originalProposalId}`);
+            if (originalResponse.ok) {
+              comparisonData2 = await originalResponse.json();
+              console.log('✅ 원본 품의서 조회 성공:', comparisonData2);
+            }
+          } catch (error) {
+            console.error('원본 품의서 조회 실패:', error);
+          }
+        }
+        
+        // 정정 품의서 찾기 (현재 품의서가 원본인 경우)
+        let correctedProposalId2 = null;
+        if (!contract.originalProposalId) {
+          try {
+            const correctedResponse = await fetch(`${API_BASE_URL}/api/proposals?originalProposalId=${contract.id}`);
+            if (correctedResponse.ok) {
+              const correctedProposals = await correctedResponse.json();
+              if (correctedProposals && correctedProposals.length > 0) {
+                correctedProposalId2 = correctedProposals[0].id;
+                console.log('✅ 정정 품의서 발견:', correctedProposalId2);
+              }
+            }
+          } catch (error) {
+            console.error('정정 품의서 조회 실패:', error);
+          }
+        }
+        
+        const previewHTML = generatePreviewHTML(previewData, {
+          showRecycleButton: showRecycleButton2,
+          showCorrectionButton: showCorrectionButton2,
+          showStatusButton: canChangeStatus2, // 작성자 또는 결재대기/임시저장 상태
+          contractId: contract.id,
+          originalData: comparisonData2, // 정정 품의서인 경우 원본 데이터 전달
+          originalProposalId: contract.originalProposalId || null, // 정정 품의서인 경우 원본 ID
+          correctedProposalId: correctedProposalId2 // 원본 품의서인 경우 정정 품의서 ID
+        });
         const previewWindow = window.open('', '_blank', 'width=1200,height=800');
         previewWindow.document.write(previewHTML);
         previewWindow.document.close();
-        
-        // 미리보기 창이 로드된 후 재활용 버튼 추가
-        previewWindow.addEventListener('load', () => {
-          const actionButtons = previewWindow.document.querySelector('.action-buttons');
-          if (actionButtons) {
-            // 재활용 버튼 추가
-            const recycleBtn = previewWindow.document.createElement('button');
-            recycleBtn.className = 'action-btn recycle-btn';
-            recycleBtn.innerHTML = '♻️ 재활용';
-            recycleBtn.style.background = '#28a745';
-            recycleBtn.style.color = 'white';
-            recycleBtn.style.border = 'none';
-            recycleBtn.style.padding = '10px 20px';
-            recycleBtn.style.borderRadius = '5px';
-            recycleBtn.style.cursor = 'pointer';
-            recycleBtn.style.fontSize = '14px';
-            recycleBtn.style.minWidth = '100px';
-            recycleBtn.style.marginRight = '10px';
-            
-            recycleBtn.onclick = () => {
-              if (previewWindow.confirm('이 품의서를 재활용하여 새로운 품의서를 작성하시겠습니까?')) {
-                // 부모 창의 함수 호출 - contract 전달 (기본 데이터)
-                window.handleRecycleProposal(contract);
-                previewWindow.close();
-              }
-            };
-            
-            // 수정 버튼 추가 (결재대기 또는 작성중 상태만) - 기본 데이터
-            const isWaitingApproval2 = contract.status === 'pending' || 
-                                      contract.status === 'draft';
-            
-            if (isWaitingApproval2) {
-              const editBtn = previewWindow.document.createElement('button');
-              editBtn.className = 'action-btn edit-btn';
-              editBtn.innerHTML = '✏️ 수정';
-              editBtn.style.background = '#FF9800';
-              editBtn.style.color = 'white';
-              editBtn.style.border = 'none';
-              editBtn.style.padding = '10px 20px';
-              editBtn.style.borderRadius = '5px';
-              editBtn.style.cursor = 'pointer';
-              editBtn.style.fontSize = '14px';
-              editBtn.style.minWidth = '100px';
-              editBtn.style.marginRight = '10px';
-              
-              editBtn.onclick = () => {
-                if (previewWindow.confirm('이 품의서를 수정하시겠습니까?')) {
-                  // 부모 창의 함수 호출
-                  window.handleEditProposal(contract);
-                  previewWindow.close();
-                }
-              };
-              
-              actionButtons.insertBefore(editBtn, actionButtons.firstChild);
-            }
-            
-            // 상태변경 버튼 추가 (작성자만 가능)
-            const isAuthor2 = currentUser && (
-              contract.createdBy === currentUser.name || 
-              contract.author === currentUser.name
-            );
-            
-            console.log('=== 상태변경 버튼 권한 확인 (기본) ===');
-            console.log('현재 사용자:', currentUser?.name);
-            console.log('품의서 작성자(createdBy):', contract.createdBy);
-            console.log('품의서 작성자(author):', contract.author);
-            console.log('작성자 여부:', isAuthor2);
-            
-            if (isAuthor2) {
-              const statusBtn = previewWindow.document.createElement('button');
-              statusBtn.className = 'action-btn status-btn';
-              statusBtn.innerHTML = '🔄 상태변경';
-              statusBtn.style.background = '#667eea';
-              statusBtn.style.color = 'white';
-              statusBtn.style.border = 'none';
-              statusBtn.style.padding = '10px 20px';
-              statusBtn.style.borderRadius = '5px';
-              statusBtn.style.cursor = 'pointer';
-              statusBtn.style.fontSize = '14px';
-              statusBtn.style.minWidth = '100px';
-              statusBtn.style.marginRight = '10px';
-              
-              statusBtn.onclick = () => {
-                // 부모 창의 함수 호출 - contract 직접 전달
-                window.openStatusUpdate(contract);
-                previewWindow.close();
-              };
-              
-              // 복사 버튼 앞에 추가
-              const copyBtn = actionButtons.querySelector('.copy-btn');
-              actionButtons.insertBefore(statusBtn, copyBtn);
-            }
-            
-            // 복사 버튼 앞에 재활용 버튼 추가
-            const copyBtn = actionButtons.querySelector('.copy-btn');
-            actionButtons.insertBefore(recycleBtn, copyBtn);
-          }
-        });
-
-        // 메시지 리스너는 더 이상 필요하지 않음 (직접 함수 호출 방식 사용)
       }
 
     } catch (error) {
@@ -1522,6 +1506,32 @@ const ContractList = () => {
   // 미리보기 창에서 접근할 수 있도록 전역으로 노출
   window.handleRecycleProposal = handleRecycleProposal;
 
+  // 품의서 정정 함수
+  const handleCorrectProposal = async (contract) => {
+    try {
+      console.log('품의서 정정 시작:', contract);
+      
+      // 서버에서 원본 품의서 데이터 조회
+      const response = await fetch(`${API_BASE_URL}/api/proposals/${contract.id}`);
+      
+      if (!response.ok) {
+        throw new Error('품의서 데이터 조회 실패');
+      }
+      
+      const originalData = await response.json();
+      console.log('🔍 정정할 품의서 데이터:', originalData);
+      
+      // 정정 모드로 이동 (originalProposalId를 URL 파라미터로 전달)
+      navigate(`/proposal-correction?originalId=${originalData.id}&type=${originalData.contractType}`);
+      
+    } catch (error) {
+      console.error('품의서 정정 오류:', error);
+      alert('품의서 정정 중 오류가 발생했습니다.');
+    }
+  };
+
+  window.handleCorrectProposal = handleCorrectProposal;
+
   // 품의서 수정 함수
   const handleEditProposal = async (contract) => {
     try {
@@ -1661,19 +1671,21 @@ const ContractList = () => {
     // 현재 상태 확인
     console.log('현재 품의서 상태:', targetContract.status);
     
-    // 이미 결재완료된 경우 변경 불가
+    // 결재완료된 경우 변경 불가
     if (targetContract.status === 'approved' || targetContract.status === '결재완료') {
       alert('이미 결재완료된 품의서는 상태를 변경할 수 없습니다.');
       return;
     }
     
-    // 결재대기 상태만 결재완료로 변경 가능 (submitted 또는 '결재대기')
-    if (targetContract.status !== 'pending' && targetContract.status !== 'submitted' && targetContract.status !== '결재대기') {
+    // 결재대기 상태만 결재완료로 변경 가능
+    if (targetContract.status !== 'pending' && 
+        targetContract.status !== 'submitted' && 
+        targetContract.status !== '결재대기') {
       alert('결재대기 상태의 품의서만 결재완료로 변경할 수 있습니다.');
       return;
     }
     
-    // 결재완료로만 변경 가능하도록 자동 설정
+    // 결재완료로 고정
     setNewStatus('approved');
     setStatusDate(new Date().toISOString().split('T')[0]); // 오늘 날짜를 기본값으로 설정
     setChangeReason('');
@@ -1683,6 +1695,30 @@ const ContractList = () => {
   // 미리보기 창에서 접근할 수 있도록 전역으로 노출
   window.openStatusUpdate = openStatusUpdate;
   window.setSelectedContract = setSelectedContract;
+  
+  // 미리보기 창에서 상태변경을 위한 래퍼 함수
+  const handleChangeStatus = useCallback((contract) => {
+    console.log('🔄 상태변경 요청:', contract);
+    
+    if (contract && contract.id) {
+      // contracts 배열에서 해당 품의서 찾기
+      const targetContract = contracts.find(c => c.id === parseInt(contract.id));
+      
+      if (targetContract) {
+        setSelectedContract(targetContract);
+        openStatusUpdate(targetContract);
+      } else {
+        // contracts에 없으면 최소한의 정보로 객체 구성
+        setSelectedContract({ id: contract.id });
+        openStatusUpdate({ id: contract.id });
+      }
+    } else {
+      alert('품의서 정보를 찾을 수 없습니다.');
+    }
+  }, [contracts]);
+  
+  // 전역에 함수 노출
+  window.handleChangeStatus = handleChangeStatus;
 
   // 상태 업데이트 모달 닫기
   const closeStatusUpdate = () => {
@@ -1696,6 +1732,14 @@ const ContractList = () => {
   const handleStatusUpdate = async () => {
     if (!statusDate) {
       alert('상태 변경 날짜를 입력해주세요.');
+      return;
+    }
+    
+    // 결재대기 상태만 결재완료로 변경 가능 (추가 검증)
+    if (selectedContract.status !== 'pending' && 
+        selectedContract.status !== 'submitted' && 
+        selectedContract.status !== '결재대기') {
+      alert('결재대기 상태의 품의서만 결재완료로 변경할 수 있습니다.');
       return;
     }
 
@@ -1720,7 +1764,7 @@ const ContractList = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          status: 'approved', // submitted → approved로 변경
+          status: 'approved', // 결재완료로 고정
           statusDate: statusDate,
           changeReason: changeReason,
           changedBy: currentUserName // 현재 로그인한 사용자 (IP 기반 자동 인식)
@@ -2708,7 +2752,8 @@ const ContractList = () => {
                     cursor: 'not-allowed',
                     border: '1px solid #ddd',
                     padding: '8px',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    width: '100%'
                   }}
                 />
                 <small style={{ color: '#666', fontSize: '0.85em', marginTop: '4px', display: 'block' }}>
