@@ -1,0 +1,80 @@
+{
+  "name": "contract-management-system",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@ckeditor/ckeditor5-alignment": "^46.1.1",
+    "@ckeditor/ckeditor5-basic-styles": "^46.1.1",
+    "@ckeditor/ckeditor5-dev-utils": "^43.1.0",
+    "@ckeditor/ckeditor5-editor-classic": "^46.1.1",
+    "@ckeditor/ckeditor5-essentials": "^46.1.1",
+    "@ckeditor/ckeditor5-font": "^46.1.1",
+    "@ckeditor/ckeditor5-heading": "^46.1.1",
+    "@ckeditor/ckeditor5-language": "^46.1.1",
+    "@ckeditor/ckeditor5-link": "^46.1.1",
+    "@ckeditor/ckeditor5-list": "^46.1.1",
+    "@ckeditor/ckeditor5-paragraph": "^46.1.1",
+    "@ckeditor/ckeditor5-paste-from-office": "^46.1.1",
+    "@ckeditor/ckeditor5-react": "^11.0.0",
+    "@ckeditor/ckeditor5-table": "^46.1.1",
+    "@ckeditor/ckeditor5-theme-lark": "^46.1.1",
+    "@ckeditor/ckeditor5-typing": "^46.1.1",
+    "axios": "^1.11.0",
+    "chart.js": "^4.5.0",
+    "cors": "^2.8.5",
+    "css-loader": "^7.1.2",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "html2canvas": "^1.4.1",
+    "lucide-react": "^0.543.0",
+    "oracledb": "^6.10.0",
+    "pg": "^8.16.3",
+    "postcss": "^8.5.6",
+    "postcss-loader": "^8.2.0",
+    "raw-loader": "^4.0.2",
+    "react": "^18.2.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.0",
+    "react-scripts": "5.0.1",
+    "sequelize": "^6.37.7",
+    "sequelize-cli": "^6.6.3",
+    "style-loader": "^4.0.0",
+    "web-vitals": "^2.1.4",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "proxy": "http://localhost:3002",
+  "scripts": {
+    "start": "set PORT=3001 && set DANGEROUSLY_DISABLE_HOST_CHECK=true && set BROWSER=chrome && npx craco start",
+    "start:local": "set PORT=3001 && set BROWSER=chrome && npx craco start",
+    "start:network": "set PORT=3001 && set HOST=0.0.0.0 && npx craco start",
+    "build": "npx craco build",
+    "build:prod": "set GENERATE_SOURCEMAP=false && npx craco build",
+    "start:prod": "node server.js",
+    "test": "npx craco test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@craco/craco": "^7.1.0"
+  }
+}

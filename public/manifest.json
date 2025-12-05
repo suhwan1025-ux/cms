@@ -1,6 +1,6 @@
 {
-  "short_name": "계약관리",
-  "name": "계약관리시스템",
+  "short_name": "ORDIN",
+  "name": "ORDIN - 계약 및 품의서 관리 시스템",
   "icons": [
     {
       "src": "favicon.ico",
@@ -21,6 +21,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#0066cc",
-  "background_color": "#ffffff"
+  "theme_color": "#2c3e50",
+  "background_color": "#1a1a2e"
 }

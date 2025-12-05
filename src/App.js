@@ -238,6 +238,7 @@ function App() {
             <Route path="/contract-list" element={<ContractList />} />
             <Route path="/draft-list" element={<DraftList />} />
             <Route path="/proposal" element={<ProposalForm />} />
+            <Route path="/proposal-correction" element={<ProposalForm isCorrectionMode={true} />} />
             <Route path="/approval-line" element={<ApprovalLine />} />
             <Route path="/tasks" element={<TaskManagement />} />
             <Route path="/templates" element={<TemplateManagement />} />

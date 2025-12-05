@@ -8,7 +8,9 @@ export const getStatusLabel = (status) => {
     'draft': '작성중',
     'pending': '결재대기',
     'submitted': '결재대기',
-    'approved': '결재완료'
+    'approved': '결재완료',
+    '정정전': '정정전',
+    '정정후': '정정후'
   };
 
   return statusMap[status] || status;
@@ -22,7 +24,9 @@ export const getStatusColor = (status) => {
     'draft': '#999',        // 작성중: 회색
     'pending': '#ff9800',   // 결재대기: 주황색
     'submitted': '#ff9800', // 결재대기: 주황색
-    'approved': '#4caf50'   // 결재완료: 녹색
+    'approved': '#4caf50',  // 결재완료: 녹색
+    '정정전': '#FF9800',    // 정정전: 주황색
+    '정정후': '#9C27B0'     // 정정후: 보라색
   };
 
   return colorMap[status] || '#666';
@@ -36,7 +40,9 @@ export const getStatusBgColor = (status) => {
     'draft': '#f5f5f5',     // 작성중: 밝은 회색
     'pending': '#fff3e0',   // 결재대기: 밝은 주황색
     'submitted': '#fff3e0', // 결재대기: 밝은 주황색
-    'approved': '#e8f5e9'   // 결재완료: 밝은 녹색
+    'approved': '#e8f5e9',  // 결재완료: 밝은 녹색
+    '정정전': '#fff3e0',    // 정정전: 밝은 주황색
+    '정정후': '#f3e5f5'     // 정정후: 밝은 보라색
   };
 
   return bgColorMap[status] || '#f5f5f5';
