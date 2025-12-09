@@ -854,7 +854,8 @@ const ProposalForm = ({ isCorrectionMode = false }) => {
                 contractStartDate: originalData.contractStartDate || '',
                 contractEndDate: originalData.contractEndDate || '',
                 paymentMethod: originalData.paymentMethod || '',
-                other: originalData.other || ''
+                other: originalData.other || '',
+                correctionReason: '' // 정정 사유는 새로 입력받아야 하므로 빈 문자열로 초기화
               };
               
               setFormData(newFormData);
@@ -2685,7 +2686,11 @@ const ProposalForm = ({ isCorrectionMode = false }) => {
           return;
         }
         
-
+        // 정정 모드일 때 정정 사유 검증
+        if (isCorrectionMode && !formData.correctionReason?.trim()) {
+          alert('정정 사유를 입력해주세요.\n정정 품의서는 정정 사유가 필수입니다.');
+          return;
+        }
         
         // 계약 유형별 필수 항목 검증
         if (contractType === 'purchase' || contractType === 'change') {

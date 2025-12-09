@@ -1958,35 +1958,11 @@ app.post('/api/proposals', async (req, res) => {
       status: proposalData.status || (proposalData.isDraft ? 'draft' : 'submitted'), // 클라이언트에서 전달된 status 사용 (pending, submitted, draft 등)
       createdBy: proposalData.createdBy, // camelCase 사용
       isDraft: proposalData.isDraft !== undefined ? proposalData.isDraft : true, // 요청된 값 또는 기본값
-      originalProposalId: proposalData.originalProposalId !== undefined ? (proposalData.originalProposalId ? parseInt(proposalData.originalProposalId) : null) : null, // 원본 품의서 ID 저장 (숫자 변환)
-      
-      // 🔧 [필수 추가] DB 컬럼명 직접 명시 (구버전 Sequelize 호환성)
-      correction_reason: proposalData.correctionReason !== undefined ? proposalData.correctionReason : null,
-      original_proposal_id: proposalData.originalProposalId !== undefined ? (proposalData.originalProposalId ? parseInt(proposalData.originalProposalId) : null) : null
+      originalProposalId: proposalData.originalProposalId !== undefined ? (proposalData.originalProposalId ? parseInt(proposalData.originalProposalId) : null) : null // 원본 품의서 ID 저장 (숫자 변환)
     };
     console.log('createData:', JSON.stringify(createData, null, 2));
     
     const proposal = await models.Proposal.create(createData);
-    
-    // 🔧 [긴급 추가] ORM 이슈 회피를 위한 강제 UPDATE (저장 보장)
-    // Sequelize 구버전에서 create 시 컬럼이 누락되는 경우를 대비해 직접 SQL 실행
-    if (proposalData.originalProposalId || proposalData.correctionReason) {
-      try {
-        const originalId = proposalData.originalProposalId ? parseInt(proposalData.originalProposalId) : 'NULL';
-        // SQL Injection 방지를 위해 replace 사용 (간단한 처리)
-        const reason = proposalData.correctionReason ? `'${String(proposalData.correctionReason).replace(/'/g, "''")}'` : 'NULL';
-        
-        await sequelize.query(
-          `UPDATE proposals 
-           SET original_proposal_id = ${originalId}, 
-               correction_reason = ${reason}
-           WHERE id = ${proposal.id}`
-        );
-        console.log(`🔥 [강제 UPDATE] ID ${proposal.id}에 정정 정보 직접 저장 완료`);
-      } catch (sqlError) {
-        console.error('❌ 강제 UPDATE 실패:', sqlError);
-      }
-    }
     
     console.log('✅ 품의서 생성 성공:', {
       id: proposal.id,
@@ -2222,10 +2198,7 @@ app.get('/api/proposals', async (req, res) => {
     
     // originalProposalId 필터링 (정정 품의서 찾기)
     if (req.query.originalProposalId) {
-       // underscored 이슈 회피를 위해 DB 컬럼명 직접 명시할 수도 있지만, 
-       // 모델에서 field 속성을 제거했으므로 camelCase로 시도해봅니다.
-       // 만약 에러가 난다면 whereClause['original_proposal_id'] = ... 로 변경하세요.
-       whereClause['original_proposal_id'] = req.query.originalProposalId;
+      whereClause.originalProposalId = req.query.originalProposalId;
     }
     
     // 등록일 필터링 (최근 N개월)
@@ -2305,15 +2278,6 @@ app.get('/api/proposals', async (req, res) => {
     // 예산 정보와 비용분배 정보를 포함하여 응답
     const proposalsWithBudget = await Promise.all(proposals.map(async (proposal) => {
       const proposalData = proposal.toJSON();
-
-      // 🔧 [추가] 정정 관련 필드 수동 매핑 (snake_case → camelCase)
-      // 구버전 Sequelize에서 field 속성 제거 시 snake_case로 반환될 수 있음
-      if (proposalData.original_proposal_id !== undefined && proposalData.originalProposalId === undefined) {
-        proposalData.originalProposalId = proposalData.original_proposal_id;
-      }
-      if (proposalData.correction_reason !== undefined && proposalData.correctionReason === undefined) {
-        proposalData.correctionReason = proposalData.correction_reason;
-      }
       
       // 예산 정보 가져오기 (자본예산 또는 전산운용비)
       if (proposalData.budgetId) {
@@ -2496,36 +2460,6 @@ app.get('/api/proposals/:id', async (req, res) => {
     const proposal = await models.Proposal.findByPk(req.params.id, {
       include: includeArray
     });
-    
-    // 🔧 [긴급 수정] Sequelize 매핑 이슈 해결을 위한 강제 데이터 조회
-    // 모델 설정 변경으로 인해 findByPk가 해당 컬럼을 못 가져오는 경우를 대비
-    if (proposal) {
-      try {
-        const [rawData] = await sequelize.query(
-          `SELECT original_proposal_id, correction_reason FROM proposals WHERE id = :id`,
-          { 
-            replacements: { id: req.params.id },
-            type: sequelize.QueryTypes.SELECT 
-          }
-        );
-        
-        if (rawData) {
-          // 조회된 데이터를 모델 인스턴스에 강제 주입
-          if (rawData.original_proposal_id) {
-            proposal.setDataValue('originalProposalId', rawData.original_proposal_id);
-            // snake_case로도 접근 가능하게 설정
-            proposal.setDataValue('original_proposal_id', rawData.original_proposal_id);
-            console.log(`🔥 [강제조회] ID ${req.params.id}의 원본ID 발견: ${rawData.original_proposal_id}`);
-          }
-          if (rawData.correction_reason) {
-            proposal.setDataValue('correctionReason', rawData.correction_reason);
-            proposal.setDataValue('correction_reason', rawData.correction_reason);
-          }
-        }
-      } catch (dbError) {
-        console.error('❌ 강제 조회 중 오류:', dbError);
-      }
-    }
     
     if (!proposal) {
       return res.status(404).json({ error: '품의서를 찾을 수 없습니다.' });
@@ -2772,40 +2706,11 @@ app.put('/api/proposals/:id', async (req, res) => {
       wysiwygContent: proposalData.wysiwygContent || proposal.wysiwygContent || '', // 자유양식 문서 내용 추가
       other: proposalData.other !== undefined ? proposalData.other : proposal.other, // 기타 사항 추가
       correctionReason: proposalData.correctionReason !== undefined ? proposalData.correctionReason : proposal.correctionReason, // 정정 사유 추가
-      status: proposalData.status || (proposalData.isDraft ? 'draft' : 'submitted'), // 클라이언트에서 전달된 status 사용
       createdBy: proposalData.createdBy || proposal.createdBy || '사용자1',
+      status: proposalData.status || (proposalData.isDraft ? 'draft' : 'submitted'), // 클라이언트에서 전달된 status 사용
       isDraft: proposalData.isDraft !== undefined ? proposalData.isDraft : false,
-      originalProposalId: proposalData.originalProposalId !== undefined ? proposalData.originalProposalId : proposal.originalProposalId, // 원본 품의서 ID 추가
-      
-      // 🔧 [필수 추가] DB 컬럼명 직접 명시 (구버전 Sequelize 호환성)
-      correction_reason: proposalData.correctionReason !== undefined ? proposalData.correctionReason : proposal.correctionReason,
-      original_proposal_id: proposalData.originalProposalId !== undefined ? proposalData.originalProposalId : proposal.originalProposalId
+      originalProposalId: proposalData.originalProposalId !== undefined ? proposalData.originalProposalId : proposal.originalProposalId // 원본 품의서 ID 추가
     });
-
-    // 🔧 [긴급 추가] ORM 이슈 회피를 위한 강제 UPDATE (저장 보장)
-    // Sequelize 구버전에서 update 시 컬럼이 누락되는 경우를 대비해 직접 SQL 실행
-    if (proposalData.originalProposalId !== undefined || proposalData.correctionReason !== undefined) {
-      try {
-        const updates = [];
-        if (proposalData.originalProposalId !== undefined) {
-          const val = proposalData.originalProposalId ? parseInt(proposalData.originalProposalId) : 'NULL';
-          updates.push(`original_proposal_id = ${val}`);
-        }
-        if (proposalData.correctionReason !== undefined) {
-          const val = proposalData.correctionReason ? `'${String(proposalData.correctionReason).replace(/'/g, "''")}'` : 'NULL';
-          updates.push(`correction_reason = ${val}`);
-        }
-        
-        if (updates.length > 0) {
-          await sequelize.query(
-            `UPDATE proposals SET ${updates.join(', ')} WHERE id = ${req.params.id}`
-          );
-          console.log(`🔥 [강제 UPDATE] ID ${req.params.id} 정정 정보 직접 업데이트 완료`);
-        }
-      } catch (sqlError) {
-        console.error('❌ 강제 UPDATE 실패:', sqlError);
-      }
-    }
 
     // 트랜잭션 시작
     const transaction = await sequelize.transaction();

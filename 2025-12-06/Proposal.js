@@ -181,13 +181,13 @@ module.exports = (sequelize, DataTypes) => {
     originalProposalId: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      // field: 'original_proposal_id', // underscored: true가 자동 변환
+      field: 'original_proposal_id',
       comment: '원본 품의서 ID (정정된 경우)'
     },
     correctionReason: {
       type: DataTypes.TEXT,
       allowNull: true,
-      // field: 'correction_reason', // underscored: true가 자동 변환
+      field: 'correction_reason',
       comment: '정정 사유'
     },
     createdAt: {

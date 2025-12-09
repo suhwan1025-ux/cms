@@ -417,25 +417,7 @@ export const generateItemsSection = (data, originalData = null) => {
         <tbody>
           ${data.serviceItems.map((item, index) => {
             const originalItem = originalServiceItems[index];
-            
-            // JSON.stringify 대신 실제 표시되는 필드만 비교
-            let isRowChanged = false;
-            if (isCorrection && originalItem) {
-              const fieldsToCheck = [
-                'item', 'name', 'personnel', 'skillLevel', 'skill_level', 
-                'period', 'monthlyRate', 'monthly_rate', 'unitPrice', 'unit_price',
-                'quantity', 'contractAmount', 'contract_amount', 'supplier',
-                'creditRating', 'credit_rating', 'contractPeriodStart', 'contract_period_start',
-                'contractPeriodEnd', 'contract_period_end', 'paymentMethod', 'payment_method'
-              ];
-              
-              isRowChanged = fieldsToCheck.some(field => {
-                const val1 = item[field];
-                const val2 = originalItem[field];
-                return hasChanged(val1, val2);
-              });
-            }
-            
+            const isRowChanged = isCorrection && originalItem && JSON.stringify(item) !== JSON.stringify(originalItem);
             const isNewRow = isCorrection && !originalItem;
             const rowStyle = isNewRow ? 'background-color: #e8f5e9;' : (isRowChanged ? 'background-color: #fff9c4;' : '');
             
@@ -628,26 +610,7 @@ export const generateItemsSection = (data, originalData = null) => {
         <tbody>
           ${data.purchaseItems.map((item, index) => {
             const originalItem = originalPurchaseItems[index];
-            
-            // JSON.stringify 대신 실제 표시되는 필드만 비교
-            let isRowChanged = false;
-            if (isCorrection && originalItem) {
-              const fieldsToCheck = [
-                'item', 'productName', 'product_name', 
-                'contractStartDate', 'contract_start_date',
-                'contractEndDate', 'contract_end_date',
-                'contractPeriodType', 'contract_period_type',
-                'quantity', 'unit', 'unitPrice', 'unit_price',
-                'amount', 'supplier'
-              ];
-              
-              isRowChanged = fieldsToCheck.some(field => {
-                const val1 = item[field];
-                const val2 = originalItem[field];
-                return hasChanged(val1, val2);
-              });
-            }
-            
+            const isRowChanged = isCorrection && originalItem && JSON.stringify(item) !== JSON.stringify(originalItem);
             const isNewRow = isCorrection && !originalItem;
             const rowStyle = isNewRow ? 'background-color: #e8f5e9;' : (isRowChanged ? 'background-color: #fff9c4;' : '');
             
@@ -977,19 +940,7 @@ export const generateCostAllocationSection = (data, originalData = null) => {
     totalAmount += (parseFloat(allocation.amount) || 0);
     
     const originalAlloc = originalAllocations[index];
-    
-    // JSON.stringify 대신 실제 표시되는 필드만 비교
-    let isRowChanged = false;
-    if (isCorrection && originalAlloc) {
-      const fieldsToCheck = ['classification', 'productName', 'department', 'type', 'value', 'amount'];
-      
-      isRowChanged = fieldsToCheck.some(field => {
-        const val1 = allocation[field];
-        const val2 = originalAlloc[field];
-        return hasChanged(val1, val2);
-      });
-    }
-    
+    const isRowChanged = isCorrection && originalAlloc && JSON.stringify(allocation) !== JSON.stringify(originalAlloc);
     const isNewRow = isCorrection && !originalAlloc;
     const rowStyle = isNewRow ? 'background-color: #e8f5e9;' : (isRowChanged ? 'background-color: #fff9c4;' : '');
     

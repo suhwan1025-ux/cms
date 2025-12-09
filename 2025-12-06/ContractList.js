@@ -1090,14 +1090,10 @@ const ContractList = () => {
         
         // 정정 품의서인 경우 원본 품의서도 조회
         let comparisonData = null;
-        
-        // 서버 응답 데이터 또는 리스트 데이터에서 원본 ID 확인
-        const originId = originalData.originalProposalId || originalData.original_proposal_id || contract.originalProposalId;
-        
-        if (originId) {
-          console.log('🔍 정정 품의서 감지, 원본 품의서 조회:', originId);
+        if (originalData.originalProposalId) {
+          console.log('🔍 정정 품의서 감지, 원본 품의서 조회:', originalData.originalProposalId);
           try {
-            const originalResponse = await fetch(`${API_BASE_URL}/api/proposals/${originId}`);
+            const originalResponse = await fetch(`${API_BASE_URL}/api/proposals/${originalData.originalProposalId}`);
             if (originalResponse.ok) {
               comparisonData = await originalResponse.json();
               console.log('✅ 원본 품의서 조회 성공:', comparisonData);
@@ -1197,19 +1193,14 @@ const ContractList = () => {
         
         // 정정 품의서 찾기 (현재 품의서가 원본인 경우)
         let correctedProposalId = null;
-        
-        // 정정 품의서가 아닌 경우에만 정정된 이력이 있는지 확인
-        if (!originId) {
+        if (!originalData.originalProposalId) {
           // 현재 품의서가 원본일 수 있으므로, 이를 원본으로 하는 정정 품의서 찾기
           try {
             const correctedResponse = await fetch(`${API_BASE_URL}/api/proposals?originalProposalId=${contract.id}`);
             if (correctedResponse.ok) {
               const correctedProposals = await correctedResponse.json();
-              // 배열인지 확인하고 처리
-              const proposalsList = Array.isArray(correctedProposals) ? correctedProposals : (correctedProposals.proposals || []);
-              
-              if (proposalsList && proposalsList.length > 0) {
-                correctedProposalId = proposalsList[0].id;
+              if (correctedProposals && correctedProposals.length > 0) {
+                correctedProposalId = correctedProposals[0].id;
                 console.log('✅ 정정 품의서 발견:', correctedProposalId);
               }
             }
@@ -1224,7 +1215,7 @@ const ContractList = () => {
           showStatusButton: canChangeStatus, // 작성자 또는 결재대기/임시저장 상태
           contractId: enhancedContract.id,
           originalData: comparisonData, // 정정 품의서인 경우 원본 데이터 전달
-          originalProposalId: originId || null, // 정정 품의서인 경우 원본 ID
+          originalProposalId: originalData.originalProposalId || null, // 정정 품의서인 경우 원본 ID
           correctedProposalId: correctedProposalId // 원본 품의서인 경우 정정 품의서 ID
         });
         const previewWindow = window.open('', '_blank', 'width=1200,height=800');
