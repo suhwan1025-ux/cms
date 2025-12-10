@@ -20,8 +20,6 @@ if (!process.env.PORT) {
 }
 const PORT = process.env.PORT;
 
-// AI ÏÑúÎ≤Ñ ÏÑ§Ï†ï (ÏÇ¨Ïö© Ïïà Ìï®)
-// const AI_SERVER_URL = process.env.AI_SERVER_URL;
 
 // =====================================================
 // IP Ï†ëÍ∑º Ï†úÏñ¥ ÎØ∏Îì§Ïõ®Ïñ¥
@@ -1697,6 +1695,194 @@ app.get('/api/operating-budget-executions/export/excel', async (req, res) => {
       res.json({ success: true });
     } catch (error) {
       console.error('Ï∞∏Í≥†ÏûêÎ£å ÏÇ≠Ï†ú Ïã§Ìå®:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // === Í≤∞Ïû¨ÎùºÏù∏ API (ÏÉàÎ°úÏö¥ 3Í∞ÄÏßÄ Ïú†Ìòï) ===
+
+  // 1. Í≥ÑÏïΩÍ∏àÏï°Î≥Ñ Ìï©ÏùòÎùºÏù∏ Ï°∞Ìöå
+  app.get('/api/approval-amount-agreement', async (req, res) => {
+    try {
+      const results = await sequelize.query(`
+        SELECT * FROM approval_amount_agreement 
+        WHERE is_active = true 
+        ORDER BY min_amount
+      `);
+      res.json(results[0]);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 1-1. Í≥ÑÏïΩÍ∏àÏï°Î≥Ñ Ìï©ÏùòÎùºÏù∏ Ï∂îÍ∞Ä
+  app.post('/api/approval-amount-agreement', async (req, res) => {
+    try {
+      const { min_amount, max_amount, approver } = req.body;
+      const result = await sequelize.query(`
+        INSERT INTO approval_amount_agreement (min_amount, max_amount, approver, is_active)
+        VALUES (?, ?, ?, true)
+        RETURNING id
+      `, {
+        replacements: [min_amount, max_amount, approver]
+      });
+      res.json({ success: true, id: result[0][0].id });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 1-2. Í≥ÑÏïΩÍ∏àÏï°Î≥Ñ Ìï©ÏùòÎùºÏù∏ ÏàòÏ†ï
+  app.put('/api/approval-amount-agreement/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { min_amount, max_amount, approver } = req.body;
+      await sequelize.query(`
+        UPDATE approval_amount_agreement 
+        SET min_amount = ?, max_amount = ?, approver = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, {
+        replacements: [min_amount, max_amount, approver, id]
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 1-3. Í≥ÑÏïΩÍ∏àÏï°Î≥Ñ Ìï©ÏùòÎùºÏù∏ ÏÇ≠Ï†ú
+  app.delete('/api/approval-amount-agreement/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await sequelize.query(`
+        UPDATE approval_amount_agreement SET is_active = false WHERE id = ?
+      `, { replacements: [id] });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 2. Í≥ÑÏïΩÍ∏àÏï°Î≥Ñ Ï†ÑÍ≤∞ÎùºÏù∏ Ï°∞Ìöå
+  app.get('/api/approval-amount-decision', async (req, res) => {
+    try {
+      const results = await sequelize.query(`
+        SELECT * FROM approval_amount_decision 
+        WHERE is_active = true 
+        ORDER BY min_amount
+      `);
+      res.json(results[0]);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 2-1. Í≥ÑÏïΩÍ∏àÏï°Î≥Ñ Ï†ÑÍ≤∞ÎùºÏù∏ Ï∂îÍ∞Ä
+  app.post('/api/approval-amount-decision', async (req, res) => {
+    try {
+      const { min_amount, max_amount, decision_maker } = req.body;
+      const result = await sequelize.query(`
+        INSERT INTO approval_amount_decision (min_amount, max_amount, decision_maker, is_active)
+        VALUES (?, ?, ?, true)
+        RETURNING id
+      `, {
+        replacements: [min_amount, max_amount, decision_maker]
+      });
+      res.json({ success: true, id: result[0][0].id });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 2-2. Í≥ÑÏïΩÍ∏àÏï°Î≥Ñ Ï†ÑÍ≤∞ÎùºÏù∏ ÏàòÏ†ï
+  app.put('/api/approval-amount-decision/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { min_amount, max_amount, decision_maker } = req.body;
+      await sequelize.query(`
+        UPDATE approval_amount_decision 
+        SET min_amount = ?, max_amount = ?, decision_maker = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, {
+        replacements: [min_amount, max_amount, decision_maker, id]
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 2-3. Í≥ÑÏïΩÍ∏àÏï°Î≥Ñ Ï†ÑÍ≤∞ÎùºÏù∏ ÏÇ≠Ï†ú
+  app.delete('/api/approval-amount-decision/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await sequelize.query(`
+        UPDATE approval_amount_decision SET is_active = false WHERE id = ?
+      `, { replacements: [id] });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 3. Í≥ÑÏïΩÏú†ÌòïÎ≥Ñ Ìï©ÏùòÎùºÏù∏ Ï°∞Ìöå
+  app.get('/api/approval-type-agreement', async (req, res) => {
+    try {
+      const results = await sequelize.query(`
+        SELECT * FROM approval_type_agreement 
+        WHERE is_active = true 
+        ORDER BY contract_type
+      `);
+      res.json(results[0]);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 3-1. Í≥ÑÏïΩÏú†ÌòïÎ≥Ñ Ìï©ÏùòÎùºÏù∏ Ï∂îÍ∞Ä
+  app.post('/api/approval-type-agreement', async (req, res) => {
+    try {
+      const { contract_type, approver, basis } = req.body;
+      const result = await sequelize.query(`
+        INSERT INTO approval_type_agreement (contract_type, approver, basis, is_active)
+        VALUES (?, ?, ?, true)
+        RETURNING id
+      `, {
+        replacements: [contract_type, approver, basis]
+      });
+      res.json({ success: true, id: result[0][0].id });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 3-2. Í≥ÑÏïΩÏú†ÌòïÎ≥Ñ Ìï©ÏùòÎùºÏù∏ ÏàòÏ†ï
+  app.put('/api/approval-type-agreement/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { contract_type, approver, basis } = req.body;
+      await sequelize.query(`
+        UPDATE approval_type_agreement 
+        SET contract_type = ?, approver = ?, basis = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, {
+        replacements: [contract_type, approver, basis, id]
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 3-3. Í≥ÑÏïΩÏú†ÌòïÎ≥Ñ Ìï©ÏùòÎùºÏù∏ ÏÇ≠Ï†ú
+  app.delete('/api/approval-type-agreement/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await sequelize.query(`
+        UPDATE approval_type_agreement SET is_active = false WHERE id = ?
+      `, { replacements: [id] });
+      res.json({ success: true });
+    } catch (error) {
       res.status(500).json({ error: error.message });
     }
   });
@@ -7320,6 +7506,8 @@ app.get('/api/proposals/approved', async (req, res) => {
   }
 });
 
+
+
 // =====================================================
 // ÏÑúÎ≤Ñ ÏãúÏûë
 // =====================================================
@@ -7347,4 +7535,74 @@ app.listen(PORT, '0.0.0.0', async () => {
   } catch (error) {
     console.error('‚ùå Îç∞Ïù¥ÌÑ∞Î≤†Ïù¥Ïä§ Ïó∞Í≤∞ Ïã§Ìå®:', error.message);
   }
-}); 
+}); / /   6 .   x∆ÄΩ  D B   Ÿ≥0ÆT÷  ¥Ãl–  ( ¥∞ÄΩx«%∏)  
+ a p p . g e t ( ' / a p i / p e r s o n n e l / s y n c - c h e c k ' ,   a s y n c   ( r e q ,   r e s )   = >   {  
+     t r y   {  
+         c o n s o l e . l o g ( ' %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%' ) ;  
+         c o n s o l e . l o g ( ' =ÿ›  [ A P I   8÷úÕ]   G E T   / a p i / p e r s o n n e l / s y n c - c h e c k ' ) ;  
+          
+         / /   1 .   x∆ÄΩ  D B –≈¡  \Õ‡¬  x«%∏  »Ùº  p»å÷ 
+         c o n s t   {   g e t I n t e r n a l P e r s o n n e l F r o m E x t e r n a l D b   }   =   r e q u i r e ( ' . / c o n f i g / e x t e r n a l D a t a b a s e ' ) ;  
+         c o n s t   e x t e r n a l P e r s o n n e l   =   a w a i t   g e t I n t e r n a l P e r s o n n e l F r o m E x t e r n a l D b ( ) ;  
+          
+         i f   ( ! e x t e r n a l P e r s o n n e l   | |   e x t e r n a l P e r s o n n e l . l e n g t h   = = =   0 )   {  
+             r e t u r n   r e s . j s o n ( {   a d d e d :   [ ] ,   d e l e t e d :   [ ] ,   m e s s a g e :   ' x∆ÄΩ  D B –≈¡  p≥t«0—|π   ¨8»,∆  ¬  ∆≈µ¬»≤‰≤. '   } ) ;  
+         }  
+          
+         / /   2 .   ¥∞ÄΩ  D B –≈¡  ÷¨«  x«%∏  »Ùº  p»å÷ 
+         c o n s t   i n t e r n a l P e r s o n n e l   =   a w a i t   m o d e l s . P e r s o n n e l . f i n d A l l ( {  
+             a t t r i b u t e s :   [ ' e m p l o y e e _ n u m b e r ' ,   ' n a m e ' ,   ' d e p a r t m e n t ' ,   ' p o s i t i o n ' ] ,  
+             w h e r e :   {  
+                 i s _ a c t i v e :   t r u e  
+             }  
+         } ) ;  
+          
+         / /   3 .   DæP≠  \∏¡… 
+         c o n s t   i n t e r n a l M a p   =   n e w   M a p ( i n t e r n a l P e r s o n n e l . m a p ( p   = >   [ p . e m p l o y e e _ n u m b e r ,   p ] ) ) ;  
+         c o n s t   e x t e r n a l M a p   =   n e w   M a p ( e x t e r n a l P e r s o n n e l . m a p ( p   = >   [ p . E M P N O ,   p ] ) ) ;  
+          
+         c o n s t   a d d e d   =   [ ] ;  
+         c o n s t   d e l e t e d   =   [ ] ;  
+          
+         / /   îÕ ¨¥  x«–∆  >Ã0Æ  ( x∆ÄΩ–≈î≤  à«î≤p≥  ¥∞ÄΩ–≈î≤  ∆≈î≤  ¨¿àº)  
+         e x t e r n a l P e r s o n n e l . f o r E a c h ( e x t   = >   {  
+             i f   ( ! i n t e r n a l M a p . h a s ( e x t . E M P N O ) )   {  
+                 a d d e d . p u s h ( {  
+                     e m p n o :   e x t . E M P N O ,  
+                     n a m e :   e x t . F L N M ,  
+                     s t a t u s :   ' a d d e d '  
+                 } ) ;  
+             }  
+         } ) ;  
+          
+         / /   ≠¿»¥  x«–∆  >Ã0Æ  ( ¥∞ÄΩ–≈î≤  à«î≤p≥  x∆ÄΩ–≈î≤  ∆≈î≤  ¨¿àº)  
+         / /   Ë≤,   ¥∞ÄΩx«%∏  …–≈¡ƒ≥  π“»  p»t¨( ∆:   »‹≠¡…  Ò¥) Ãπ  DæP≠t’|≈  `’  ¬ƒ≥  à«<«ò∞,    
+         / /   Ï≈0Æ¡î≤  \÷1¡T÷¥  ®∫‡¥  ¥∞ÄΩx«%∏D«   ≥¡¿<«\∏  DæP≠h’.  
+         i n t e r n a l P e r s o n n e l . f o r E a c h ( i n t   = >   {  
+             i f   ( i n t . e m p l o y e e _ n u m b e r   & &   ! e x t e r n a l M a p . h a s ( i n t . e m p l o y e e _ n u m b e r ) )   {  
+                 d e l e t e d . p u s h ( {  
+                     e m p n o :   i n t . e m p l o y e e _ n u m b e r ,  
+                     n a m e :   i n t . n a m e ,  
+                     d e p a r t m e n t :   i n t . d e p a r t m e n t ,  
+                     p o s i t i o n :   i n t . p o s i t i o n ,  
+                     s t a t u s :   ' d e l e t e d '  
+                 } ) ;  
+             }  
+         } ) ;  
+          
+         c o n s o l e . l o g ( `       =ÿ ‹  DæP≠  ∞¨¸¨:   îÕ ¨  $ { a d d e d . l e n g t h } Ö∫,   ≠¿»  $ { d e l e t e d . l e n g t h } Ö∫` ) ;  
+          
+         r e s . j s o n ( {  
+             a d d e d ,  
+             d e l e t e d ,  
+             e x t e r n a l C o u n t :   e x t e r n a l P e r s o n n e l . l e n g t h ,  
+             i n t e r n a l C o u n t :   i n t e r n a l P e r s o n n e l . l e n g t h  
+         } ) ;  
+          
+     }   c a t c h   ( e r r o r )   {  
+         c o n s o l e . e r r o r ( ' Ÿ≥0ÆT÷  ¥Ãl–  $∆Xπ: ' ,   e r r o r ) ;  
+         r e s . s t a t u s ( 5 0 0 ) . j s o n ( {   e r r o r :   ' Ÿ≥0ÆT÷  ¥Ãl–  …  $∆Xπ ¨  º›¿à’µ¬»≤‰≤. ' ,   d e t a i l s :   e r r o r . m e s s a g e   } ) ;  
+     }  
+ } ) ;  
+  
+ 

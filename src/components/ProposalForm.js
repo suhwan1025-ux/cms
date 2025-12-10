@@ -116,6 +116,11 @@ const ProposalForm = ({ isCorrectionMode = false }) => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialFormData, setInitialFormData] = useState(null);
 
+  // 결재라인 규칙 데이터 (DB 로드)
+  const [amountAgreements, setAmountAgreements] = useState([]);
+  const [amountDecisions, setAmountDecisions] = useState([]);
+  const [typeAgreements, setTypeAgreements] = useState([]);
+
   // 네비게이션을 제어하는 함수
   const navigate = useCallback((to, options) => {
     if (hasUnsavedChanges && showSaveConfirm) {
@@ -140,6 +145,26 @@ const ProposalForm = ({ isCorrectionMode = false }) => {
     };
     
     loadUserInfo();
+
+    // 결재라인 규칙 데이터 로드
+    const loadApprovalRules = async () => {
+      try {
+        const [amountAgreementsRes, amountDecisionsRes, typeAgreementsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/approval-amount-agreement`),
+          fetch(`${API_BASE_URL}/api/approval-amount-decision`),
+          fetch(`${API_BASE_URL}/api/approval-type-agreement`)
+        ]);
+
+        if (amountAgreementsRes.ok) setAmountAgreements(await amountAgreementsRes.json());
+        if (amountDecisionsRes.ok) setAmountDecisions(await amountDecisionsRes.json());
+        if (typeAgreementsRes.ok) setTypeAgreements(await typeAgreementsRes.json());
+        
+        console.log('✅ 결재라인 규칙 로드 완료');
+      } catch (error) {
+        console.error('❌ 결재라인 규칙 로드 실패:', error);
+      }
+    };
+    loadApprovalRules();
   }, []);
 
   useEffect(() => {
@@ -390,21 +415,19 @@ const ProposalForm = ({ isCorrectionMode = false }) => {
     return total;
   };
 
-  // 결재라인 추천 (데이터베이스 기반)
+  // 결재라인 추천 (데이터베이스 기반 - 개선된 로직)
   const getRecommendedApprovalLine = async () => {
     const totalAmount = calculateTotalAmount();
-    if (totalAmount === 0 && contractType !== 'freeform') return [];
+    // 금액이 0이어도 자유양식이면 결재라인 추천 필요할 수 있음. 
+    // 하지만 보통 금액 없으면 기본 라인만.
     
+    // 로컬 상태(amountAgreements 등)가 비어있으면 API 호출하지 않고 리턴 (이미 useEffect에서 로드됨)
+    if (amountAgreements.length === 0 && amountDecisions.length === 0 && typeAgreements.length === 0) {
+       // 데이터가 아직 로드되지 않았을 수 있음
+       return [];
+    }
+
     try {
-      // 결재라인 참고자료 조회
-      const [approversRes, referencesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/approval-approvers`),
-        fetch(`${API_BASE_URL}/api/approval-references`)
-      ]);
-
-      const approvers = await approversRes.json();
-      const references = await referencesRes.json();
-
       const line = [];
       
       // 1. 기본 결재라인 (요청부서)
@@ -415,120 +438,76 @@ const ProposalForm = ({ isCorrectionMode = false }) => {
         description: '품의서 작성 및 검토'
       });
 
-      // 2. 금액 기준으로 적용 가능한 결재자 찾기
-      const applicableApprovers = approvers.filter(approver => {
-        // 조건 확인
-        if (!approver.conditions || approver.conditions.length === 0) {
-          return true; // 조건 없으면 항상 포함
-        }
+      let currentStep = 2;
 
-        // 금액 조건 확인
-        const hasAmountCondition = approver.conditions.some(cond => {
-          const condition = cond.toLowerCase();
-          
-          // 금액 범위 파싱
-          if (condition.includes('만원') || condition.includes('원')) {
-            const numbers = condition.match(/[\d,]+/g);
-            if (!numbers) return false;
-
-            const parseAmount = (str) => {
-              let amount = parseInt(str.replace(/,/g, ''));
-              if (condition.includes('만원')) {
-                amount *= 10000;
-              }
-              return amount;
-            };
-
-            if (condition.includes('초과') && numbers.length === 1) {
-              const minAmount = parseAmount(numbers[0]);
-              return totalAmount > minAmount;
-            } else if (condition.includes('이하') && numbers.length === 1) {
-              const maxAmount = parseAmount(numbers[0]);
-              return totalAmount <= maxAmount;
-            } else if (condition.includes('~') || condition.includes('-')) {
-              const minAmount = parseAmount(numbers[0]);
-              const maxAmount = parseAmount(numbers[1]);
-              return totalAmount > minAmount && totalAmount <= maxAmount;
-            }
-          }
-          
-          return false;
-        });
-
-        // 계약 유형 조건 확인
-        const hasContractTypeCondition = approver.conditions.some(cond => {
-          const condition = cond.toLowerCase();
-          if (condition.includes('용역') && contractType === 'service') return true;
-          if (condition.includes('구매') && contractType === 'purchase') return true;
-          if (condition.includes('자유양식') && contractType === 'freeform') return true;
-          return false;
-        });
-
-        return hasAmountCondition || hasContractTypeCondition;
+      // 2. 금액별 합의자 추가 (누적 적용)
+      // 조건: min_amount < totalAmount <= max_amount
+      // "초과" 기준이므로 totalAmount가 min_amount보다 커야 함.
+      const amountBasedApprovers = amountAgreements.filter(a => {
+        const min = Number(a.min_amount);
+        const max = (a.max_amount && a.max_amount < 999999999999 && Number(a.max_amount) !== 0) ? Number(a.max_amount) : Infinity;
+        return totalAmount > min && totalAmount <= max;
       });
 
-      // 3. 적용 가능한 결재자 추가
-      applicableApprovers.forEach(approver => {
+      // 금액별 합의자 정렬 (금액 낮은 순? 등록 순?) -> min_amount 오름차순
+      amountBasedApprovers.sort((a, b) => Number(a.min_amount) - Number(b.min_amount));
+
+      amountBasedApprovers.forEach(approver => {
         line.push({
-          step: line.length + 1,
-          name: approver.name,
-          title: approver.title,
-          description: approver.description,
+          step: currentStep++,
+          name: approver.approver, // 합의자 명칭 (예: 재무팀장)
+          title: '합의',
+          description: `금액 기준 합의 (${parseInt(approver.min_amount).toLocaleString()}원 초과)`,
           conditional: true
         });
       });
 
-      // 4. 금액별 최종 결재자 찾기 (참고자료 기반)
-      let finalApproverTitle = '팀장'; // 기본값
-      
-      for (const ref of references) {
-        const amountRange = ref.amount_range || '';
-        const numbers = amountRange.match(/[\d,]+/g);
-        
-        if (numbers) {
-          const parseAmount = (str) => {
-            let amount = parseInt(str.replace(/,/g, ''));
-            if (amountRange.includes('만원')) {
-              amount *= 10000;
-            } else if (amountRange.includes('억')) {
-              amount *= 100000000;
-            }
-            return amount;
-          };
+      // 3. 계약 유형별 합의자 추가
+      const typeBasedApprovers = typeAgreements.filter(t => 
+        t.contract_type === contractType || // 정확히 일치하거나
+        (contractType === 'purchase' && t.contract_type.includes('구매')) || // 매핑
+        (contractType === 'service' && t.contract_type.includes('용역')) ||
+        (contractType === 'freeform' && t.contract_type.includes('자유'))
+      );
 
-          let isInRange = false;
-          
-          if (amountRange.includes('미만') && numbers.length === 1) {
-            const maxAmount = parseAmount(numbers[0]);
-            isInRange = totalAmount < maxAmount;
-          } else if (amountRange.includes('초과') && numbers.length === 1) {
-            const minAmount = parseAmount(numbers[0]);
-            isInRange = totalAmount > minAmount;
-          } else if (amountRange.includes('~') || amountRange.includes('-')) {
-            const minAmount = parseAmount(numbers[0]);
-            const maxAmount = parseAmount(numbers[1]);
-            isInRange = totalAmount >= minAmount && totalAmount <= maxAmount;
-          }
-
-          if (isInRange && ref.final_approver) {
-            finalApproverTitle = ref.final_approver;
-            break;
-          }
+      typeBasedApprovers.forEach(approver => {
+        // 이미 추가된 합의자와 중복되는지 체크 (이름 기준)
+        const isDuplicate = line.some(l => l.name === approver.approver);
+        if (!isDuplicate) {
+          line.push({
+            step: currentStep++,
+            name: approver.approver,
+            title: '합의',
+            description: `계약 유형 합의 (${approver.contract_type})`,
+            conditional: true
+          });
         }
-      }
+      });
 
-      // 5. 최종 결재자 추가
+      // 4. 전결권자 결정
+      // 조건: min_amount < totalAmount <= max_amount
+      // 전결권자는 해당 구간에 맞는 1명만 선정 (가장 좁은 범위 or 가장 높은 권한)
+      // 보통 금액이 커질수록 전결권자가 높아짐. 해당 구간에 매핑되는 전결권자를 찾음.
+      const decisionMaker = amountDecisions.find(d => {
+        const min = Number(d.min_amount);
+        const max = (d.max_amount && d.max_amount < 999999999999 && Number(d.max_amount) !== 0) ? Number(d.max_amount) : Infinity;
+        return totalAmount > min && totalAmount <= max;
+      });
+
+      const finalApproverName = decisionMaker ? decisionMaker.decision_maker : '대표이사'; // 기본값
+
+      // 최종 결재자 추가
       line.push({
-        step: line.length + 1,
-        name: '최종결재자',
-        title: finalApproverTitle,
+        step: currentStep,
+        name: finalApproverName,
+        title: '전결권자',
         description: '최종 승인',
         final: true
       });
 
       return line;
     } catch (error) {
-      console.error('결재라인 조회 실패:', error);
+      console.error('결재라인 생성 실패:', error);
       // 에러 시 기본 결재라인 반환
       return [
         {
@@ -539,8 +518,8 @@ const ProposalForm = ({ isCorrectionMode = false }) => {
         },
         {
           step: 2,
-          name: '최종결재자',
-          title: '팀장',
+          name: '대표이사', // 기본값
+          title: '전결권자',
           description: '최종 승인',
           final: true
         }
