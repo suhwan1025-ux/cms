@@ -6864,6 +6864,148 @@ app.get('/api/personnel/export/excel', async (req, res) => {
   }
 });
 
+// =====================================================
+// [API] 외부 DB 동기화 점검
+// =====================================================
+app.get('/api/personnel/sync-check', async (req, res) => {
+  try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('== [API 호출] GET /api/personnel/sync-check');
+
+    // 0. 내부 DB에서 현재 인력 목록 조회 (외부 DB 연결 전 미리 조회)
+    console.log('   🔍 내부 DB 인력 목록 조회 중...');
+    const internalPersonnel = await models.Personnel.findAll({
+      attributes: ['employee_number', 'name', 'department', 'position'],
+      where: {
+        is_active: true
+      },
+      order: [['employee_number', 'ASC']]
+    });
+    console.log(`   ✅ 내부 DB 조회 결과: ${internalPersonnel.length}명`);
+    console.log('   📋 내부 DB 샘플 데이터 (상위 5명):');
+    internalPersonnel.slice(0, 5).forEach(p => {
+        console.log(`      - [${p.employee_number}] ${p.name} (${p.department} / ${p.position})`);
+    });
+
+    // 1. 외부 DB에서 현재 인력 목록 조회
+    const { getInternalPersonnelFromExternalDb } = require('./config/externalDatabase');
+    const externalPersonnel = await getInternalPersonnelFromExternalDb();
+
+    if (!externalPersonnel || externalPersonnel.length === 0) {
+      return res.json({ added: [], deleted: [], message: '외부 DB에서 데이터를 가져올 수 없습니다.', internalCount: internalPersonnel.length });
+    }
+
+    // 2. 데이터 비교
+    const internalMap = new Map(internalPersonnel.map(p => [p.employee_number, p]));
+    const externalMap = new Map(externalPersonnel.map(p => [p.EMPNO, p]));
+
+    const added = [];
+    const deleted = [];
+
+    // 추가된 인력 확인 (외부에는 있는데 내부에는 없는)
+    externalPersonnel.forEach(ext => {
+      if (!internalMap.has(ext.EMPNO)) {
+        added.push({
+          empno: ext.EMPNO,
+          name: ext.FLNM,
+          status: 'added'
+        });
+      }
+    });
+
+    // 삭제된 인력 확인 (내부에는 있는데 외부에는 없는)
+    internalPersonnel.forEach(internal => {
+      if (internal.employee_number && !externalMap.has(internal.employee_number)) {
+        deleted.push({
+          empno: internal.employee_number,
+          name: internal.name,
+          department: internal.department,
+          position: internal.position,
+          status: 'deleted'
+        });
+      }
+    });
+
+    console.log(`   결과: 추가 ${added.length}명, 삭제 ${deleted.length}명`);
+
+    res.json({
+      added,
+      deleted,
+      externalCount: externalPersonnel.length,
+      internalCount: internalPersonnel.length
+    });
+  } catch (error) {
+    console.error('❌ 동기화 점검 오류:', error);
+    res.status(500).json({ error: '동기화 점검 중 오류가 발생했습니다.' });
+  }
+});
+
+// [API] 외부 DB 동기화 적용
+app.post('/api/personnel/sync-apply', async (req, res) => {
+  try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('== [API 호출] POST /api/personnel/sync-apply');
+    const { added, deleted } = req.body;
+    
+    console.log(`   요청: 추가 ${added ? added.length : 0}명, 삭제 ${deleted ? deleted.length : 0}명`);
+    
+    const results = {
+      addedCount: 0,
+      deletedCount: 0,
+      errors: []
+    };
+
+    // 1. 추가 처리
+    if (added && added.length > 0) {
+      for (const person of added) {
+        try {
+          // 중복 확인
+          const existing = await models.Personnel.findOne({ where: { employee_number: person.empno } });
+          if (existing) {
+            console.log(`   ⚠️ 이미 존재함: ${person.empno}`);
+            continue;
+          }
+
+          await models.Personnel.create({
+            employee_number: person.empno,
+            name: person.name,
+            is_active: true,
+            // 기본값
+            is_it_personnel: false,
+            is_security_personnel: false
+          });
+          results.addedCount++;
+        } catch (e) {
+          console.error(`   ❌ 추가 실패 (${person.empno}):`, e.message);
+          results.errors.push({ type: 'add', id: person.empno, error: e.message });
+        }
+      }
+    }
+
+    // 2. 삭제 처리
+    if (deleted && deleted.length > 0) {
+      for (const person of deleted) {
+        try {
+          await models.Personnel.destroy({
+            where: { employee_number: person.empno }
+          });
+          results.deletedCount++;
+        } catch (e) {
+          console.error(`   ❌ 삭제 실패 (${person.empno}):`, e.message);
+          results.errors.push({ type: 'delete', id: person.empno, error: e.message });
+        }
+      }
+    }
+
+    console.log(`   ✅ 완료: 추가 ${results.addedCount}명, 삭제 ${results.deletedCount}명`);
+    res.json(results);
+
+  } catch (error) {
+    console.error('❌ 동기화 적용 오류:', error);
+    res.status(500).json({ error: '동기화 적용 중 오류가 발생했습니다.' });
+  }
+});
+
 // 3. 인력현황 목록 조회 (일자별 조회 포함)
 app.get('/api/personnel', async (req, res) => {
   try {
@@ -7535,74 +7677,72 @@ app.listen(PORT, '0.0.0.0', async () => {
   } catch (error) {
     console.error('❌ 데이터베이스 연결 실패:', error.message);
   }
-}); / /   6 .   xƀ�  D B   ٳ0�T�  ��l�  ( ����x�%�)  
- a p p . g e t ( ' / a p i / p e r s o n n e l / s y n c - c h e c k ' ,   a s y n c   ( r e q ,   r e s )   = >   {  
-     t r y   {  
-         c o n s o l e . l o g ( ' %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%' ) ;  
-         c o n s o l e . l o g ( ' =��  [ A P I   8֜�]   G E T   / a p i / p e r s o n n e l / s y n c - c h e c k ' ) ;  
-          
-         / /   1 .   xƀ�  D B ���  \���  x�%�  ���  pȌ� 
-         c o n s t   {   g e t I n t e r n a l P e r s o n n e l F r o m E x t e r n a l D b   }   =   r e q u i r e ( ' . / c o n f i g / e x t e r n a l D a t a b a s e ' ) ;  
-         c o n s t   e x t e r n a l P e r s o n n e l   =   a w a i t   g e t I n t e r n a l P e r s o n n e l F r o m E x t e r n a l D b ( ) ;  
-          
-         i f   ( ! e x t e r n a l P e r s o n n e l   | |   e x t e r n a l P e r s o n n e l . l e n g t h   = = =   0 )   {  
-             r e t u r n   r e s . j s o n ( {   a d d e d :   [ ] ,   d e l e t e d :   [ ] ,   m e s s a g e :   ' xƀ�  D B ���  p�t�0�|�   �8�,�  �  �ŵ�Ȳ�. '   } ) ;  
-         }  
-          
-         / /   2 .   ����  D B ���  ֬�  x�%�  ���  pȌ� 
-         c o n s t   i n t e r n a l P e r s o n n e l   =   a w a i t   m o d e l s . P e r s o n n e l . f i n d A l l ( {  
-             a t t r i b u t e s :   [ ' e m p l o y e e _ n u m b e r ' ,   ' n a m e ' ,   ' d e p a r t m e n t ' ,   ' p o s i t i o n ' ] ,  
-             w h e r e :   {  
-                 i s _ a c t i v e :   t r u e  
-             }  
-         } ) ;  
-          
-         / /   3 .   D�P�  \��� 
-         c o n s t   i n t e r n a l M a p   =   n e w   M a p ( i n t e r n a l P e r s o n n e l . m a p ( p   = >   [ p . e m p l o y e e _ n u m b e r ,   p ] ) ) ;  
-         c o n s t   e x t e r n a l M a p   =   n e w   M a p ( e x t e r n a l P e r s o n n e l . m a p ( p   = >   [ p . E M P N O ,   p ] ) ) ;  
-          
-         c o n s t   a d d e d   =   [ ] ;  
-         c o n s t   d e l e t e d   =   [ ] ;  
-          
-         / /   �� ��  x���  >�0�  ( xƀ��Ŕ�  �ǔ�p�  �����Ŕ�  �Ŕ�  ����)  
-         e x t e r n a l P e r s o n n e l . f o r E a c h ( e x t   = >   {  
-             i f   ( ! i n t e r n a l M a p . h a s ( e x t . E M P N O ) )   {  
-                 a d d e d . p u s h ( {  
-                     e m p n o :   e x t . E M P N O ,  
-                     n a m e :   e x t . F L N M ,  
-                     s t a t u s :   ' a d d e d '  
-                 } ) ;  
-             }  
-         } ) ;  
-          
-         / /   ����  x���  >�0�  ( �����Ŕ�  �ǔ�p�  xƀ��Ŕ�  �Ŕ�  ����)  
-         / /   �,   ����x�%�  ����ĳ  ���  p�t�( �:   �ܭ��  �) ̹  D�P�t�|�  `�  �ĳ  ��<ǘ�,    
-         / /   ��0����  \�1�T��  ���  ����x�%�D�   ���<�\�  D�P�h�.  
-         i n t e r n a l P e r s o n n e l . f o r E a c h ( i n t   = >   {  
-             i f   ( i n t . e m p l o y e e _ n u m b e r   & &   ! e x t e r n a l M a p . h a s ( i n t . e m p l o y e e _ n u m b e r ) )   {  
-                 d e l e t e d . p u s h ( {  
-                     e m p n o :   i n t . e m p l o y e e _ n u m b e r ,  
-                     n a m e :   i n t . n a m e ,  
-                     d e p a r t m e n t :   i n t . d e p a r t m e n t ,  
-                     p o s i t i o n :   i n t . p o s i t i o n ,  
-                     s t a t u s :   ' d e l e t e d '  
-                 } ) ;  
-             }  
-         } ) ;  
-          
-         c o n s o l e . l o g ( `       =���  D�P�  ����:   �� �  $ { a d d e d . l e n g t h } ��,   ���  $ { d e l e t e d . l e n g t h } ��` ) ;  
-          
-         r e s . j s o n ( {  
-             a d d e d ,  
-             d e l e t e d ,  
-             e x t e r n a l C o u n t :   e x t e r n a l P e r s o n n e l . l e n g t h ,  
-             i n t e r n a l C o u n t :   i n t e r n a l P e r s o n n e l . l e n g t h  
-         } ) ;  
-          
-     }   c a t c h   ( e r r o r )   {  
-         c o n s o l e . e r r o r ( ' ٳ0�T�  ��l�  $�X�: ' ,   e r r o r ) ;  
-         r e s . s t a t u s ( 5 0 0 ) . j s o n ( {   e r r o r :   ' ٳ0�T�  ��l�  �  $�X� �  ����յ�Ȳ�. ' ,   d e t a i l s :   e r r o r . m e s s a g e   } ) ;  
-     }  
- } ) ;  
-  
- 
+});
+
+// [API] 외부 DB 동기화 적용
+app.post('/api/personnel/sync-apply', async (req, res) => {
+  try {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('== [API 호출] POST /api/personnel/sync-apply');
+    const { added, deleted } = req.body;
+    
+    console.log(`   요청: 추가 ${added ? added.length : 0}명, 삭제 ${deleted ? deleted.length : 0}명`);
+    
+    const results = {
+      addedCount: 0,
+      deletedCount: 0,
+      errors: []
+    };
+
+    // 1. 추가 처리
+    if (added && added.length > 0) {
+      for (const person of added) {
+        try {
+          // 중복 확인
+          const existing = await models.Personnel.findOne({ where: { employee_number: person.empno } });
+          if (existing) {
+            console.log(`   ⚠️ 이미 존재함: ${person.empno}`);
+            continue;
+          }
+
+          await models.Personnel.create({
+            employee_number: person.empno,
+            name: person.name,
+            is_active: true,
+            // 기본값
+            is_it_personnel: false,
+            is_security_personnel: false
+          });
+          results.addedCount++;
+        } catch (e) {
+          console.error(`   ❌ 추가 실패 (${person.empno}):`, e.message);
+          results.errors.push({ type: 'add', id: person.empno, error: e.message });
+        }
+      }
+    }
+
+    // 2. 삭제 처리
+    if (deleted && deleted.length > 0) {
+      for (const person of deleted) {
+        try {
+          await models.Personnel.destroy({
+            where: { employee_number: person.empno }
+          });
+          results.deletedCount++;
+        } catch (e) {
+          console.error(`   ❌ 삭제 실패 (${person.empno}):`, e.message);
+          results.errors.push({ type: 'delete', id: person.empno, error: e.message });
+        }
+      }
+    }
+
+    console.log(`   ✅ 완료: 추가 ${results.addedCount}명, 삭제 ${results.deletedCount}명`);
+    res.json(results);
+
+  } catch (error) {
+    console.error('❌ 동기화 적용 오류:', error);
+    res.status(500).json({ error: '동기화 적용 중 오류가 발생했습니다.' });
+  }
+});
+
+// 3. 인력현황 목록 조회 (일자별 조회 포함)

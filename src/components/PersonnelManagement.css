@@ -25,36 +25,19 @@
 }
 
 /* 재직 상태 필터 */
-.employment-filter {
-  display: flex;
-  gap: 5px;
+.employment-select {
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  overflow: hidden;
-}
-
-.filter-btn {
-  padding: 8px 16px;
-  border: none;
-  background: white;
-  cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
-  color: #666;
+  cursor: pointer;
+  background-color: white;
+  min-width: 100px;
 }
 
-.filter-btn:hover {
-  background: #f8f9fa;
-}
-
-.filter-btn.active {
-  background: #007bff;
-  color: white;
-}
-
-.filter-btn:not(:last-child) {
-  border-right: 1px solid #ddd;
+.employment-select:focus {
+  border-color: #007bff;
+  outline: none;
 }
 
 .date-selector {
@@ -75,12 +58,74 @@
   font-size: 14px;
 }
 
-.search-box input {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  width: 250px;
+/* 검색창 리뉴얼 스타일 */
+.search-wrapper {
+  display: flex;
+  align-items: center;
+  background-color: white;
+  border: 1px solid #ced4da;
+  border-radius: 20px; /* 둥근 알약 형태 */
+  padding: 8px 16px;
+  width: 280px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.search-wrapper:focus-within {
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+  width: 300px; /* 포커스 시 살짝 늘어남 */
+}
+
+.search-icon {
+  color: #adb5bd;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.search-wrapper:focus-within .search-icon {
+  color: #007bff;
+}
+
+.search-input {
+  border: none;
+  background: transparent;
+  width: 100%;
   font-size: 14px;
+  color: #495057;
+  padding: 0;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: #adb5bd;
+}
+
+.search-clear-btn {
+  background: #e9ecef;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #6c757d;
+  padding: 0;
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.search-clear-btn:hover {
+  background: #ced4da;
+  color: #495057;
+}
+
+.search-clear-btn svg {
+  width: 12px;
+  height: 12px;
 }
 
 .backup-notice {
