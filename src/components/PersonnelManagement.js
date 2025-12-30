@@ -91,15 +91,15 @@ function PersonnelManagement() {
         '정보보호인력': 'X',
         '생년월일': '1980-01-01',
         '성별': '남',
-        '나이': '44',
+        // 나이는 생년월일 기준으로 자동 계산됩니다.
         '그룹입사일': '2000-01-01',
         '입사일': '2010-01-01',
         '퇴사일': '',
-        '총재직기간(년)': '14',
+        // 총재직기간은 그룹입사일 기준으로 자동 계산됩니다.
         '정산경력기준일': '2010-01-01',
-        '전산경력': '10',
+        // 전산경력은 정산경력기준일 기준으로 자동 계산됩니다.
         '현업무발령일': '2020-01-01',
-        '현업무기간': '4',
+        // 현업무기간은 현업무발령일 기준으로 자동 계산됩니다.
         '직전소속': '이전부서',
         '전공': '컴퓨터공학',
         '전산전공여부': 'O',
@@ -1033,26 +1033,19 @@ function PersonnelManagement() {
                       </div>
                     </div>
 
-                    {/* 삭제 목록 */}
+                    {/* 삭제 목록 (퇴사자 - 조회 전용) */}
                     <div className="sync-list" style={{ flex: 1 }}>
                       <h3 style={{ color: '#dc3545', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        삭제 대상 ({syncResult.deleted.length})
-                        <label style={{ fontSize: '14px', color: '#333' }}>
-                          <input 
-                            type="checkbox"
-                            checked={syncResult.deleted.length > 0 && selectedSyncItems.deleted.length === syncResult.deleted.length}
-                            onChange={(e) => handleSyncSelectAll('deleted', e.target.checked)}
-                          /> 전체 선택
-                        </label>
+                        퇴사자 ({syncResult.deleted.length})
                       </h3>
                       <div className="list-container" style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #ddd', borderRadius: '4px' }}>
                         {syncResult.deleted.length === 0 ? (
-                          <div style={{ padding: '10px', color: '#999', textAlign: 'center' }}>삭제할 항목이 없습니다.</div>
+                          <div style={{ padding: '10px', color: '#999', textAlign: 'center' }}>퇴사자가 없습니다.</div>
                         ) : (
                           <table style={{ width: '100%', fontSize: '14px' }}>
                             <thead>
                               <tr style={{ background: '#f8f9fa' }}>
-                                <th style={{ width: '30px' }}></th>
+                                <th style={{ width: '40px', textAlign: 'center' }}>상태</th>
                                 <th>사번</th>
                                 <th>성명</th>
                                 <th>부서</th>
@@ -1061,12 +1054,8 @@ function PersonnelManagement() {
                             <tbody>
                               {syncResult.deleted.map(p => (
                                 <tr key={p.empno}>
-                                  <td style={{ textAlign: 'center' }}>
-                                    <input 
-                                      type="checkbox"
-                                      checked={selectedSyncItems.deleted.includes(p.empno)}
-                                      onChange={(e) => handleSyncSelection('deleted', p.empno, e.target.checked)}
-                                    />
+                                  <td style={{ textAlign: 'center', color: '#dc3545', fontSize: '12px' }}>
+                                    퇴사
                                   </td>
                                   <td>{p.empno}</td>
                                   <td>{p.name}</td>
@@ -1088,9 +1077,9 @@ function PersonnelManagement() {
                 type="button" 
                 onClick={handleApplySync} 
                 className="btn-primary"
-                disabled={syncLoading || (!selectedSyncItems.added.length && !selectedSyncItems.deleted.length)}
+                disabled={syncLoading || !selectedSyncItems.added.length}
               >
-                {syncLoading ? '적용 중...' : '선택 항목 적용하기'}
+                {syncLoading ? '적용 중...' : '추가 항목 적용하기'}
               </button>
               <button type="button" onClick={() => setShowSyncModal(false)} className="btn-cancel">닫기</button>
             </div>

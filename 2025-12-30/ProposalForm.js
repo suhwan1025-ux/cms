@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import CKEditorComponent from './CKEditorComponent';
 import DocumentTemplates from './DocumentTemplates';
@@ -10,9 +10,10 @@ import { getCurrentUser } from '../utils/userHelper';
 // API 베이스 URL 설정
 const API_BASE_URL = getApiUrl();
 
-const ProposalForm = () => {
+const ProposalForm = ({ isCorrectionMode = false }) => {
   const originalNavigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   // 템플릿 선택 핸들러
   const handleTemplateSelect = (template) => {
@@ -55,6 +56,7 @@ const ProposalForm = () => {
     accountSubject: '',
     other: '', // 기타 사항
     requestDepartments: [], // 다중 선택 가능한 요청부서 배열
+    correctionReason: '', // 정정 사유 (정정 모드용)
     
     // 구매/변경 계약용
     purchaseItems: [], // N개 구매품목
@@ -114,6 +116,11 @@ const ProposalForm = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialFormData, setInitialFormData] = useState(null);
 
+  // 결재라인 규칙 데이터 (DB 로드)
+  const [amountAgreements, setAmountAgreements] = useState([]);
+  const [amountDecisions, setAmountDecisions] = useState([]);
+  const [typeAgreements, setTypeAgreements] = useState([]);
+
   // 네비게이션을 제어하는 함수
   const navigate = useCallback((to, options) => {
     if (hasUnsavedChanges && showSaveConfirm) {
@@ -138,6 +145,26 @@ const ProposalForm = () => {
     };
     
     loadUserInfo();
+
+    // 결재라인 규칙 데이터 로드
+    const loadApprovalRules = async () => {
+      try {
+        const [amountAgreementsRes, amountDecisionsRes, typeAgreementsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/approval-amount-agreement`),
+          fetch(`${API_BASE_URL}/api/approval-amount-decision`),
+          fetch(`${API_BASE_URL}/api/approval-type-agreement`)
+        ]);
+
+        if (amountAgreementsRes.ok) setAmountAgreements(await amountAgreementsRes.json());
+        if (amountDecisionsRes.ok) setAmountDecisions(await amountDecisionsRes.json());
+        if (typeAgreementsRes.ok) setTypeAgreements(await typeAgreementsRes.json());
+        
+        console.log('✅ 결재라인 규칙 로드 완료');
+      } catch (error) {
+        console.error('❌ 결재라인 규칙 로드 실패:', error);
+      }
+    };
+    loadApprovalRules();
   }, []);
 
   useEffect(() => {
@@ -388,21 +415,19 @@ const ProposalForm = () => {
     return total;
   };
 
-  // 결재라인 추천 (데이터베이스 기반)
+  // 결재라인 추천 (데이터베이스 기반 - 개선된 로직)
   const getRecommendedApprovalLine = async () => {
     const totalAmount = calculateTotalAmount();
-    if (totalAmount === 0 && contractType !== 'freeform') return [];
+    // 금액이 0이어도 자유양식이면 결재라인 추천 필요할 수 있음. 
+    // 하지만 보통 금액 없으면 기본 라인만.
     
+    // 로컬 상태(amountAgreements 등)가 비어있으면 API 호출하지 않고 리턴 (이미 useEffect에서 로드됨)
+    if (amountAgreements.length === 0 && amountDecisions.length === 0 && typeAgreements.length === 0) {
+       // 데이터가 아직 로드되지 않았을 수 있음
+       return [];
+    }
+
     try {
-      // 결재라인 참고자료 조회
-      const [approversRes, referencesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/approval-approvers`),
-        fetch(`${API_BASE_URL}/api/approval-references`)
-      ]);
-
-      const approvers = await approversRes.json();
-      const references = await referencesRes.json();
-
       const line = [];
       
       // 1. 기본 결재라인 (요청부서)
@@ -413,120 +438,76 @@ const ProposalForm = () => {
         description: '품의서 작성 및 검토'
       });
 
-      // 2. 금액 기준으로 적용 가능한 결재자 찾기
-      const applicableApprovers = approvers.filter(approver => {
-        // 조건 확인
-        if (!approver.conditions || approver.conditions.length === 0) {
-          return true; // 조건 없으면 항상 포함
-        }
+      let currentStep = 2;
 
-        // 금액 조건 확인
-        const hasAmountCondition = approver.conditions.some(cond => {
-          const condition = cond.toLowerCase();
-          
-          // 금액 범위 파싱
-          if (condition.includes('만원') || condition.includes('원')) {
-            const numbers = condition.match(/[\d,]+/g);
-            if (!numbers) return false;
-
-            const parseAmount = (str) => {
-              let amount = parseInt(str.replace(/,/g, ''));
-              if (condition.includes('만원')) {
-                amount *= 10000;
-              }
-              return amount;
-            };
-
-            if (condition.includes('초과') && numbers.length === 1) {
-              const minAmount = parseAmount(numbers[0]);
-              return totalAmount > minAmount;
-            } else if (condition.includes('이하') && numbers.length === 1) {
-              const maxAmount = parseAmount(numbers[0]);
-              return totalAmount <= maxAmount;
-            } else if (condition.includes('~') || condition.includes('-')) {
-              const minAmount = parseAmount(numbers[0]);
-              const maxAmount = parseAmount(numbers[1]);
-              return totalAmount > minAmount && totalAmount <= maxAmount;
-            }
-          }
-          
-          return false;
-        });
-
-        // 계약 유형 조건 확인
-        const hasContractTypeCondition = approver.conditions.some(cond => {
-          const condition = cond.toLowerCase();
-          if (condition.includes('용역') && contractType === 'service') return true;
-          if (condition.includes('구매') && contractType === 'purchase') return true;
-          if (condition.includes('자유양식') && contractType === 'freeform') return true;
-          return false;
-        });
-
-        return hasAmountCondition || hasContractTypeCondition;
+      // 2. 금액별 합의자 추가 (누적 적용)
+      // 조건: min_amount < totalAmount <= max_amount
+      // "초과" 기준이므로 totalAmount가 min_amount보다 커야 함.
+      const amountBasedApprovers = amountAgreements.filter(a => {
+        const min = Number(a.min_amount);
+        const max = (a.max_amount && a.max_amount < 999999999999 && Number(a.max_amount) !== 0) ? Number(a.max_amount) : Infinity;
+        return totalAmount > min && totalAmount <= max;
       });
 
-      // 3. 적용 가능한 결재자 추가
-      applicableApprovers.forEach(approver => {
+      // 금액별 합의자 정렬 (금액 낮은 순? 등록 순?) -> min_amount 오름차순
+      amountBasedApprovers.sort((a, b) => Number(a.min_amount) - Number(b.min_amount));
+
+      amountBasedApprovers.forEach(approver => {
         line.push({
-          step: line.length + 1,
-          name: approver.name,
-          title: approver.title,
-          description: approver.description,
+          step: currentStep++,
+          name: approver.approver, // 합의자 명칭 (예: 재무팀장)
+          title: '합의',
+          description: `금액 기준 합의 (${parseInt(approver.min_amount).toLocaleString()}원 초과)`,
           conditional: true
         });
       });
 
-      // 4. 금액별 최종 결재자 찾기 (참고자료 기반)
-      let finalApproverTitle = '팀장'; // 기본값
-      
-      for (const ref of references) {
-        const amountRange = ref.amount_range || '';
-        const numbers = amountRange.match(/[\d,]+/g);
-        
-        if (numbers) {
-          const parseAmount = (str) => {
-            let amount = parseInt(str.replace(/,/g, ''));
-            if (amountRange.includes('만원')) {
-              amount *= 10000;
-            } else if (amountRange.includes('억')) {
-              amount *= 100000000;
-            }
-            return amount;
-          };
+      // 3. 계약 유형별 합의자 추가
+      const typeBasedApprovers = typeAgreements.filter(t => 
+        t.contract_type === contractType || // 정확히 일치하거나
+        (contractType === 'purchase' && t.contract_type.includes('구매')) || // 매핑
+        (contractType === 'service' && t.contract_type.includes('용역')) ||
+        (contractType === 'freeform' && t.contract_type.includes('자유'))
+      );
 
-          let isInRange = false;
-          
-          if (amountRange.includes('미만') && numbers.length === 1) {
-            const maxAmount = parseAmount(numbers[0]);
-            isInRange = totalAmount < maxAmount;
-          } else if (amountRange.includes('초과') && numbers.length === 1) {
-            const minAmount = parseAmount(numbers[0]);
-            isInRange = totalAmount > minAmount;
-          } else if (amountRange.includes('~') || amountRange.includes('-')) {
-            const minAmount = parseAmount(numbers[0]);
-            const maxAmount = parseAmount(numbers[1]);
-            isInRange = totalAmount >= minAmount && totalAmount <= maxAmount;
-          }
-
-          if (isInRange && ref.final_approver) {
-            finalApproverTitle = ref.final_approver;
-            break;
-          }
+      typeBasedApprovers.forEach(approver => {
+        // 이미 추가된 합의자와 중복되는지 체크 (이름 기준)
+        const isDuplicate = line.some(l => l.name === approver.approver);
+        if (!isDuplicate) {
+          line.push({
+            step: currentStep++,
+            name: approver.approver,
+            title: '합의',
+            description: `계약 유형 합의 (${approver.contract_type})`,
+            conditional: true
+          });
         }
-      }
+      });
 
-      // 5. 최종 결재자 추가
+      // 4. 전결권자 결정
+      // 조건: min_amount < totalAmount <= max_amount
+      // 전결권자는 해당 구간에 맞는 1명만 선정 (가장 좁은 범위 or 가장 높은 권한)
+      // 보통 금액이 커질수록 전결권자가 높아짐. 해당 구간에 매핑되는 전결권자를 찾음.
+      const decisionMaker = amountDecisions.find(d => {
+        const min = Number(d.min_amount);
+        const max = (d.max_amount && d.max_amount < 999999999999 && Number(d.max_amount) !== 0) ? Number(d.max_amount) : Infinity;
+        return totalAmount > min && totalAmount <= max;
+      });
+
+      const finalApproverName = decisionMaker ? decisionMaker.decision_maker : '대표이사'; // 기본값
+
+      // 최종 결재자 추가
       line.push({
-        step: line.length + 1,
-        name: '최종결재자',
-        title: finalApproverTitle,
+        step: currentStep,
+        name: finalApproverName,
+        title: '전결권자',
         description: '최종 승인',
         final: true
       });
 
       return line;
     } catch (error) {
-      console.error('결재라인 조회 실패:', error);
+      console.error('결재라인 생성 실패:', error);
       // 에러 시 기본 결재라인 반환
       return [
         {
@@ -537,8 +518,8 @@ const ProposalForm = () => {
         },
         {
           step: 2,
-          name: '최종결재자',
-          title: '팀장',
+          name: '대표이사', // 기본값
+          title: '전결권자',
           description: '최종 승인',
           final: true
         }
@@ -808,6 +789,59 @@ const ProposalForm = () => {
           console.log('✅ 수정 데이터 복원 완료');
           console.log('복원된 제목:', newFormData.title);
           console.log('복원된 목적:', newFormData.purpose);
+        } else if (isCorrectionMode) {
+          // 정정 모드인 경우
+          const originalId = searchParams.get('originalId');
+          const type = searchParams.get('type');
+          
+          if (originalId) {
+            console.log('=== 정정 모드 감지, 원본 품의서 로드 ===');
+            console.log('원본 품의서 ID:', originalId);
+            
+            // 서버에서 원본 품의서 데이터 조회
+            const response = await fetch(`${API_BASE_URL}/api/proposals/${originalId}`);
+            if (response.ok) {
+              const originalData = await response.json();
+              console.log('🔍 로드된 원본 품의서:', originalData);
+              
+              // 계약 유형 설정
+              const contractTypeValue = originalData.contractType || type || 'purchase';
+              setContractType(contractTypeValue);
+              
+              // 원본 데이터 저장 (비교용)
+              sessionStorage.setItem('originalProposalData', JSON.stringify(originalData));
+              sessionStorage.setItem('originalProposalId', originalId);
+              
+              // 폼 데이터 설정
+              const newFormData = {
+                title: originalData.title || '',
+                purpose: originalData.purpose || '',
+                basis: originalData.basis || '',
+                budget: originalData.budgetId || originalData.operatingBudgetId || '',
+                selectedBudgetType: originalData.operatingBudgetId ? 'operating' : 'capital',
+                contractMethod: originalData.contractMethod || '',
+                accountSubject: originalData.accountSubject || '',
+                requestDepartments: (originalData.requestDepartments || []).map(dept => 
+                  typeof dept === 'string' ? dept : dept.department || dept.name || dept
+                ),
+                purchaseItems: originalData.purchaseItems || [],
+                serviceItems: originalData.serviceItems || [],
+                costDepartments: originalData.costDepartments || [],
+                changeReason: originalData.changeReason || '',
+                extensionReason: originalData.extensionReason || '',
+                contractPeriod: originalData.contractPeriod || '',
+                contractStartDate: originalData.contractStartDate || '',
+                contractEndDate: originalData.contractEndDate || '',
+                paymentMethod: originalData.paymentMethod || '',
+                other: originalData.other || ''
+              };
+              
+              setFormData(newFormData);
+              console.log('✅ 정정 모드 데이터 로드 완료');
+            } else {
+              alert('원본 품의서를 불러오는데 실패했습니다.');
+            }
+          }
         } else if (isRecycleMode && recycleProposal) {
           // 재활용 모드인 경우
           console.log('=== 재활용 모드 감지, 재활용 데이터 로드 ===');
@@ -1298,9 +1332,28 @@ const ProposalForm = () => {
   }, [departmentSearchTerm, formData.requestDepartments]);
 
   const formatCurrency = (amount) => {
+    // NaN, undefined, null인 경우 0으로 처리
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      amount = 0;
+    }
     // 소수점 제거하고 정수로 변환
     const integerAmount = Math.round(amount);
     return new Intl.NumberFormat('ko-KR').format(integerAmount) + '원';
+  };
+
+  // 백만원 단위 표시 함수
+  const formatCurrencyMillion = (amount) => {
+    // NaN, undefined, null인 경우 0으로 처리
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      amount = 0;
+    }
+    // 백만원 단위로 변환 후 반올림하여 정수로 표시
+    const millionAmount = Math.round(amount / 1000000);
+
+    // 3자리마다 콤마 추가
+    const formattedAmount = millionAmount.toLocaleString('ko-KR');
+
+    return formattedAmount + '백만원';
   };
 
   // 한글 금액 표시
@@ -2317,6 +2370,18 @@ const ProposalForm = () => {
         항: '판관비',
         목: '세금과공과금',
         절: '회비및공과금'
+      },
+      '금융수수료': {
+        관: '영업비용',
+        항: '판관비',
+        목: '지급수수료',
+        절: '금융수수료'
+      },
+      '기타지급수수료': {
+        관: '영업비용',
+        항: '판관비',
+        목: '지급수수료',
+        절: '기타지급수수료'
       }
     };
     
@@ -2931,9 +2996,14 @@ const ProposalForm = () => {
         budgetData.operatingBudgetId = null;
       }
       
+      // 정정 모드이고 작성완료일 때 제목에 "[정정품의]" 추가
+      const proposalTitle = isCorrectionMode && !isDraft 
+        ? `[정정품의] ${formData.title || formData.purpose || '품의서'}`.replace('[정정품의] [정정품의]', '[정정품의]') // 중복 방지
+        : (formData.title || formData.purpose || '품의서');
+      
       const proposalData = {
         contractType: contractType, // 사용자가 선택한 계약 유형
-        title: formData.title || formData.purpose || '품의서',
+        title: proposalTitle,
         purpose: formData.purpose || '',
         basis: formData.basis || '',
         ...budgetData, // budgetId 또는 operatingBudgetId 포함
@@ -2956,17 +3026,22 @@ const ProposalForm = () => {
         priceComparison: formData.priceComparison || [],
         wysiwygContent: formData.wysiwygContent || '', // 자유양식 문서 내용 추가
         other: formData.other || '', // 기타 사항 추가
+        correctionReason: isCorrectionMode ? (formData.correctionReason || '') : null, // 정정 사유 (정정 모드일 때만)
         createdBy: currentUser.name, // 현재 로그인한 사용자 (IP 기반 자동 인식)
         isDraft: isDraft, // 매개변수에 따라 설정
-        status: isDraft ? 'draft' : 'submitted', // 임시저장: draft, 작성완료: submitted
+        status: isDraft ? 'draft' : (isCorrectionMode ? 'pending' : 'submitted'), // 임시저장: draft, 정정 작성완료: pending (결재대기), 일반 작성완료: submitted
         purchaseItemCostAllocations, // 구매품목 비용분배 (백업용)
-        serviceItemCostAllocations // 용역품목 비용분배 (백업용)
+        serviceItemCostAllocations, // 용역품목 비용분배 (백업용)
+        originalProposalId: isCorrectionMode ? sessionStorage.getItem('originalProposalId') : null // 정정 모드일 경우 원본 ID 추가
       };
 
       // 편집 모드인 경우 proposalId는 추가하지 않음 (서버에서 자동 생성)
 
       console.log('서버로 전송할 데이터:', proposalData);
       console.log('🔍 디버깅 - 전송할 wysiwygContent:', proposalData.wysiwygContent);
+      console.log('🔍 디버깅 - 정정 모드:', isCorrectionMode);
+      console.log('🔍 디버깅 - 정정 사유:', proposalData.correctionReason);
+      console.log('🔍 디버깅 - 원본 품의서 ID:', proposalData.originalProposalId);
 
       // 편집 모드인 경우 PUT, 새로 작성인 경우 POST
       let url, method;
@@ -3155,7 +3230,9 @@ const ProposalForm = () => {
           budgetYear: selectedBudget.budget_year || selectedBudget.budgetYear,
           budgetType: budgetTypeLabel, // 예산 유형 라벨 사용
           budgetCategory: selectedBudget.budget_category || selectedBudget.budgetCategory,
-          budgetAmount: selectedBudget.budget_amount || selectedBudget.budgetAmount
+          budgetAmount: selectedBudget.budget_amount || selectedBudget.budgetAmount,
+          additionalBudget: selectedBudget.additional_budget || 0,
+          totalBudgetAmount: (selectedBudget.budget_amount || selectedBudget.budgetAmount || 0) + (selectedBudget.additional_budget || 0)
         };
         console.log('  - 구성된 budgetInfo:', budgetInfo);
       } else {
@@ -3183,16 +3260,77 @@ const ProposalForm = () => {
       contractMethodDescription: contractMethodDescription // 계약방식 설명 추가
     };
     
+    // 정정 모드인 경우 원본 데이터 가져오기
+    let originalData = null;
+    if (isCorrectionMode) {
+      const storedOriginalData = sessionStorage.getItem('originalProposalData');
+      if (storedOriginalData) {
+        const rawOriginalData = JSON.parse(storedOriginalData);
+        
+        // 원본 데이터의 예산 정보 구성
+        let originalBudgetInfo = null;
+        if (rawOriginalData.budgetId || rawOriginalData.operatingBudgetId) {
+          const budgetId = rawOriginalData.budgetId || rawOriginalData.operatingBudgetId;
+          const budgetType = rawOriginalData.operatingBudgetId ? 'operating' : 'business';
+          
+          // 예산 목록에서 찾기
+          let originalBudget = null;
+          if (budgetType === 'operating') {
+            originalBudget = operatingBudgets.find(b => b.id === budgetId);
+          } else {
+            originalBudget = businessBudgets.find(b => b.id === budgetId);
+          }
+          
+          if (originalBudget) {
+            originalBudgetInfo = {
+              projectName: originalBudget.project_name || originalBudget.projectName,
+              budgetYear: originalBudget.budget_year || originalBudget.budgetYear,
+              budgetType: budgetType === 'operating' ? '전산운용비' : '자본예산',
+              budgetCategory: originalBudget.budget_category || originalBudget.budgetCategory,
+              budgetAmount: originalBudget.budget_amount || originalBudget.budgetAmount,
+              additionalBudget: originalBudget.additional_budget || 0,
+              totalBudgetAmount: (originalBudget.budget_amount || originalBudget.budgetAmount || 0) + (originalBudget.additional_budget || 0)
+            };
+          }
+        }
+        
+        // 원본 데이터의 계약방식 설명 찾기
+        let originalContractMethodDescription = '';
+        if (rawOriginalData.contractMethod && contractMethods.length > 0) {
+          const originalMethod = contractMethods.find(m => m.value === rawOriginalData.contractMethod);
+          if (originalMethod) {
+            originalContractMethodDescription = originalMethod.regulation || originalMethod.basis || '';
+          }
+        }
+        
+        // 원본 데이터 구성 (현재 데이터와 동일한 형식으로)
+        originalData = {
+          ...rawOriginalData,
+          budgetInfo: originalBudgetInfo,
+          contractType: rawOriginalData.contractType,
+          contractMethodDescription: originalContractMethodDescription
+        };
+        
+        console.log('🔍 정정 모드 미리보기 - 원본 데이터 로드:', originalData);
+        console.log('🔍 원본 예산 정보:', originalBudgetInfo);
+        console.log('🔍 원본 계약방식 설명:', originalContractMethodDescription);
+      }
+    }
+    
     // ProposalForm 미리보기 데이터 디버깅
     console.log('=== ProposalForm 미리보기 데이터 ===');
+    console.log('isCorrectionMode:', isCorrectionMode);
     console.log('contractType:', contractType);
     console.log('선택된 사업예산:', budgetInfo);
     console.log('계약방식 설명:', contractMethodDescription);
     console.log('formData.purchaseItems:', formData.purchaseItems);
     console.log('formData.serviceItems:', formData.serviceItems);
     console.log('완전한 데이터:', completeData);
+    console.log('원본 데이터:', originalData);
     
-    const previewHTML = generatePreviewHTML(completeData);
+    const previewHTML = generatePreviewHTML(completeData, {
+      originalData: originalData // 정정 모드인 경우 원본 데이터 전달
+    });
     
     // 새 탭에 HTML 작성
     previewWindow.document.write(previewHTML);
@@ -3554,8 +3692,17 @@ const ProposalForm = () => {
     
     if (budget) {
       const projectName = budget.project_name || budget.projectName || budget.name;
-      const budgetAmount = budget.budget_amount || budget.budgetAmount || 0;
-      return `${projectName} (${formatCurrency(budgetAmount)})`;
+      const baseBudget = budget.budget_amount || budget.budgetAmount || 0;
+      const additionalBudget = budget.additional_budget || 0;
+      const totalBudget = baseBudget + additionalBudget;
+
+      let result = `${projectName} (${formatCurrency(totalBudget)})`;
+
+      if (additionalBudget > 0) {
+        result += ` (+추가 ${formatCurrency(additionalBudget)})`;
+      }
+
+      return result;
     }
     
     return `미등록 예산 (${formData.budget})`;
@@ -4451,42 +4598,38 @@ const ProposalForm = () => {
         )}
       </div>
       
-      {/* 계약 유형 선택 */}
-      <div className="contract-type-selection">
-        <h2>계약 유형 선택</h2>
-        <div className="type-buttons">
-          <button
-            className={`type-btn ${contractType === 'purchase' ? 'active' : ''}`}
-            onClick={() => changeContractType('purchase')}
-          >
-            신규 계약
-          </button>
-          <button
-            className={`type-btn ${contractType === 'service' ? 'active' : ''}`}
-            onClick={() => changeContractType('service')}
-          >
-            용역 계약
-          </button>
-          <button
-            className={`type-btn ${contractType === 'change' ? 'active' : ''}`}
-            onClick={() => changeContractType('change')}
-          >
-            변경 계약
-          </button>
+      {/* 계약 유형 선택 - 정정 모드에서는 숨김 */}
+      {!isCorrectionMode && (
+        <div className="contract-type-selection">
+          <h2>계약 유형 선택</h2>
+          <div className="type-buttons">
+            <button
+              className={`type-btn ${contractType === 'purchase' ? 'active' : ''}`}
+              onClick={() => changeContractType('purchase')}
+            >
+              신규 계약
+            </button>
+            <button
+              className={`type-btn ${contractType === 'service' ? 'active' : ''}`}
+              onClick={() => changeContractType('service')}
+            >
+              용역 계약
+            </button>
 
-          <button
-            className={`type-btn ${contractType === 'freeform' ? 'active' : ''}`}
-            onClick={() => changeContractType('freeform')}
-            style={{
-              border: contractType === 'freeform' ? '2px solid #3b82f6' : '2px solid #e1e5e9',
-              backgroundColor: contractType === 'freeform' ? '#3b82f6' : 'white',
-              color: contractType === 'freeform' ? 'white' : '#333'
-            }}
-          >
-            📝 자유양식
-          </button>
+            <button
+              className={`type-btn ${contractType === 'freeform' ? 'active' : ''}`}
+              onClick={() => changeContractType('freeform')}
+              style={{
+                border: contractType === 'freeform' ? '2px solid #3b82f6' : '2px solid #e1e5e9',
+                backgroundColor: contractType === 'freeform' ? '#3b82f6' : 'white',
+                color: contractType === 'freeform' ? 'white' : '#333'
+              }}
+            >
+              📝 자유양식
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {contractType && (
         <form onSubmit={handleSubmit}>
@@ -4605,12 +4748,17 @@ const ProposalForm = () => {
                         }
                         
                         if (selectedBudget) {
-                          const remainingAmount = (selectedBudget.budget_amount || 0) - (selectedBudget.executed_amount || 0);
+                          const totalBudgetAmount = (selectedBudget.budget_amount || 0) + (selectedBudget.additional_budget || 0);
+                          const remainingAmount = totalBudgetAmount - (selectedBudget.executed_amount || 0);
                           return (
                             <>
                               <span>예산유형: {budgetType}</span>
                               <span>선택된 예산: {selectedBudget.project_name || selectedBudget.account_subject}</span>
-                              <span>예산총액: {formatCurrency(selectedBudget.budget_amount || 0)}</span>
+                              <span>기본예산: {formatCurrency(selectedBudget.budget_amount || 0)}</span>
+                              {selectedBudget.additional_budget > 0 && (
+                                <span>추가예산: {formatCurrency(selectedBudget.additional_budget)}</span>
+                              )}
+                              <span>총 예산액: {formatCurrency(totalBudgetAmount)}</span>
                               <span>사용금액: {formatCurrency(selectedBudget.executed_amount || 0)}</span>
                               <span>잔여예산: {formatCurrency(remainingAmount)}</span>
                             </>
@@ -4803,18 +4951,20 @@ const ProposalForm = () => {
                             }}
                           >
                             <option value="">구분 선택</option>
+                            <option value="금융수수료">금융수수료</option>
+                            <option value="기타지급수수료">기타지급수수료</option>
+                            <option value="보험비">보험비</option>
                             <option value="소프트웨어">소프트웨어</option>
+                            <option value="일반업무수수료">일반업무수수료</option>
                             <option value="전산기구비품">전산기구비품</option>
-                            <option value="전산수선">전산수선</option>
                             <option value="전산설치">전산설치</option>
                             <option value="전산소모품">전산소모품</option>
+                            <option value="전산수선">전산수선</option>
                             <option value="전산용역">전산용역</option>
                             <option value="전산임차">전산임차</option>
                             <option value="전산회선">전산회선</option>
                             <option value="전신전화">전신전화</option>
                             <option value="증권전산운용">증권전산운용</option>
-                            <option value="보험비">보험비</option>
-                            <option value="일반업무수수료">일반업무수수료</option>
                             <option value="통신정보료">통신정보료</option>
                             <option value="회비및공과금">회비및공과금</option>
                           </select>
@@ -6348,6 +6498,40 @@ const ProposalForm = () => {
             </div>
           )}
 
+          {/* 정정 사유 입력 - 정정 모드에서만 표시 */}
+          {isCorrectionMode && (
+            <div className="form-section" style={{ 
+              backgroundColor: '#fff9f9', 
+              border: '2px solid #d32f2f',
+              borderRadius: '8px',
+              padding: '20px'
+            }}>
+              <h3 style={{ color: '#d32f2f', marginBottom: '15px' }}>
+                📝 정정 사유 <span style={{ color: '#f44336', fontSize: '1.2em' }}>*</span>
+              </h3>
+              <div className="form-group">
+                <textarea
+                  value={formData.correctionReason || ''}
+                  onChange={(e) => setFormData(prevData => ({...prevData, correctionReason: e.target.value}))}
+                  placeholder="정정 사유를 상세히 입력하세요 (필수)"
+                  rows={5}
+                  style={{ 
+                    resize: 'vertical', 
+                    minHeight: '120px',
+                    borderColor: '#d32f2f',
+                    backgroundColor: '#ffffff',
+                    fontSize: '14px',
+                    padding: '12px'
+                  }}
+                  required
+                />
+                <small style={{ color: '#666', display: 'block', marginTop: '8px', fontSize: '13px' }}>
+                  ※ 품의서 정정 사유를 구체적으로 작성해주세요. (예: 계약금액 변경, 계약 기간 수정, 공급업체 변경 등)
+                </small>
+              </div>
+            </div>
+          )}
+
           <div className="form-actions">
             <button type="button" className="draft-btn" onClick={() => {
               console.log('임시저장 버튼 클릭됨');
@@ -6531,19 +6715,20 @@ const ProposalForm = () => {
             <div className="budget-list">
               {filteredBudgets.length > 0 ? (
                 filteredBudgets.map(budget => {
-                  const remainingAmount = (budget.budget_amount || 0) - (budget.executed_amount || 0);
+                  const totalBudgetAmount = (parseFloat(budget.budget_amount) || 0) + (parseFloat(budget.additional_budget) || 0);
+                  const remainingAmount = totalBudgetAmount - (budget.executed_amount || 0);
                   const budgetTypeLabel = budget.budgetType === 'operating' ? '전산운용비' : '자본예산';
                   const budgetTypeColor = budget.budgetType === 'operating' ? '#28a745' : '#007bff';
                   return (
-                    <div 
-                      key={`${budget.budgetType}-${budget.id}`} 
+                    <div
+                      key={`${budget.budgetType}-${budget.id}`}
                       className="budget-item"
                       onClick={() => selectBudget(budget)}
                     >
                       <div className="budget-header">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <h4>{budget.project_name}</h4>
-                          <span 
+                          <span
                             className="budget-type-badge"
                             style={{
                               backgroundColor: budgetTypeColor,
@@ -6559,15 +6744,22 @@ const ProposalForm = () => {
                         </div>
                         <span className="budget-year">{budget.budget_year}년</span>
                       </div>
-                      <div className="budget-details">
-                        <span className="budget-amount">총액: {formatCurrency(budget.budget_amount || 0)}</span>
-                        <span className="budget-remaining">잔여: {formatCurrency(remainingAmount)}</span>
+                      <div className="budget-details" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '1rem' }}>
+                        <span className="budget-amount">
+                          총액: {formatCurrencyMillion(totalBudgetAmount)}
+                          {budget.additional_budget > 0 && (
+                            <small style={{ color: '#ff6b35', marginLeft: '4px', fontWeight: 'bold' }}>
+                              (+추가 {formatCurrencyMillion(budget.additional_budget)})
+                            </small>
+                          )}
+                        </span>
+                        <span className="budget-remaining">잔여: {formatCurrencyMillion(remainingAmount)}</span>
                       </div>
                       <div className="budget-progress">
-                        <div 
+                        <div
                           className="progress-bar"
                           style={{
-                            width: `${budget.budget_amount > 0 ? (budget.executed_amount / budget.budget_amount) * 100 : 0}%`
+                            width: `${totalBudgetAmount > 0 ? (budget.executed_amount / totalBudgetAmount) * 100 : 0}%`
                           }}
                         ></div>
                       </div>

@@ -1072,6 +1072,38 @@ const ContractList = () => {
       alert('품의서를 불러오는 중 오류가 발생했습니다.');
     }
   };
+
+  // 품의서 삭제 함수 (미리보기에서 호출)
+  const handleDeleteProposal = async (proposal, skipConfirm = false) => {
+    console.log('🗑️ 품의서 삭제 요청:', proposal);
+    
+    // skipConfirm이 false일 때만 확인 창 표시 (기본 동작)
+    if (!skipConfirm && !window.confirm('정말 삭제하시겠습니까? 삭제된 데이터는 복구할 수 없습니다.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/proposals/${proposal.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        if (!skipConfirm) alert('삭제되었습니다.'); // 자식 창에서 호출된 경우가 아닐 때만 알림
+        fetchProposals(true); // 목록 새로고침
+        return true; // 삭제 성공 반환
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '삭제 실패');
+      }
+    } catch (error) {
+      console.error('삭제 오류:', error);
+      alert('삭제 중 오류가 발생했습니다: ' + error.message);
+      return false; // 삭제 실패 반환
+    }
+  };
+
+  // 전역에 삭제 함수 노출
+  window.handleDeleteProposal = handleDeleteProposal;
   
   // 전역에 함수 노출
   window.handleViewProposal = handleViewProposal;
@@ -1197,11 +1229,13 @@ const ContractList = () => {
         
         // 수정 버튼 표시 조건: 결재대기 상태이고 작성자인 경우
         const showEditButton = canChangeStatus && isAuthor;
+        const showDeleteButton = canChangeStatus && isAuthor; // 삭제 버튼도 동일한 조건
         
-        console.log('=== 수정 버튼 조건 확인 ===');
+        console.log('=== 수정/삭제 버튼 조건 확인 ===');
         console.log('canChangeStatus:', canChangeStatus);
         console.log('isAuthor:', isAuthor);
         console.log('showEditButton:', showEditButton);
+        console.log('showDeleteButton:', showDeleteButton);
         
         // 정정 품의서 찾기 (현재 품의서가 원본인 경우)
         let correctedProposalId = null;
@@ -1228,6 +1262,7 @@ const ContractList = () => {
         
         const previewHTML = generatePreviewHTML(previewData, {
           showEditButton: showEditButton, // 결재대기 상태이고 작성자인 경우 수정 버튼 표시
+          showDeleteButton: showDeleteButton, // 삭제 버튼 표시 여부
           showRecycleButton: showRecycleButton,
           showCorrectionButton: showCorrectionButton,
           showStatusButton: canChangeStatus, // 작성자 또는 결재대기/임시저장 상태
@@ -1302,11 +1337,13 @@ const ContractList = () => {
         
         // 수정 버튼 표시 조건: 결재대기 상태이고 작성자인 경우
         const showEditButton2 = canChangeStatus2 && isAuthor2;
+        const showDeleteButton2 = canChangeStatus2 && isAuthor2;
         
-        console.log('=== 기본 미리보기 수정 버튼 조건 확인 ===');
+        console.log('=== 기본 미리보기 수정/삭제 버튼 조건 확인 ===');
         console.log('canChangeStatus2:', canChangeStatus2);
         console.log('isAuthor2:', isAuthor2);
         console.log('showEditButton2:', showEditButton2);
+        console.log('showDeleteButton2:', showDeleteButton2);
         
         // 정정 품의서인 경우 원본 품의서 조회 시도
         let comparisonData2 = null;
@@ -1342,6 +1379,7 @@ const ContractList = () => {
         
         const previewHTML = generatePreviewHTML(previewData, {
           showEditButton: showEditButton2, // 결재대기 상태이고 작성자인 경우 수정 버튼 표시
+          showDeleteButton: showDeleteButton2,
           showRecycleButton: showRecycleButton2,
           showCorrectionButton: showCorrectionButton2,
           showStatusButton: canChangeStatus2, // 작성자 또는 결재대기/임시저장 상태

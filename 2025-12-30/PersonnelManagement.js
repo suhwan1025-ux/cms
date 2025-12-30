@@ -37,6 +37,7 @@ function PersonnelManagement() {
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncResult, setSyncResult] = useState(null); // { added: [], deleted: [] }
+  const [selectedSyncItems, setSelectedSyncItems] = useState({ added: [], deleted: [] });
 
   useEffect(() => {
     fetchPersonnel();
@@ -90,15 +91,15 @@ function PersonnelManagement() {
         '정보보호인력': 'X',
         '생년월일': '1980-01-01',
         '성별': '남',
-        '나이': '44',
+        // 나이는 생년월일 기준으로 자동 계산됩니다.
         '그룹입사일': '2000-01-01',
         '입사일': '2010-01-01',
         '퇴사일': '',
-        '총재직기간(년)': '14',
+        // 총재직기간은 그룹입사일 기준으로 자동 계산됩니다.
         '정산경력기준일': '2010-01-01',
-        '전산경력': '10',
+        // 전산경력은 정산경력기준일 기준으로 자동 계산됩니다.
         '현업무발령일': '2020-01-01',
-        '현업무기간': '4',
+        // 현업무기간은 현업무발령일 기준으로 자동 계산됩니다.
         '직전소속': '이전부서',
         '전공': '컴퓨터공학',
         '전산전공여부': 'O',
@@ -194,6 +195,11 @@ function PersonnelManagement() {
       
       if (response.ok) {
         setSyncResult(data);
+        // 초기 선택 상태 설정 (모두 선택)
+        setSelectedSyncItems({
+          added: data.added.map(p => p.empno),
+          deleted: data.deleted.map(p => p.empno)
+        });
       } else {
         throw new Error(data.error || '동기화 체크 실패');
       }
@@ -203,6 +209,68 @@ function PersonnelManagement() {
       setShowSyncModal(false);
     } finally {
       setSyncLoading(false);
+    }
+  };
+
+  // 동기화 적용
+  const handleApplySync = async () => {
+    if (!window.confirm('선택한 항목을 적용하시겠습니까?')) return;
+
+    try {
+      setSyncLoading(true);
+      
+      const payload = {
+        added: syncResult.added.filter(p => selectedSyncItems.added.includes(p.empno)),
+        deleted: syncResult.deleted.filter(p => selectedSyncItems.deleted.includes(p.empno))
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/personnel/sync-apply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(`적용 완료: 추가 ${result.addedCount}건, 삭제 ${result.deletedCount}건`);
+        setShowSyncModal(false);
+        fetchPersonnel();
+      } else {
+        throw new Error(result.error || '적용 실패');
+      }
+    } catch (error) {
+      console.error('동기화 적용 오류:', error);
+      alert('동기화 적용 중 오류가 발생했습니다.');
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  // 체크박스 핸들러
+  const handleSyncSelection = (type, empno, checked) => {
+    setSelectedSyncItems(prev => {
+      const newList = checked 
+        ? [...prev[type], empno]
+        : prev[type].filter(id => id !== empno);
+      return { ...prev, [type]: newList };
+    });
+  };
+
+  // 전체 선택/해제 핸들러
+  const handleSyncSelectAll = (type, checked) => {
+    if (checked) {
+      setSelectedSyncItems(prev => ({
+        ...prev,
+        [type]: syncResult[type].map(p => p.empno)
+      }));
+    } else {
+      setSelectedSyncItems(prev => ({
+        ...prev,
+        [type]: []
+      }));
     }
   };
 
@@ -473,31 +541,17 @@ function PersonnelManagement() {
         
         <div className="header-controls">
           {/* 재직 상태 필터 */}
-          <div className="employment-filter">
-            <button 
-              className={`filter-btn ${employmentFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setEmploymentFilter('all')}
+          <div className="filter-group">
+            <select 
+              className="employment-select"
+              value={employmentFilter} 
+              onChange={(e) => setEmploymentFilter(e.target.value)}
             >
-              전체
-            </button>
-            <button 
-              className={`filter-btn ${employmentFilter === 'active' ? 'active' : ''}`}
-              onClick={() => setEmploymentFilter('active')}
-            >
-              재직중
-            </button>
-            <button 
-              className={`filter-btn ${employmentFilter === 'resigned' ? 'active' : ''}`}
-              onClick={() => setEmploymentFilter('resigned')}
-            >
-              퇴사자
-            </button>
-            <button 
-              className={`filter-btn ${employmentFilter === 'scheduled' ? 'active' : ''}`}
-              onClick={() => setEmploymentFilter('scheduled')}
-            >
-              입사예정자
-            </button>
+              <option value="all">전체</option>
+              <option value="active">재직중</option>
+              <option value="resigned">퇴사자</option>
+              <option value="scheduled">입사예정자</option>
+            </select>
           </div>
 
           {/* 일자별 조회 */}
@@ -537,36 +591,33 @@ function PersonnelManagement() {
                 초기화
               </button>
             )}
-            
-            {/* DB 조회 버튼 */}
-            <button
-              onClick={handleSyncCheck}
-              style={{
-                marginLeft: '12px',
-                padding: '8px 12px',
-                backgroundColor: '#2196F3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <span>🔄</span> DB 조회
-            </button>
           </div>
 
-          {/* 검색 */}
-          <div className="search-box">
+          {/* 검색 (디자인 리뉴얼) */}
+          <div className="search-wrapper">
+            <svg className="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
             <input
               type="text"
-              placeholder="성명, 사번, 부서 검색..."
+              className="search-input"
+              placeholder="성명, 사번, 부서 검색"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button 
+                className="search-clear-btn"
+                onClick={() => setSearchTerm('')}
+                title="검색어 지우기"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* 버튼 */}
@@ -621,6 +672,25 @@ function PersonnelManagement() {
           )}
           <button onClick={handleExcelDownload} className="btn-excel">
             엑셀 다운로드
+          </button>
+          
+          {/* DB 조회 버튼 */}
+          <button
+            onClick={handleSyncCheck}
+            style={{
+              padding: '8px 12px',
+              backgroundColor: '#2196F3',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>🔄</span> DB 연동
           </button>
         </div>
       </div>
@@ -899,6 +969,123 @@ function PersonnelManagement() {
       <div className="personnel-summary">
         총 <strong>{filteredPersonnel.length}</strong>명
       </div>
+
+      {/* 동기화 모달 */}
+      {showSyncModal && (
+        <div className="modal-overlay">
+          <div className="modal-content sync-modal" style={{ maxWidth: '800px' }}>
+            <div className="modal-header">
+              <h2>외부 DB 동기화 결과</h2>
+              <button className="modal-close" onClick={() => setShowSyncModal(false)}>&times;</button>
+            </div>
+            
+            <div className="modal-body" style={{ padding: '20px' }}>
+              {syncLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px' }}>로딩 중...</div>
+              ) : syncResult ? (
+                <div className="sync-results">
+                  <div className="sync-summary" style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+                    <p><strong>외부 DB:</strong> {syncResult.externalCount}명 / <strong>내부 DB:</strong> {syncResult.internalCount}명</p>
+                  </div>
+
+                  <div className="sync-lists" style={{ display: 'flex', gap: '20px' }}>
+                    {/* 추가 목록 */}
+                    <div className="sync-list" style={{ flex: 1 }}>
+                      <h3 style={{ color: '#28a745', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        추가 대상 ({syncResult.added.length})
+                        <label style={{ fontSize: '14px', color: '#333' }}>
+                          <input 
+                            type="checkbox"
+                            checked={syncResult.added.length > 0 && selectedSyncItems.added.length === syncResult.added.length}
+                            onChange={(e) => handleSyncSelectAll('added', e.target.checked)}
+                          /> 전체 선택
+                        </label>
+                      </h3>
+                      <div className="list-container" style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #ddd', borderRadius: '4px' }}>
+                        {syncResult.added.length === 0 ? (
+                          <div style={{ padding: '10px', color: '#999', textAlign: 'center' }}>추가할 항목이 없습니다.</div>
+                        ) : (
+                          <table style={{ width: '100%', fontSize: '14px' }}>
+                            <thead>
+                              <tr style={{ background: '#f8f9fa' }}>
+                                <th style={{ width: '30px' }}></th>
+                                <th>사번</th>
+                                <th>성명</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {syncResult.added.map(p => (
+                                <tr key={p.empno}>
+                                  <td style={{ textAlign: 'center' }}>
+                                    <input 
+                                      type="checkbox"
+                                      checked={selectedSyncItems.added.includes(p.empno)}
+                                      onChange={(e) => handleSyncSelection('added', p.empno, e.target.checked)}
+                                    />
+                                  </td>
+                                  <td>{p.empno}</td>
+                                  <td>{p.name}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 삭제 목록 (퇴사자 - 조회 전용) */}
+                    <div className="sync-list" style={{ flex: 1 }}>
+                      <h3 style={{ color: '#dc3545', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        퇴사자 ({syncResult.deleted.length})
+                      </h3>
+                      <div className="list-container" style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #ddd', borderRadius: '4px' }}>
+                        {syncResult.deleted.length === 0 ? (
+                          <div style={{ padding: '10px', color: '#999', textAlign: 'center' }}>퇴사자가 없습니다.</div>
+                        ) : (
+                          <table style={{ width: '100%', fontSize: '14px' }}>
+                            <thead>
+                              <tr style={{ background: '#f8f9fa' }}>
+                                <th style={{ width: '40px', textAlign: 'center' }}>상태</th>
+                                <th>사번</th>
+                                <th>성명</th>
+                                <th>부서</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {syncResult.deleted.map(p => (
+                                <tr key={p.empno}>
+                                  <td style={{ textAlign: 'center', color: '#dc3545', fontSize: '12px' }}>
+                                    퇴사
+                                  </td>
+                                  <td>{p.empno}</td>
+                                  <td>{p.name}</td>
+                                  <td>{p.department}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                onClick={handleApplySync} 
+                className="btn-primary"
+                disabled={syncLoading || !selectedSyncItems.added.length}
+              >
+                {syncLoading ? '적용 중...' : '추가 항목 적용하기'}
+              </button>
+              <button type="button" onClick={() => setShowSyncModal(false)} className="btn-cancel">닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 상세보기 모달 */}
       {showDetailModal && currentPersonnel && (

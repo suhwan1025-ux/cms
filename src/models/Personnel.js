@@ -90,11 +90,6 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       comment: '성별'
     },
-    age: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      comment: '나이'
-    },
     
     // 입사 및 경력 정보
     group_join_date: {
@@ -112,30 +107,15 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       comment: '퇴사일'
     },
-    total_service_years: {
-      type: DataTypes.DECIMAL(5, 2),
-      allowNull: true,
-      comment: '총재직기간(년)'
-    },
     career_base_date: {
       type: DataTypes.DATEONLY,
       allowNull: true,
       comment: '정산경력기준일'
     },
-    it_career_years: {
-      type: DataTypes.DECIMAL(5, 2),
-      allowNull: true,
-      comment: '전산경력(년)'
-    },
     current_duty_date: {
       type: DataTypes.DATEONLY,
       allowNull: true,
       comment: '현업무발령일'
-    },
-    current_duty_period: {
-      type: DataTypes.DECIMAL(5, 2),
-      allowNull: true,
-      comment: '현업무기간(년)'
     },
     previous_department: {
       type: DataTypes.STRING(100),

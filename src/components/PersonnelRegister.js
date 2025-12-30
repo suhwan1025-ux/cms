@@ -120,28 +120,9 @@ function PersonnelRegister() {
     }
   };
 
-  // 날짜 기반 자동 계산 함수들
-  const calculateAge = (birthDate) => {
-    if (!birthDate) return '';
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const calculateYearsDiff = (startDate) => {
-    if (!startDate) return '';
-    const today = new Date();
-    const start = new Date(startDate);
-    const diffTime = Math.abs(today - start);
-    const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
-    return diffYears.toFixed(2);
-  };
-
+    // 날짜 기반 자동 계산 함수들
+  // (서버에서 조회 시 자동 계산하므로 클라이언트 자동 계산 제거)
+  
   // 폼 입력 핸들러
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -151,17 +132,6 @@ function PersonnelRegister() {
       ...formData,
       [name]: newValue
     };
-
-    // 날짜 기반 자동 계산
-    if (name === 'birth_date') {
-      updatedData.age = calculateAge(value);
-    } else if (name === 'group_join_date') {
-      updatedData.total_service_years = calculateYearsDiff(value);
-    } else if (name === 'career_base_date') {
-      updatedData.it_career_years = calculateYearsDiff(value);
-    } else if (name === 'current_duty_date') {
-      updatedData.current_duty_period = calculateYearsDiff(value);
-    }
 
     setFormData(updatedData);
   };
@@ -469,6 +439,7 @@ function PersonnelRegister() {
                 name="age"
                 value={formData.age}
                 readOnly
+                placeholder="자동 조회됨"
                 style={{ backgroundColor: '#f0f0f0' }}
               />
             </div>
@@ -514,6 +485,7 @@ function PersonnelRegister() {
                 name="total_service_years"
                 value={formData.total_service_years}
                 readOnly
+                placeholder="자동 조회됨"
                 style={{ backgroundColor: '#f0f0f0' }}
               />
             </div>
@@ -534,6 +506,7 @@ function PersonnelRegister() {
                 name="it_career_years"
                 value={formData.it_career_years}
                 readOnly
+                placeholder="자동 조회됨"
                 style={{ backgroundColor: '#f0f0f0' }}
               />
             </div>
@@ -554,6 +527,7 @@ function PersonnelRegister() {
                 name="current_duty_period"
                 value={formData.current_duty_period}
                 readOnly
+                placeholder="자동 조회됨"
                 style={{ backgroundColor: '#f0f0f0' }}
               />
             </div>

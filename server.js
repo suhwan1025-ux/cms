@@ -5701,6 +5701,41 @@ app.get('/api/ai/stats', async (req, res) => {
 });
 
 // ============================================
+// 날짜 계산 유틸리티 함수 (동적 계산용)
+// ============================================
+
+// 나이 계산 함수
+const calculateAge = (birthDate) => {
+  if (!birthDate) return null;
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+// 기간 계산 함수 (년 단위, 소수점 2자리)
+// startDate: 시작일, endDate: 종료일 (없으면 오늘 날짜 기준)
+const calculateYearsDiff = (startDate, endDate = null) => {
+  if (!startDate) return null;
+  
+  const end = endDate ? new Date(endDate) : new Date();
+  const start = new Date(startDate);
+  
+  // 시작일이 종료일보다 늦으면 0 반환
+  if (start > end) return 0;
+  
+  const diffTime = Math.abs(end - start);
+  const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+  
+  // 소수점 2자리까지 반올림 (예: 1.50)
+  return parseFloat(diffYears.toFixed(2));
+};
+
+// ============================================
 // 업무 관리 API
 // ============================================
 
@@ -6763,9 +6798,36 @@ app.get('/api/personnel/export/excel', async (req, res) => {
       });
     } else {
       // 현재 데이터
-      personnel = await models.Personnel.findAll({
-        order: [['id', 'ASC']],
-        raw: true
+      const rawPersonnel = await models.Personnel.findAll({
+        order: [['id', 'ASC']]
+      });
+      
+      // 동적 계산 적용
+      personnel = rawPersonnel.map(p => {
+        const person = p.get({ plain: true });
+        const endDate = person.resignation_date || null;
+        
+        // 1. 나이 계산
+        if (person.birth_date) {
+          person.age = calculateAge(person.birth_date);
+        }
+        
+        // 2. 총재직기간 계산
+        if (person.group_join_date) {
+          person.total_service_years = calculateYearsDiff(person.group_join_date, endDate);
+        }
+        
+        // 3. 전산경력 계산
+        if (person.career_base_date) {
+          person.it_career_years = calculateYearsDiff(person.career_base_date, endDate);
+        }
+        
+        // 4. 현업무기간 계산
+        if (person.current_duty_date) {
+          person.current_duty_period = calculateYearsDiff(person.current_duty_date, endDate);
+        }
+        
+        return person;
       });
     }
     
@@ -7033,8 +7095,38 @@ app.get('/api/personnel', async (req, res) => {
     } else {
       // 현재 데이터 조회
       console.log('   📊 현재 데이터 조회');
-      personnel = await models.Personnel.findAll({
+      const rawPersonnel = await models.Personnel.findAll({
         order: [['id', 'ASC']]
+      });
+      
+      // Sequelize 모델 인스턴스를 plain object로 변환 후 동적 계산 적용
+      personnel = rawPersonnel.map(p => {
+        const person = p.get({ plain: true });
+        
+        // 퇴사일이 있으면 퇴사일 기준으로, 없으면 오늘 기준으로 계산
+        const endDate = person.resignation_date || null;
+        
+        // 1. 나이 계산 (생년월일 기준)
+        if (person.birth_date) {
+          person.age = calculateAge(person.birth_date);
+        }
+        
+        // 2. 총재직기간 계산 (그룹입사일 ~ 퇴사일/현재)
+        if (person.group_join_date) {
+          person.total_service_years = calculateYearsDiff(person.group_join_date, endDate);
+        }
+        
+        // 3. 전산경력 계산 (전산경력기준일 ~ 퇴사일/현재)
+        if (person.career_base_date) {
+          person.it_career_years = calculateYearsDiff(person.career_base_date, endDate);
+        }
+        
+        // 4. 현업무기간 계산 (현업무발령일 ~ 퇴사일/현재)
+        if (person.current_duty_date) {
+          person.current_duty_period = calculateYearsDiff(person.current_duty_date, endDate);
+        }
+        
+        return person;
       });
     }
     
@@ -7143,33 +7235,11 @@ app.post('/api/personnel/import/excel', upload.single('file'), async (req, res) 
       const careerBaseDate = parseDate(row['정산경력기준일']);
       const currentDutyDate = parseDate(row['현업무발령일']);
       
-      // 자동 계산 함수들 (웹 화면과 동일한 로직)
-      const calculateAge = (birthDate) => {
-        if (!birthDate) return null;
-        const birth = new Date(birthDate);
-        const today = new Date();
-        let age = today.getFullYear() - birth.getFullYear();
-        const monthDiff = today.getMonth() - birth.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-          age--;
-        }
-        return age;
-      };
-      
-      const calculateYearsDiff = (startDate) => {
-        if (!startDate) return null;
-        const today = new Date();
-        const start = new Date(startDate);
-        const diffTime = Math.abs(today - start);
-        const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
-        return parseFloat(diffYears.toFixed(2)); // 소수점 둘째 자리까지
-      };
-      
-      // 자동 계산된 값 (엑셀 값이 없을 경우에만 사용)
-      const calculatedAge = calculateAge(birthDate);
-      const calculatedTotalServiceYears = calculateYearsDiff(groupJoinDate); // 그룹입사일 기준
-      const calculatedItCareerYears = calculateYearsDiff(careerBaseDate);
-      const calculatedCurrentDutyPeriod = calculateYearsDiff(currentDutyDate);
+      // 자동 계산 로직 제거 (조회 시 서버에서 동적 계산)
+      // const calculatedAge = null;
+      // const calculatedTotalServiceYears = null;
+      // const calculatedItCareerYears = null;
+      // const calculatedCurrentDutyPeriod = null;
       
       return {
         // 기본 정보
@@ -7189,17 +7259,14 @@ app.post('/api/personnel/import/excel', upload.single('file'), async (req, res) 
         // 개인 정보
         birth_date: birthDate,
         gender: row['성별'] || null,
-        age: parseNumber(row['나이']) || calculatedAge,
+        age: parseNumber(row['나이']),
         
         // 입사 및 경력 정보
         group_join_date: parseDate(row['그룹입사일']),
         join_date: joinDate,
         resignation_date: resignationDate,
-        total_service_years: parseNumber(row['총재직기간(년)']) || calculatedTotalServiceYears,
         career_base_date: careerBaseDate,
-        it_career_years: parseNumber(row['전산경력']) || calculatedItCareerYears,
         current_duty_date: currentDutyDate,
-        current_duty_period: parseNumber(row['현업무기간']) || calculatedCurrentDutyPeriod,
         previous_department: row['직전소속'] || null,
         
         // 학력 및 자격증

@@ -314,9 +314,9 @@ async function getInternalPersonnelFromExternalDb() {
       SELECT 
         EMPNO, 
         FLNM 
-      FROM TBCPPU00I00 
+      FROM TBCPPU001I00 
       WHERE TNOF_CLS_CODE = '10' 
-        AND SUBSTR(EMPNO,1,1) <> 'S'
+        AND REGEXP_LIKE(SUBSTR(EMPNO, 1, 1), '^[0-9]')
         AND BLNG_DPCD IN (
           SELECT DPCD 
           FROM TBCPPD001M00 

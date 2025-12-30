@@ -250,6 +250,18 @@ export const getAccountSubjectByCategory = (category) => {
       목: '세금과공과금',
       절: '회비및공과금'
     },
+    '금융수수료': {
+      관: '영업비용',
+      항: '판관비',
+      목: '지급수수료',
+      절: '금융수수료'
+    },
+    '기타지급수수료': {
+      관: '영업비용',
+      항: '판관비',
+      목: '지급수수료',
+      절: '기타지급수수료'
+    },
     '전산용역비': { // 용역계약 기본값
       관: '운영비',
       항: '일반운영비',
@@ -417,7 +429,25 @@ export const generateItemsSection = (data, originalData = null) => {
         <tbody>
           ${data.serviceItems.map((item, index) => {
             const originalItem = originalServiceItems[index];
-            const isRowChanged = isCorrection && originalItem && JSON.stringify(item) !== JSON.stringify(originalItem);
+            
+            // JSON.stringify 대신 실제 표시되는 필드만 비교
+            let isRowChanged = false;
+            if (isCorrection && originalItem) {
+              const fieldsToCheck = [
+                'item', 'name', 'personnel', 'skillLevel', 'skill_level', 
+                'period', 'monthlyRate', 'monthly_rate', 'unitPrice', 'unit_price',
+                'quantity', 'contractAmount', 'contract_amount', 'supplier',
+                'creditRating', 'credit_rating', 'contractPeriodStart', 'contract_period_start',
+                'contractPeriodEnd', 'contract_period_end', 'paymentMethod', 'payment_method'
+              ];
+              
+              isRowChanged = fieldsToCheck.some(field => {
+                const val1 = item[field];
+                const val2 = originalItem[field];
+                return hasChanged(val1, val2);
+              });
+            }
+            
             const isNewRow = isCorrection && !originalItem;
             const rowStyle = isNewRow ? 'background-color: #e8f5e9;' : (isRowChanged ? 'background-color: #fff9c4;' : '');
             
@@ -610,7 +640,26 @@ export const generateItemsSection = (data, originalData = null) => {
         <tbody>
           ${data.purchaseItems.map((item, index) => {
             const originalItem = originalPurchaseItems[index];
-            const isRowChanged = isCorrection && originalItem && JSON.stringify(item) !== JSON.stringify(originalItem);
+            
+            // JSON.stringify 대신 실제 표시되는 필드만 비교
+            let isRowChanged = false;
+            if (isCorrection && originalItem) {
+              const fieldsToCheck = [
+                'item', 'productName', 'product_name', 
+                'contractStartDate', 'contract_start_date',
+                'contractEndDate', 'contract_end_date',
+                'contractPeriodType', 'contract_period_type',
+                'quantity', 'unit', 'unitPrice', 'unit_price',
+                'amount', 'supplier'
+              ];
+              
+              isRowChanged = fieldsToCheck.some(field => {
+                const val1 = item[field];
+                const val2 = originalItem[field];
+                return hasChanged(val1, val2);
+              });
+            }
+            
             const isNewRow = isCorrection && !originalItem;
             const rowStyle = isNewRow ? 'background-color: #e8f5e9;' : (isRowChanged ? 'background-color: #fff9c4;' : '');
             
@@ -940,7 +989,19 @@ export const generateCostAllocationSection = (data, originalData = null) => {
     totalAmount += (parseFloat(allocation.amount) || 0);
     
     const originalAlloc = originalAllocations[index];
-    const isRowChanged = isCorrection && originalAlloc && JSON.stringify(allocation) !== JSON.stringify(originalAlloc);
+    
+    // JSON.stringify 대신 실제 표시되는 필드만 비교
+    let isRowChanged = false;
+    if (isCorrection && originalAlloc) {
+      const fieldsToCheck = ['classification', 'productName', 'department', 'type', 'value', 'amount'];
+      
+      isRowChanged = fieldsToCheck.some(field => {
+        const val1 = allocation[field];
+        const val2 = originalAlloc[field];
+        return hasChanged(val1, val2);
+      });
+    }
+    
     const isNewRow = isCorrection && !originalAlloc;
     const rowStyle = isNewRow ? 'background-color: #e8f5e9;' : (isRowChanged ? 'background-color: #fff9c4;' : '');
     
@@ -1164,29 +1225,29 @@ export const generatePreviewHTML = (data, options = {}) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>📋 품의서 미리보기 - ${data.title || data.purpose || '품의서'}</title>
       <script src="/js/html2canvas.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
       <style>
         body {
           font-family: 'Malgun Gothic', sans-serif;
-          font-size: 12pt;
+          font-size: 10pt;
           line-height: 1.6;
           margin: 0;
           padding: 20px;
           background-color: #f5f5f5;
-          font-weight: bold !important; /* 모든 폰트에 볼드 강제 */
         }
         .preview-container {
-          max-width: 880px;
+          width: 210mm;
+          min-height: 297mm;
           margin: 0 auto;
           background: white;
-          padding: 40px;
+          padding: 10mm; /* 여백 1cm */
+          box-sizing: border-box;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          border-radius: 8px;
         }
         .info-table {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 20px;
-          font-weight: bold; /* 테이블도 볼드 */
         }
         .info-table th, .info-table td {
           border: 1px solid #ddd;
@@ -1197,7 +1258,7 @@ export const generatePreviewHTML = (data, options = {}) => {
         .info-table th {
           background-color: #f8f9fa;
           font-weight: 800; /* 헤더는 더 굵게 */
-          width: 150px;
+          width: 90px;
           text-align: center;
         }
         .info-table td {
@@ -1207,7 +1268,7 @@ export const generatePreviewHTML = (data, options = {}) => {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 20px;
-          font-size: 11pt;
+          font-size: 9pt;
         }
         .items-table th, .items-table td {
           border: 1px solid #ddd;
@@ -1269,6 +1330,18 @@ export const generatePreviewHTML = (data, options = {}) => {
         .copy-btn:hover {
           background: #138496;
         }
+        .text-copy-btn {
+          background: #20c997;
+        }
+        .text-copy-btn:hover {
+          background: #1aa179;
+        }
+        .pdf-btn {
+          background: #E91E63;
+        }
+        .pdf-btn:hover {
+          background: #C2185B;
+        }
         .recycle-btn {
           background: #28a745;
         }
@@ -1299,29 +1372,52 @@ export const generatePreviewHTML = (data, options = {}) => {
         .corrected-btn:hover {
           background: #F57C00;
         }
+        .edit-btn {
+          background: #ff9800;
+        }
+        .edit-btn:hover {
+          background: #f57c00;
+        }
+        .delete-btn {
+          background: #f44336;
+        }
+        .delete-btn:hover {
+          background: #d32f2f;
+        }
         @media print {
           .action-buttons { display: none; }
           body { 
             background: white; 
-            font-weight: bold !important;
+            margin: 0;
+            padding: 0;
+          }
+          @page {
+            size: A4;
+            margin: 0;
           }
           .preview-container { 
             box-shadow: none; 
-            padding: 20px;
-            max-width: none;
+            margin: 0;
+            padding: 10mm;
+            width: 210mm;
+            min-height: 297mm;
+            box-sizing: border-box;
           }
         }
       </style>
     </head>
     <body>
       <div class="action-buttons">
+        ${options.showEditButton ? `<button class="action-btn edit-btn" onclick="handleEdit()">✏️ 수정</button>` : ''}
+        ${options.showDeleteButton ? `<button class="action-btn delete-btn" onclick="handleDelete()">🗑️ 삭제</button>` : ''}
         ${options.showCorrectionButton ? `<button class="action-btn correction-btn" onclick="handleCorrection()">📝 정정</button>` : ''}
         ${options.showRecycleButton ? `<button class="action-btn recycle-btn" onclick="handleRecycle()">♻️ 재활용</button>` : ''}
         ${options.showStatusButton ? `<button class="action-btn status-btn" onclick="handleStatusChange()">🔄 상태변경</button>` : ''}
         ${options.originalProposalId ? `<button class="action-btn original-btn" onclick="handleViewOriginal()">📄 원본 품의서 보기</button>` : ''}
         ${options.correctedProposalId ? `<button class="action-btn corrected-btn" onclick="handleViewCorrected()">📝 정정 품의서 보기</button>` : ''}
+        <button class="action-btn text-copy-btn" onclick="copyContentToClipboard()">📝 텍스트 복사</button>
         <button class="action-btn copy-btn" onclick="copyToClipboard()">📋 이미지 복사</button>
-        <button class="action-btn copy-btn" onclick="copyHTMLToClipboard()" style="background: #17a2b8;">💾 HTML 복사</button>
+        <button class="action-btn pdf-btn" onclick="downloadPDF()" style="background: #E91E63;">📄 PDF 다운로드</button>
       </div>
       
       <div class="preview-container">
@@ -1405,6 +1501,38 @@ export const generatePreviewHTML = (data, options = {}) => {
       </div>
 
       <script>
+        // 텍스트 복사 함수 (워드 붙여넣기용)
+        function copyContentToClipboard() {
+          try {
+            // 캡처할 컨테이너 선택
+            const container = document.querySelector('.preview-container');
+            
+            // 선택 범위 생성
+            const range = document.createRange();
+            range.selectNode(container);
+            
+            // 현재 선택 초기화 및 새 범위 선택
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            // 복사 명령 실행
+            const successful = document.execCommand('copy');
+            
+            // 선택 해제
+            selection.removeAllRanges();
+            
+            if (successful) {
+              alert('내용이 복사되었습니다.\\n워드나 한글 프로그램에서 붙여넣기(Ctrl+V) 하세요.');
+            } else {
+              throw new Error('복사 명령 실패');
+            }
+          } catch (error) {
+            console.error('텍스트 복사 중 오류 발생:', error);
+            alert('복사 중 오류가 발생했습니다: ' + error.message);
+          }
+        }
+
         async function copyToClipboard() {
           try {
             // 버튼들을 임시로 숨김
@@ -1456,33 +1584,62 @@ export const generatePreviewHTML = (data, options = {}) => {
           }
         }
 
-        // HTML 코드 복사 함수
-        async function copyHTMLToClipboard() {
+        // PDF 다운로드 함수
+        async function downloadPDF() {
           try {
-            // preview-container의 HTML 가져오기
+            // 버튼들을 임시로 숨김
+            const buttons = document.querySelector('.action-buttons');
+            buttons.style.display = 'none';
+            
+            // 캡처할 컨테이너 선택
             const container = document.querySelector('.preview-container');
-            const styles = document.querySelector('style').outerHTML;
             
-            // 전체 HTML 구성 (스타일 포함)
-            const fullHTML = \`<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>품의서 미리보기</title>
-  \${styles}
-</head>
-<body>
-  \${container.outerHTML}
-</body>
-</html>\`;
+            // html2canvas로 이미지 생성
+            const canvas = await html2canvas(container, {
+              useCORS: true,
+              allowTaint: true,
+              scale: 2, // 고화질
+              scrollX: 0,
+              scrollY: -window.scrollY,
+              backgroundColor: '#ffffff'
+            });
             
-            // 클립보드에 복사
-            await navigator.clipboard.writeText(fullHTML);
-            alert('HTML 코드가 클립보드에 복사되었습니다!');
+            // 버튼들을 다시 표시
+            buttons.style.display = 'flex';
+            
+            const imgData = canvas.toDataURL('image/png');
+            const imgWidth = 210; // A4 너비 (mm)
+            const pageHeight = 297; // A4 높이 (mm)
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            // jsPDF 인스턴스 생성 (A4 세로)
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+
+            // 첫 페이지 추가
+            doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            // 내용이 A4 한 장을 넘어가면 페이지 추가
+            while (heightLeft >= 0) {
+              position = heightLeft - imgHeight;
+              doc.addPage();
+              doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+              heightLeft -= pageHeight;
+            }
+
+            // PDF 다운로드
+            doc.save('품의서_미리보기_' + new Date().toISOString().slice(0,10) + '.pdf');
+            
           } catch (error) {
-            console.error('HTML 복사 실패:', error);
-            alert('HTML 복사에 실패했습니다: ' + error.message);
+            console.error('PDF 생성 실패:', error);
+            alert('PDF 생성 중 오류가 발생했습니다: ' + error.message);
+            
+            // 오류 발생 시에도 버튼들을 다시 표시
+            const buttons = document.querySelector('.action-buttons');
+            if (buttons) buttons.style.display = 'flex';
           }
         }
 
@@ -1517,6 +1674,44 @@ export const generatePreviewHTML = (data, options = {}) => {
             }
           } else {
             alert('재활용 기능을 사용할 수 없습니다. 품의서 목록에서 다시 시도해주세요.');
+          }
+        }
+
+        // 수정 버튼 클릭 함수
+        function handleEdit() {
+          if (window.opener && window.opener.handleEditProposal) {
+            const contractId = '${contractId || ''}';
+            if (contractId) {
+              window.opener.handleEditProposal({ id: contractId });
+              window.close();
+            } else {
+              alert('품의서 ID를 찾을 수 없습니다.');
+            }
+          } else {
+            alert('수정 기능을 사용할 수 없습니다. 품의서 목록에서 다시 시도해주세요.');
+          }
+        }
+
+        // 삭제 버튼 클릭 함수
+        function handleDelete() {
+          if (window.opener && window.opener.handleDeleteProposal) {
+            const contractId = '${contractId || ''}';
+            if (contractId) {
+              // 미리보기 창에서 확인 팝업 띄우기
+              if (confirm('정말 삭제하시겠습니까?\\n삭제된 데이터는 복구할 수 없습니다.')) {
+                // 부모창의 함수를 호출 (두 번째 인자로 true를 전달하여 중복 확인 방지)
+                window.opener.handleDeleteProposal({ id: contractId }, true).then(success => {
+                  if (success) {
+                    alert('삭제되었습니다.');
+                    window.close();
+                  }
+                });
+              }
+            } else {
+              alert('품의서 ID를 찾을 수 없습니다.');
+            }
+          } else {
+            alert('삭제 기능을 사용할 수 없습니다. 품의서 목록에서 다시 시도해주세요.');
           }
         }
 

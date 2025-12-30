@@ -1072,6 +1072,38 @@ const ContractList = () => {
       alert('품의서를 불러오는 중 오류가 발생했습니다.');
     }
   };
+
+  // 품의서 삭제 함수 (미리보기에서 호출)
+  const handleDeleteProposal = async (proposal, skipConfirm = false) => {
+    console.log('🗑️ 품의서 삭제 요청:', proposal);
+    
+    // skipConfirm이 false일 때만 확인 창 표시 (기본 동작)
+    if (!skipConfirm && !window.confirm('정말 삭제하시겠습니까? 삭제된 데이터는 복구할 수 없습니다.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/proposals/${proposal.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        if (!skipConfirm) alert('삭제되었습니다.'); // 자식 창에서 호출된 경우가 아닐 때만 알림
+        fetchProposals(true); // 목록 새로고침
+        return true; // 삭제 성공 반환
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '삭제 실패');
+      }
+    } catch (error) {
+      console.error('삭제 오류:', error);
+      alert('삭제 중 오류가 발생했습니다: ' + error.message);
+      return false; // 삭제 실패 반환
+    }
+  };
+
+  // 전역에 삭제 함수 노출
+  window.handleDeleteProposal = handleDeleteProposal;
   
   // 전역에 함수 노출
   window.handleViewProposal = handleViewProposal;
@@ -1090,10 +1122,14 @@ const ContractList = () => {
         
         // 정정 품의서인 경우 원본 품의서도 조회
         let comparisonData = null;
-        if (originalData.originalProposalId) {
-          console.log('🔍 정정 품의서 감지, 원본 품의서 조회:', originalData.originalProposalId);
+        
+        // 서버 응답 데이터 또는 리스트 데이터에서 원본 ID 확인
+        const originId = originalData.originalProposalId || originalData.original_proposal_id || contract.originalProposalId;
+        
+        if (originId) {
+          console.log('🔍 정정 품의서 감지, 원본 품의서 조회:', originId);
           try {
-            const originalResponse = await fetch(`${API_BASE_URL}/api/proposals/${originalData.originalProposalId}`);
+            const originalResponse = await fetch(`${API_BASE_URL}/api/proposals/${originId}`);
             if (originalResponse.ok) {
               comparisonData = await originalResponse.json();
               console.log('✅ 원본 품의서 조회 성공:', comparisonData);
@@ -1191,16 +1227,31 @@ const ContractList = () => {
         
         console.log('canChangeStatus:', canChangeStatus);
         
+        // 수정 버튼 표시 조건: 결재대기 상태이고 작성자인 경우
+        const showEditButton = canChangeStatus && isAuthor;
+        const showDeleteButton = canChangeStatus && isAuthor; // 삭제 버튼도 동일한 조건
+        
+        console.log('=== 수정/삭제 버튼 조건 확인 ===');
+        console.log('canChangeStatus:', canChangeStatus);
+        console.log('isAuthor:', isAuthor);
+        console.log('showEditButton:', showEditButton);
+        console.log('showDeleteButton:', showDeleteButton);
+        
         // 정정 품의서 찾기 (현재 품의서가 원본인 경우)
         let correctedProposalId = null;
-        if (!originalData.originalProposalId) {
+        
+        // 정정 품의서가 아닌 경우에만 정정된 이력이 있는지 확인
+        if (!originId) {
           // 현재 품의서가 원본일 수 있으므로, 이를 원본으로 하는 정정 품의서 찾기
           try {
             const correctedResponse = await fetch(`${API_BASE_URL}/api/proposals?originalProposalId=${contract.id}`);
             if (correctedResponse.ok) {
               const correctedProposals = await correctedResponse.json();
-              if (correctedProposals && correctedProposals.length > 0) {
-                correctedProposalId = correctedProposals[0].id;
+              // 배열인지 확인하고 처리
+              const proposalsList = Array.isArray(correctedProposals) ? correctedProposals : (correctedProposals.proposals || []);
+              
+              if (proposalsList && proposalsList.length > 0) {
+                correctedProposalId = proposalsList[0].id;
                 console.log('✅ 정정 품의서 발견:', correctedProposalId);
               }
             }
@@ -1210,12 +1261,14 @@ const ContractList = () => {
         }
         
         const previewHTML = generatePreviewHTML(previewData, {
+          showEditButton: showEditButton, // 결재대기 상태이고 작성자인 경우 수정 버튼 표시
+          showDeleteButton: showDeleteButton, // 삭제 버튼 표시 여부
           showRecycleButton: showRecycleButton,
           showCorrectionButton: showCorrectionButton,
           showStatusButton: canChangeStatus, // 작성자 또는 결재대기/임시저장 상태
           contractId: enhancedContract.id,
           originalData: comparisonData, // 정정 품의서인 경우 원본 데이터 전달
-          originalProposalId: originalData.originalProposalId || null, // 정정 품의서인 경우 원본 ID
+          originalProposalId: originId || null, // 정정 품의서인 경우 원본 ID
           correctedProposalId: correctedProposalId // 원본 품의서인 경우 정정 품의서 ID
         });
         const previewWindow = window.open('', '_blank', 'width=1200,height=800');
@@ -1282,6 +1335,16 @@ const ContractList = () => {
         
         console.log('canChangeStatus2:', canChangeStatus2);
         
+        // 수정 버튼 표시 조건: 결재대기 상태이고 작성자인 경우
+        const showEditButton2 = canChangeStatus2 && isAuthor2;
+        const showDeleteButton2 = canChangeStatus2 && isAuthor2;
+        
+        console.log('=== 기본 미리보기 수정/삭제 버튼 조건 확인 ===');
+        console.log('canChangeStatus2:', canChangeStatus2);
+        console.log('isAuthor2:', isAuthor2);
+        console.log('showEditButton2:', showEditButton2);
+        console.log('showDeleteButton2:', showDeleteButton2);
+        
         // 정정 품의서인 경우 원본 품의서 조회 시도
         let comparisonData2 = null;
         if (contract.originalProposalId) {
@@ -1315,6 +1378,8 @@ const ContractList = () => {
         }
         
         const previewHTML = generatePreviewHTML(previewData, {
+          showEditButton: showEditButton2, // 결재대기 상태이고 작성자인 경우 수정 버튼 표시
+          showDeleteButton: showDeleteButton2,
           showRecycleButton: showRecycleButton2,
           showCorrectionButton: showCorrectionButton2,
           showStatusButton: canChangeStatus2, // 작성자 또는 결재대기/임시저장 상태

@@ -2370,6 +2370,18 @@ const ProposalForm = ({ isCorrectionMode = false }) => {
         항: '판관비',
         목: '세금과공과금',
         절: '회비및공과금'
+      },
+      '금융수수료': {
+        관: '영업비용',
+        항: '판관비',
+        목: '지급수수료',
+        절: '금융수수료'
+      },
+      '기타지급수수료': {
+        관: '영업비용',
+        항: '판관비',
+        목: '지급수수료',
+        절: '기타지급수수료'
       }
     };
     
@@ -4603,12 +4615,6 @@ const ProposalForm = ({ isCorrectionMode = false }) => {
             >
               용역 계약
             </button>
-            <button
-              className={`type-btn ${contractType === 'change' ? 'active' : ''}`}
-              onClick={() => changeContractType('change')}
-            >
-              변경 계약
-            </button>
 
             <button
               className={`type-btn ${contractType === 'freeform' ? 'active' : ''}`}
@@ -4945,18 +4951,20 @@ const ProposalForm = ({ isCorrectionMode = false }) => {
                             }}
                           >
                             <option value="">구분 선택</option>
+                            <option value="금융수수료">금융수수료</option>
+                            <option value="기타지급수수료">기타지급수수료</option>
+                            <option value="보험비">보험비</option>
                             <option value="소프트웨어">소프트웨어</option>
+                            <option value="일반업무수수료">일반업무수수료</option>
                             <option value="전산기구비품">전산기구비품</option>
-                            <option value="전산수선">전산수선</option>
                             <option value="전산설치">전산설치</option>
                             <option value="전산소모품">전산소모품</option>
+                            <option value="전산수선">전산수선</option>
                             <option value="전산용역">전산용역</option>
                             <option value="전산임차">전산임차</option>
                             <option value="전산회선">전산회선</option>
                             <option value="전신전화">전신전화</option>
                             <option value="증권전산운용">증권전산운용</option>
-                            <option value="보험비">보험비</option>
-                            <option value="일반업무수수료">일반업무수수료</option>
                             <option value="통신정보료">통신정보료</option>
                             <option value="회비및공과금">회비및공과금</option>
                           </select>
